@@ -23,6 +23,8 @@ Current phase: pipeline foundation and tiny pilot scaffolding.
 - [x] Pin runtime to Python 3.12 because fairseq2/SONAR does not support Python 3.13 wheels yet.
 - [x] Add progress logging and explicit SONAR prewarm command for BLASER QC.
 - [x] Make target generation prefer local downloaded model assets and expose `--model-path`.
+- [x] Add GPU-aware NLLB translation flags and keep large translator checkpoints loaded across a run.
+- [x] Document the ordered RTX Sabiá end-to-end pilot commands in `README.md`.
 - [ ] Calibrate BLASER pass/flag/fail thresholds on the audited subset.
 - [ ] Run `download-assets --name strongreject` on the MacBook or RTX machine to populate `eval/data/raw/strongreject/`.
 - [ ] Download NLLB, BLASER, MultiJail, BELEBELE, and target models slowly with `download-assets`.

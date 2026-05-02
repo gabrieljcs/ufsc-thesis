@@ -127,7 +127,14 @@ def _load_prompt_records(path: Path) -> list[PromptRecord]:
 def cmd_translate(args: argparse.Namespace) -> None:
     prompts = _load_prompt_records(Path(args.prompts))
     with step(f"translate file {args.prompts} -> {args.target_language}"):
-        logs = run_translation(prompts, args.target_language, engine=args.engine, checkpoint=args.checkpoint)
+        logs = run_translation(
+            prompts,
+            args.target_language,
+            engine=args.engine,
+            checkpoint=args.checkpoint,
+            device=args.device,
+            dtype=args.dtype,
+        )
     save_translation_logs(Path(args.output), logs)
     print(f"Wrote {len(logs)} translation logs to {args.output}")
 
@@ -384,6 +391,8 @@ def build_parser() -> argparse.ArgumentParser:
     translate.add_argument("--output", required=True)
     translate.add_argument("--engine", choices=["placeholder", "nllb"], default="placeholder")
     translate.add_argument("--checkpoint", default="facebook/nllb-200-distilled-600M")
+    translate.add_argument("--device", choices=["auto", "cpu", "mps", "cuda"], default="auto")
+    translate.add_argument("--dtype", choices=["auto", "float16", "bfloat16", "float32"], default="auto")
     translate.set_defaults(func=cmd_translate)
 
     qc = sub.add_parser("translation-qc")

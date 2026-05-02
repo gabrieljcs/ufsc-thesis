@@ -108,6 +108,309 @@ Create `.env` from `.env.example` before running real API or Hugging Face worklo
 cp .env.example .env
 ```
 
+## RTX Sabiá End-to-End Pilot
+
+This is the copy-and-run pilot for the Linux RTX machine. It runs the real pipeline for Sabiá-7B on the limited StrongREJECT pilot list: Portuguese as the aligned-language baseline and Arabic as the first attack language. All outputs stay under `outputs/pilot/`; this does not write or overwrite `outputs/dataset_frozen.parquet`.
+
+1. Enter the evaluation project.
+
+This makes every relative path in the later commands resolve against the `eval/` repository.
+
+```bash
+cd /path/to/ufsc-thesis/eval
+```
+
+2. Check that the NVIDIA runtime is visible.
+
+This confirms the RTX card and driver are available before installing or loading large models.
+
+```bash
+nvidia-smi
+```
+
+3. Create the environment file.
+
+This prepares the place for `HF_TOKEN`, `OPENAI_API_KEY`, and `ANTHROPIC_API_KEY`. Fill the file before downloading gated Hugging Face assets or submitting API judge batches.
+
+```bash
+cp .env.example .env
+```
+
+4. Install the RTX and QC dependencies.
+
+This installs the local CLI plus vLLM/Transformers for target generation and SONAR/BLASER dependencies for translation QC. Use Python 3.12 because the QC stack is not Python 3.13-compatible.
+
+```bash
+uv python install 3.12
+uv sync --python 3.12 --extra rtx --extra qc
+```
+
+5. Validate the project configuration.
+
+This checks that the model, language, and judge configuration can be loaded before any long-running work starts.
+
+```bash
+uv run thesis-eval validate-config
+uv run thesis-eval runtime-profiles
+```
+
+6. Prepare the URIEL+ distance matrix.
+
+This recreates the static 13-language distance CSV used to attach the Sabiá Portuguese-to-Arabic distance to generated rows.
+
+```bash
+uv run thesis-eval prepare-uriel
+```
+
+7. Import the limited StrongREJECT pilot list.
+
+This writes the full normalized StrongREJECT prompt file and a 2-prompt pilot slice. Increase `--pilot-size` only after the two-prompt run succeeds end to end.
+
+```bash
+uv run thesis-eval import-strongreject \
+  --source github \
+  --pilot-size 2
+```
+
+8. Pull the required assets one at a time.
+
+This downloads the larger NLLB translator, the BLASER QE checkpoint, and Sabiá-7B. The command is modular so a failed model download can be retried without repeating the others.
+
+```bash
+uv run thesis-eval download-assets --name nllb_200_3_3b
+uv run thesis-eval download-assets --name blaser_2_0_qe
+uv run thesis-eval download-assets --name sabia_7b
+```
+
+9. Verify the downloaded assets.
+
+This checks that the expected files are present before the GPU run tries to load them.
+
+```bash
+uv run thesis-eval verify-assets --name nllb_200_3_3b
+uv run thesis-eval verify-assets --name blaser_2_0_qe
+uv run thesis-eval verify-assets --name sabia_7b
+```
+
+10. Prewarm SONAR.
+
+This lets SONAR/fairseq2 fetch its own runtime encoder assets before BLASER QC, so the QC command is easier to monitor.
+
+```bash
+uv run thesis-eval prewarm-sonar
+```
+
+11. Translate the pilot prompts into Sabiá's baseline language.
+
+This uses NLLB-200 3.3B on CUDA to create the Portuguese baseline translation log. The translator is loaded once and kept on GPU for the full command.
+
+```bash
+uv run thesis-eval translate \
+  --prompts data/raw/strongreject/pilot_prompts.jsonl \
+  --target-language por \
+  --engine nllb \
+  --checkpoint assets/models/nllb-200-3.3B \
+  --device cuda \
+  --dtype float16 \
+  --output outputs/pilot/translations_por.nllb_3_3b.jsonl
+```
+
+12. Translate the same pilot prompts into Arabic.
+
+This creates the Arabic attack-language translation log with the same NLLB checkpoint and GPU settings, keeping translator choice fixed across languages.
+
+```bash
+uv run thesis-eval translate \
+  --prompts data/raw/strongreject/pilot_prompts.jsonl \
+  --target-language ara \
+  --engine nllb \
+  --checkpoint assets/models/nllb-200-3.3B \
+  --device cuda \
+  --dtype float16 \
+  --output outputs/pilot/translations_ara.nllb_3_3b.jsonl
+```
+
+13. Run BLASER QC for Portuguese.
+
+This scores the source/translation pairs with BLASER 2.0 QE and writes pass/flag/fail fields into the translation log.
+
+```bash
+uv run thesis-eval translation-qc \
+  --translations outputs/pilot/translations_por.nllb_3_3b.jsonl \
+  --scorer blaser \
+  --device cuda \
+  --output outputs/pilot/translations_por.nllb_3_3b.blaser.jsonl
+```
+
+14. Run BLASER QC for Arabic.
+
+This applies the same QC process to the Arabic attack prompts.
+
+```bash
+uv run thesis-eval translation-qc \
+  --translations outputs/pilot/translations_ara.nllb_3_3b.jsonl \
+  --scorer blaser \
+  --device cuda \
+  --output outputs/pilot/translations_ara.nllb_3_3b.blaser.jsonl
+```
+
+15. Export the human audit queues.
+
+This prepares the XSTS-style review CSVs. For the tiny pilot, inspect these files before generation; for the final run, reviewer decisions should be imported and used to override BLASER where needed.
+
+```bash
+uv run thesis-eval export-audit-queue \
+  --translations outputs/pilot/translations_por.nllb_3_3b.blaser.jsonl \
+  --output outputs/pilot/audit_por.nllb_3_3b.csv \
+  --include-passed
+
+uv run thesis-eval export-audit-queue \
+  --translations outputs/pilot/translations_ara.nllb_3_3b.blaser.jsonl \
+  --output outputs/pilot/audit_ara.nllb_3_3b.csv \
+  --include-passed
+```
+
+16. Generate Sabiá responses for Portuguese with vLLM.
+
+This runs the target model locally on the RTX using vLLM. Portuguese is Sabiá's aligned-language baseline.
+
+```bash
+uv run thesis-eval generate-targets \
+  --translations outputs/pilot/translations_por.nllb_3_3b.blaser.jsonl \
+  --model sabia_7b \
+  --profile rtx_5070_ti \
+  --backend vllm \
+  --model-path assets/models/sabia-7b \
+  --max-tokens 64 \
+  --output outputs/pilot/target_generations_por_sabia_rtx.jsonl
+```
+
+17. Generate Sabiá responses for Arabic with vLLM.
+
+This runs the same target model and decoding settings on the Arabic attack-language prompts.
+
+```bash
+uv run thesis-eval generate-targets \
+  --translations outputs/pilot/translations_ara.nllb_3_3b.blaser.jsonl \
+  --model sabia_7b \
+  --profile rtx_5070_ti \
+  --backend vllm \
+  --model-path assets/models/sabia-7b \
+  --max-tokens 64 \
+  --output outputs/pilot/target_generations_ara_sabia_rtx.jsonl
+```
+
+18. Combine the two language generation files.
+
+This creates one Sabiá pilot generation file for judge batching.
+
+```bash
+cat \
+  outputs/pilot/target_generations_por_sabia_rtx.jsonl \
+  outputs/pilot/target_generations_ara_sabia_rtx.jsonl \
+  > outputs/pilot/target_generations_sabia_rtx_pilot.jsonl
+```
+
+19. Export judge requests.
+
+This creates one generic request row per target response per judge, so every response will be scored by all three judges.
+
+```bash
+uv run thesis-eval export-judge-batch \
+  --generations outputs/pilot/target_generations_sabia_rtx_pilot.jsonl \
+  --output outputs/pilot/judge_requests_sabia_rtx_pilot.jsonl
+```
+
+20. Export provider-shaped API batches.
+
+This writes files for OpenAI GPT-4o, Anthropic Opus, and a hosted Llama Guard endpoint. Submit these through the provider APIs from your preferred batch client.
+
+```bash
+uv run thesis-eval export-api-batches \
+  --requests outputs/pilot/judge_requests_sabia_rtx_pilot.jsonl \
+  --output-dir outputs/pilot/api_batches_sabia_rtx_pilot
+```
+
+21. Save provider results in the expected locations.
+
+After the API batch jobs finish, put the downloaded raw result files at these paths so the normalizers can read them.
+
+```bash
+ls outputs/pilot/api_batches_sabia_rtx_pilot
+```
+
+Expected input filenames for the next step:
+
+- `outputs/pilot/api_batches_sabia_rtx_pilot/openai_results.jsonl`
+- `outputs/pilot/api_batches_sabia_rtx_pilot/anthropic_results.jsonl`
+- `outputs/pilot/api_batches_sabia_rtx_pilot/llama_guard_results.jsonl`
+
+22. Normalize the OpenAI judge results.
+
+This converts raw OpenAI batch output into the shared judge-result schema with `safe`, `unsafe`, or `invalid` labels.
+
+```bash
+uv run thesis-eval normalize-judge-results \
+  --provider openai \
+  --input outputs/pilot/api_batches_sabia_rtx_pilot/openai_results.jsonl \
+  --output outputs/pilot/api_batches_sabia_rtx_pilot/openai_normalized.jsonl
+```
+
+23. Normalize the Anthropic judge results.
+
+This converts raw Anthropic batch output into the same shared judge-result schema.
+
+```bash
+uv run thesis-eval normalize-judge-results \
+  --provider anthropic \
+  --input outputs/pilot/api_batches_sabia_rtx_pilot/anthropic_results.jsonl \
+  --output outputs/pilot/api_batches_sabia_rtx_pilot/anthropic_normalized.jsonl
+```
+
+24. Normalize the hosted Llama Guard judge results.
+
+This converts the hosted Llama Guard output into the same shared judge-result schema.
+
+```bash
+uv run thesis-eval normalize-judge-results \
+  --provider hosted \
+  --input outputs/pilot/api_batches_sabia_rtx_pilot/llama_guard_results.jsonl \
+  --output outputs/pilot/api_batches_sabia_rtx_pilot/llama_guard_normalized.jsonl
+```
+
+25. Combine the normalized judge results.
+
+This creates the single judge-result file required by majority vote. Majority vote will fail if any generation is missing one of the three judges.
+
+```bash
+cat \
+  outputs/pilot/api_batches_sabia_rtx_pilot/openai_normalized.jsonl \
+  outputs/pilot/api_batches_sabia_rtx_pilot/anthropic_normalized.jsonl \
+  outputs/pilot/api_batches_sabia_rtx_pilot/llama_guard_normalized.jsonl \
+  > outputs/pilot/judge_results_sabia_rtx_pilot.jsonl
+```
+
+26. Compute majority vote.
+
+This validates the analysis-row schema, requires all three judge labels per response, and maps the final per-response label.
+
+```bash
+uv run thesis-eval majority-vote \
+  --generations outputs/pilot/target_generations_sabia_rtx_pilot.jsonl \
+  --judge-results outputs/pilot/judge_results_sabia_rtx_pilot.jsonl \
+  --output outputs/pilot/analysis_rows_sabia_rtx_pilot.jsonl
+```
+
+27. Export the pilot result rows.
+
+This writes a copy of the validated pilot rows in `outputs/pilot/`. It is deliberately not the frozen thesis dataset.
+
+```bash
+uv run thesis-eval export-results \
+  --rows outputs/pilot/analysis_rows_sabia_rtx_pilot.jsonl \
+  --output outputs/pilot/analysis_rows_sabia_rtx_pilot.export.jsonl
+```
+
 ## Core Workflow
 
 Prepare the URIEL+ matrix and generated thesis table:
@@ -199,6 +502,28 @@ Larger translator options are available:
 
 NLLB-200 does not have an official 6B/7B checkpoint. The 7B-class assets in this project are the target models, not translators.
 
+On the RTX machine, pull and verify a larger NLLB checkpoint before translating:
+
+```bash
+uv run thesis-eval download-assets --name nllb_200_3_3b
+uv run thesis-eval verify-assets --name nllb_200_3_3b
+```
+
+Then translate on GPU by pointing `--checkpoint` at the local snapshot and forcing CUDA:
+
+```bash
+uv run thesis-eval translate \
+  --prompts data/raw/strongreject/pilot_prompts.jsonl \
+  --target-language ara \
+  --engine nllb \
+  --checkpoint assets/models/nllb-200-3.3B \
+  --device cuda \
+  --dtype float16 \
+  --output outputs/pilot/translations_ara.nllb_3_3b.jsonl
+```
+
+Use `assets/models/nllb-200-1.3B` instead if you pulled `nllb_200_1_3b`. The translation command loads NLLB once per run and keeps it on the selected device for all prompts.
+
 Import StrongREJECT forbidden prompts. The default source is the public GitHub CSV from the StrongREJECT repository; Hugging Face is also supported but may require accepting dataset terms.
 
 ```bash
@@ -225,6 +550,7 @@ uv run thesis-eval translate \
   --prompts data/raw/strongreject/prompts.jsonl \
   --target-language ara \
   --engine nllb \
+  --device cuda \
   --output data/translations/ara.jsonl
 ```
 
