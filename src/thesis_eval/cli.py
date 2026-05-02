@@ -134,6 +134,7 @@ def cmd_translate(args: argparse.Namespace) -> None:
             checkpoint=args.checkpoint,
             device=args.device,
             dtype=args.dtype,
+            stream=args.stream,
         )
     save_translation_logs(Path(args.output), logs)
     print(f"Wrote {len(logs)} translation logs to {args.output}")
@@ -393,6 +394,7 @@ def build_parser() -> argparse.ArgumentParser:
     translate.add_argument("--checkpoint", default="facebook/nllb-200-distilled-600M")
     translate.add_argument("--device", choices=["auto", "cpu", "mps", "cuda"], default="auto")
     translate.add_argument("--dtype", choices=["auto", "float16", "bfloat16", "float32"], default="auto")
+    translate.add_argument("--stream", action="store_true", help="Print each prompt and its translation as it is produced.")
     translate.set_defaults(func=cmd_translate)
 
     qc = sub.add_parser("translation-qc")

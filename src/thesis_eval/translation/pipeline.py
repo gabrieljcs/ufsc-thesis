@@ -160,6 +160,7 @@ def run_translation(
     checkpoint: str = "facebook/nllb-200-distilled-600M",
     device: str = "auto",
     dtype: str = "auto",
+    stream: bool = False,
 ) -> list[TranslationLog]:
     logs: list[TranslationLog] = []
     info(f"Translating {len(prompts)} prompts to {target_language} with engine={engine} device={device} dtype={dtype}")
@@ -176,6 +177,9 @@ def run_translation(
                 translated = translate_text(prompt.text, target_language, engine, checkpoint, device=device, dtype=dtype)
             logged_device = translator.resolved_device if translator is not None else device
             logs.append(make_translation_log(prompt, target_language, translated, engine, checkpoint, device=logged_device, dtype=dtype))
+            if stream:
+                info(f"  src: {prompt.text}")
+                info(f"  {target_language}: {translated}")
     return logs
 
 

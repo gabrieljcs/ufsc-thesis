@@ -10,8 +10,8 @@ The RTX machine is a Windows host with an RTX 5070 Ti. vLLM does not run nativel
 
 - Windows PowerShell controls the run.
 - Docker Desktop with WSL2 runs a Linux CUDA container.
-- Model assets live on the Windows host under `Downloads\thesis-eval-assets`.
-- The container mounts that host asset folder at `/work/eval/assets`.
+- Model assets live in the repo's own `assets/` folder, exposed inside the container at `/work/eval/assets` via the project-root bind mount.
+- A single `Downloads\thesis-eval-cache` host folder backs the container's `/root/.cache`, so Hugging Face Hub, fairseq2, and SONAR all share one persistent cache across runs.
 - NLLB translation, BLASER QC, and target-model inference all run inside Docker on CUDA.
 - API judges are not run locally. The CLI exports batch files; you submit them to provider APIs and import the returned results.
 
@@ -29,7 +29,7 @@ Each model-backed command is run in a fresh container. That frees the 16 GB GPU 
   - `data/raw/strongreject/`: imported StrongREJECT prompts and the limited pilot slice.
   - `data/translations/`: final/full-run translation logs.
   - `data/uriel_plus/distance_matrix.csv`: static URIEL+ distance matrix.
-- `assets/`: mounted model/dataset assets. On Windows this should be backed by `Downloads\thesis-eval-assets`.
+- `assets/`: model/dataset assets downloaded by the CLI. Excluded from git via `.gitignore`.
 - `outputs/`: generated experiment outputs.
   - `outputs/pilot/`: tiny Sabiá pilot outputs.
   - `outputs/final/`: recommended full-run working area.
@@ -103,17 +103,15 @@ git clone https://github.com/gabrieljcs/ufsc-thesis.git
 cd ufsc-thesis\eval
 ```
 
-3. Create host folders for model assets and Hugging Face cache.
+3. Create the persistent cache folder and output folders.
 
-These folders live in Downloads. The container sees them as `/work/eval/assets` and `/root/.cache/huggingface`.
+The cache folder lives in Downloads and is mounted into the container at `/root/.cache`. Hugging Face Hub weights, fairseq2/SONAR encoders, and any other tool caches all land there and survive container restarts. Model assets stay in the repo's own `assets/` folder, which is exposed by the project-root mount.
 
 ```powershell
 $PROJECT = (Get-Location).Path
-$ASSETS = Join-Path $env:USERPROFILE "Downloads\thesis-eval-assets"
-$HF_CACHE = Join-Path $env:USERPROFILE "Downloads\thesis-hf-cache"
+$CACHE = Join-Path $env:USERPROFILE "Downloads\thesis-eval-cache"
 
-New-Item -ItemType Directory -Force $ASSETS | Out-Null
-New-Item -ItemType Directory -Force $HF_CACHE | Out-Null
+New-Item -ItemType Directory -Force $CACHE | Out-Null
 New-Item -ItemType Directory -Force outputs\pilot | Out-Null
 New-Item -ItemType Directory -Force outputs\final | Out-Null
 ```
@@ -146,10 +144,9 @@ function tedocker {
     [string[]] $Arguments
   )
 
-  docker run --rm --gpus all `
+  docker run --rm -t --gpus all `
     -v "${PROJECT}:/work/eval" `
-    -v "${ASSETS}:/work/eval/assets" `
-    -v "${HF_CACHE}:/root/.cache/huggingface" `
+    -v "${CACHE}:/root/.cache" `
     -w /work/eval `
     --env-file .env `
     thesis-eval:gpu @Arguments
@@ -177,7 +174,7 @@ te runtime-profiles
 
 ## Asset Downloads
 
-Downloads are modular. They write into `/work/eval/assets`, which is the mounted Windows folder `Downloads\thesis-eval-assets`.
+Downloads are modular. They write into `/work/eval/assets`, which is the repo's own `assets/` folder exposed by the project-root mount. Hugging Face Hub uses the persistent cache at `/root/.cache` (backed by `Downloads\thesis-eval-cache`) for resumable downloads and weight reuse.
 
 List the manifest:
 
@@ -262,7 +259,7 @@ te import-strongreject --source github --pilot-size 2
 
 3. Prewarm SONAR.
 
-This lets SONAR/fairseq2 download and initialize its text encoder before the BLASER scoring step.
+This downloads the SONAR text encoder (~3 GB) into the persistent cache so the later BLASER QC step does not block on it. With the TTY flag the helper sets, fairseq2's progress bars are visible while it runs. Expect 5–15 min on the first run, near-instant after that as long as `$CACHE` is mounted.
 
 ```powershell
 te prewarm-sonar
@@ -280,8 +277,11 @@ te translate `
   --checkpoint assets/models/nllb-200-3.3B `
   --device cuda `
   --dtype float16 `
+  --stream `
   --output outputs/pilot/translations_por.nllb_3_3b.jsonl
 ```
+
+The `--stream` flag prints each prompt and its translation to stderr as it is produced, so you can sanity-check the pipeline without waiting for the whole file to finish.
 
 5. Translate the same pilot prompts into Arabic with NLLB on GPU.
 
@@ -295,6 +295,7 @@ te translate `
   --checkpoint assets/models/nllb-200-3.3B `
   --device cuda `
   --dtype float16 `
+  --stream `
   --output outputs/pilot/translations_ara.nllb_3_3b.jsonl
 ```
 
@@ -740,7 +741,7 @@ tedocker python -m unittest
 
 - **Docker cannot see the GPU:** run `docker run --rm --gpus all nvidia/cuda:12.8.1-base-ubuntu24.04 nvidia-smi`. If that fails, fix Docker Desktop/WSL2/NVIDIA driver first.
 - **vLLM fails on Windows outside Docker:** expected. Use Docker for target inference.
-- **A model downloads into the repo instead of Downloads:** check that `$ASSETS` is mounted with `-v "${ASSETS}:/work/eval/assets"` inside the `tedocker` function.
+- **SONAR/HF Hub redownloads on every run:** the persistent cache mount is missing. Confirm `$CACHE` is set and that `tedocker` includes `-v "${CACHE}:/root/.cache"`.
 - **CUDA runs out of memory:** run one stage per command as shown, keep `--dtype float16`, and lower `--max-tokens` for pilot/debug runs.
 - **BLASER or SONAR downloads during QC:** expected on first run. `prewarm-sonar` makes this less surprising.
 - **Majority vote fails:** at least one generation is missing one of the three judge results. Normalize and combine all three providers before running `majority-vote`.
