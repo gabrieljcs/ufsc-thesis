@@ -7,7 +7,7 @@ dependencies = [
   "pyyaml>=6.0",
   "requests>=2.31",
   "datasets>=2.20",
-  "huggingface_hub>=0.24",
+  "huggingface_hub[hf_xet]>=0.24",
   "numpy>=1.26",
   "pandas>=2.2",
 ]
@@ -18,8 +18,8 @@ uriel = [
 ]
 qc = [
   "torch==2.8.0",
-  "fairseq2>=0.5.2",
-  "sonar-space>=0.5,<0.6",
+  "fairseq2>=0.5.2; sys_platform != 'win32'",
+  "sonar-space>=0.5,<0.6; sys_platform != 'win32'",
 ]
 mac = [
   "torch==2.8.0",
@@ -30,7 +30,7 @@ mac = [
 ]
 rtx = [
   "torch==2.8.0",
-  "vllm>=0.9",
+  "vllm>=0.9; sys_platform != 'win32'",
   "transformers>=4.46",
   "accelerate>=1.0",
   "sentencepiece>=0.2",
@@ -45,6 +45,7 @@ thesis-eval = "thesis_eval.cli:main"
 environments = [
   "sys_platform == 'darwin'",
   "sys_platform == 'linux'",
+  "sys_platform == 'win32'",
 ]
 
 [build-system]

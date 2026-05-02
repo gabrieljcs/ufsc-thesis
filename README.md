@@ -74,7 +74,7 @@ This uses `--max-tokens 64`, `--stream`, and only the Portuguese pilot translati
 
 Generation prefers the downloaded local asset directory when present. You can force offline local loading with `--model-path assets/models/sabia-7b`; Transformers then uses `local_files_only=True`.
 
-GPU environment for the RTX 5070 Ti:
+GPU environment for the RTX 5070 Ti (Linux native):
 
 ```bash
 cd eval
@@ -107,6 +107,112 @@ Create `.env` from `.env.example` before running real API or Hugging Face worklo
 ```bash
 cp .env.example .env
 ```
+
+### Windows + RTX 5070 Ti via Docker Desktop
+
+vLLM has no Windows wheels and `fairseq2`/`sonar-space` (BLASER QC) likewise. On Windows the supported path is the GPU container running on Docker Desktop with the WSL2 backend. Translation (NLLB), heuristic QC, and vLLM target generation all run inside the same image.
+
+Prerequisites:
+
+- Windows 11 with a recent NVIDIA driver (596.x or newer for Blackwell).
+- Docker Desktop with the WSL2 backend enabled.
+- The NVIDIA Container Toolkit, which Docker Desktop wires up automatically when WSL2 + NVIDIA driver are both present.
+
+Confirm GPU passthrough before building anything else:
+
+```bash
+docker run --rm --gpus all nvidia/cuda:12.8.1-base-ubuntu24.04 nvidia-smi
+```
+
+The output should list the RTX 5070 Ti and a CUDA Version >= 12.8.
+
+Light Windows-side environment for asset downloads only (no inference deps):
+
+```bash
+uv python install 3.12
+uv sync
+uv run thesis-eval validate-config
+```
+
+This pulls the base install and lets you run `download-assets`, `verify-assets`, and judge-batch import/export from the Windows host. Models land under `assets/` and are mounted into the container later.
+
+Build the GPU image. The Dockerfile sets `UV_HTTP_TIMEOUT=600` so the large CUDA wheel downloads from `pypi.nvidia.com` survive a slow link:
+
+```bash
+docker build -f docker/Dockerfile.gpu -t thesis-eval:gpu .
+```
+
+Smoke-check torch and CUDA inside the image:
+
+```bash
+docker run --rm --gpus all thesis-eval:gpu \
+  python -c "import torch; print(torch.cuda.get_device_name(0)); print(torch.cuda.is_available())"
+```
+
+For all subsequent commands, the wrapper that mounts the workspace and the Hugging Face cache is the same:
+
+```bash
+docker run --rm --gpus all \
+  -v "$PWD":/work/eval -w /work/eval \
+  -v "$HOME/.cache/huggingface:/root/.cache/huggingface" \
+  --env-file .env \
+  thesis-eval:gpu \
+  thesis-eval <subcommand> ...
+```
+
+Translate the pilot prompts on GPU (NLLB-200 distilled-600M; swap the checkpoint for the 1.3B or 3.3B asset if downloaded):
+
+```bash
+docker run --rm --gpus all \
+  -v "$PWD":/work/eval -w /work/eval \
+  -v "$HOME/.cache/huggingface:/root/.cache/huggingface" \
+  --env-file .env \
+  thesis-eval:gpu \
+  thesis-eval translate \
+    --prompts data/raw/strongreject/pilot_prompts.jsonl \
+    --target-language por \
+    --engine nllb \
+    --checkpoint assets/models/nllb-200-distilled-600M \
+    --device cuda \
+    --dtype float16 \
+    --output outputs/pilot/translations_por.nllb.jsonl
+```
+
+Run heuristic translation QC (BLASER is unavailable in this image because `fairseq2`/`sonar-space` lack Windows-compatible wheels and are not installed in the GPU container):
+
+```bash
+docker run --rm --gpus all \
+  -v "$PWD":/work/eval -w /work/eval \
+  thesis-eval:gpu \
+  thesis-eval translation-qc \
+    --translations outputs/pilot/translations_por.nllb.jsonl \
+    --scorer heuristic \
+    --output outputs/pilot/translations_por.nllb.heuristic.jsonl
+```
+
+Generate target responses with vLLM:
+
+```bash
+docker run --rm --gpus all \
+  -v "$PWD":/work/eval -w /work/eval \
+  -v "$HOME/.cache/huggingface:/root/.cache/huggingface" \
+  --env-file .env \
+  thesis-eval:gpu \
+  thesis-eval generate-targets \
+    --translations outputs/pilot/translations_por.nllb.heuristic.jsonl \
+    --model sabia_7b \
+    --profile rtx_5070_ti \
+    --backend vllm \
+    --model-path assets/models/sabia-7b \
+    --max-tokens 64 \
+    --output outputs/pilot/target_generations_por_sabia_rtx.jsonl
+```
+
+VRAM notes for the 16 GB 5070 Ti:
+
+- NLLB-200-distilled-600M (~2.4 GB) and a 7B target in fp16 (~14 GB) cannot share the GPU. Translate first, write to disk, exit the container, then run target generation.
+- The 1.3B and 3.3B NLLB checkpoints are heavier still; keep them off the GPU during target inference.
+- Mounting `~/.cache/huggingface` lets the same downloaded weights survive across container runs.
 
 ## RTX Sabiá End-to-End Pilot
 
