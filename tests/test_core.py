@@ -8,6 +8,7 @@ from unittest.mock import patch
 from thesis_eval.assets import AssetSpec, asset_status, load_assets, select_assets, verify_asset
 from thesis_eval.benchmarks.strongreject import import_strongreject, load_prompt_records, write_prompt_records
 from thesis_eval.benchmarks.uriel import load_distance_matrix, subset_matrix, write_distance_matrix
+from thesis_eval.cli import main
 from thesis_eval.config import load_config
 from thesis_eval.evaluation.api_batches import (
     anthropic_batch_body,
@@ -208,6 +209,32 @@ class TranslationTests(unittest.TestCase):
     def test_unknown_qc_scorer_fails(self) -> None:
         with self.assertRaises(ValueError):
             apply_translation_qc([], scorer="not-real")
+
+    def test_cli_translate_writes_multiple_language_outputs(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            tmp_path = Path(tmp)
+            prompts = tmp_path / "prompts.jsonl"
+            outputs = tmp_path / "translations"
+            prompts.write_text('{"prompt_id":"p1","text":"hello"}\n', encoding="utf-8")
+            main(
+                [
+                    "translate",
+                    "--prompts",
+                    str(prompts),
+                    "--target-language",
+                    "por",
+                    "--target-language",
+                    "ara",
+                    "--engine",
+                    "placeholder",
+                    "--output-dir",
+                    str(outputs),
+                    "--output-template",
+                    "{lang}.jsonl",
+                ]
+            )
+            self.assertTrue((outputs / "por.jsonl").exists())
+            self.assertTrue((outputs / "ara.jsonl").exists())
 
 
 class JudgeBatchTests(unittest.TestCase):

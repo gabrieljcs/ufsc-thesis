@@ -265,41 +265,29 @@ This downloads the SONAR text encoder (~3 GB) into the persistent cache so the l
 te prewarm-sonar
 ```
 
-4. Translate the pilot prompts into Portuguese with NLLB on GPU.
+4. Translate the pilot prompts into Portuguese and Arabic with one NLLB load.
 
-This creates the aligned-language baseline prompts for Sabiá. The NLLB model is loaded on CUDA in fp16.
+This creates the aligned-language baseline prompts for Sabiá (`por`) and the first attack-language prompts (`ara`). NLLB is loaded on CUDA in fp16 once, then reused for both languages before the container exits.
 
 ```powershell
 te translate `
   --prompts data/raw/strongreject/pilot_prompts.jsonl `
   --target-language por `
-  --engine nllb `
-  --checkpoint assets/models/nllb-200-3.3B `
-  --device cuda `
-  --dtype float16 `
-  --stream `
-  --output outputs/pilot/translations_por.nllb_3_3b.jsonl
-```
-
-The `--stream` flag prints each prompt and its translation to stderr as it is produced, so you can sanity-check the pipeline without waiting for the whole file to finish.
-
-5. Translate the same pilot prompts into Arabic with NLLB on GPU.
-
-This creates the first cross-lingual attack prompts with the same translator and decoding setup.
-
-```powershell
-te translate `
-  --prompts data/raw/strongreject/pilot_prompts.jsonl `
   --target-language ara `
   --engine nllb `
   --checkpoint assets/models/nllb-200-3.3B `
   --device cuda `
   --dtype float16 `
   --stream `
-  --output outputs/pilot/translations_ara.nllb_3_3b.jsonl
+  --output-dir outputs/pilot `
+  --output-template "translations_{lang}.nllb_3_3b.jsonl"
 ```
 
-6. Run BLASER QC for Portuguese on GPU.
+The `--stream` flag prints each prompt and its translation to stderr as it is produced, so you can sanity-check the pipeline without waiting for the whole file to finish.
+
+If you run one `te translate` command per language, NLLB has to reload its checkpoint shards every time because each command starts a new container and Python process. Repeating `--target-language` in one command is faster for translation batches because the model stays loaded while all requested language files are written.
+
+5. Run BLASER QC for Portuguese on GPU.
 
 This scores source/translation semantic preservation and writes `blaser_qe_score` plus `pass | flag | fail`.
 
@@ -311,7 +299,7 @@ te translation-qc `
   --output outputs/pilot/translations_por.nllb_3_3b.blaser.jsonl
 ```
 
-7. Run BLASER QC for Arabic on GPU.
+6. Run BLASER QC for Arabic on GPU.
 
 This applies the same QC process to the attack-language translations.
 
@@ -323,7 +311,7 @@ te translation-qc `
   --output outputs/pilot/translations_ara.nllb_3_3b.blaser.jsonl
 ```
 
-8. Export XSTS audit queues.
+7. Export XSTS audit queues.
 
 This creates reviewer CSVs. For the tiny pilot, inspect them manually. For the final project, reviewer decisions should be imported before generation.
 
@@ -339,7 +327,7 @@ te export-audit-queue `
   --include-passed
 ```
 
-9. Generate Sabiá responses for Portuguese with vLLM.
+8. Generate Sabiá responses for Portuguese with vLLM.
 
 This starts a fresh container, loads Sabiá-7B from the mounted Downloads asset folder, and generates target responses on CUDA.
 
@@ -354,7 +342,7 @@ te generate-targets `
   --output outputs/pilot/target_generations_por_sabia_rtx.jsonl
 ```
 
-10. Generate Sabiá responses for Arabic with vLLM.
+9. Generate Sabiá responses for Arabic with vLLM.
 
 This uses the same target model and generation settings for the Arabic attack prompts.
 
@@ -369,7 +357,7 @@ te generate-targets `
   --output outputs/pilot/target_generations_ara_sabia_rtx.jsonl
 ```
 
-11. Combine the two generation files.
+10. Combine the two generation files.
 
 This is a host-side file operation. It creates the single generation file used for judge batching.
 
@@ -380,7 +368,7 @@ Get-Content `
   Set-Content outputs/pilot/target_generations_sabia_rtx_pilot.jsonl
 ```
 
-12. Export judge requests.
+11. Export judge requests.
 
 This creates one request per generated response per judge. No API call happens here.
 
@@ -390,7 +378,7 @@ te export-judge-batch `
   --output outputs/pilot/judge_requests_sabia_rtx_pilot.jsonl
 ```
 
-13. Export provider-shaped API batch files.
+12. Export provider-shaped API batch files.
 
 This writes OpenAI, Anthropic, and hosted Llama Guard batch inputs.
 
@@ -400,7 +388,7 @@ te export-api-batches `
   --output-dir outputs/pilot/api_batches_sabia_rtx_pilot
 ```
 
-14. Submit the judge batches outside this CLI.
+13. Submit the judge batches outside this CLI.
 
 Use your API batch tooling to submit:
 
@@ -414,7 +402,7 @@ Save the raw provider results as:
 - `outputs/pilot/api_batches_sabia_rtx_pilot/anthropic_results.jsonl`
 - `outputs/pilot/api_batches_sabia_rtx_pilot/llama_guard_results.jsonl`
 
-15. Normalize the returned judge results.
+14. Normalize the returned judge results.
 
 This converts provider-specific raw output into the shared judge-result schema.
 
@@ -435,7 +423,7 @@ te normalize-judge-results `
   --output outputs/pilot/api_batches_sabia_rtx_pilot/llama_guard_normalized.jsonl
 ```
 
-16. Combine normalized judge results.
+15. Combine normalized judge results.
 
 Majority vote requires all three judge labels for every generated response.
 
@@ -447,7 +435,7 @@ Get-Content `
   Set-Content outputs/pilot/judge_results_sabia_rtx_pilot.jsonl
 ```
 
-17. Compute majority vote.
+16. Compute majority vote.
 
 This validates analysis rows and writes the final `safe | unsafe | invalid` label per target response.
 
@@ -458,7 +446,7 @@ te majority-vote `
   --output outputs/pilot/analysis_rows_sabia_rtx_pilot.jsonl
 ```
 
-18. Export pilot rows.
+17. Export pilot rows.
 
 This exports a validated pilot copy. It is not the frozen thesis dataset.
 
@@ -537,19 +525,30 @@ te verify-assets --name bggpt
 
 ### Final 4. Translate every StrongREJECT language on GPU
 
-This runs NLLB-200 3.3B once per language. Each command exits after writing the language file, freeing VRAM.
+This runs NLLB-200 3.3B once and reuses it across all 13 output languages before the container exits. It writes one JSONL file per language.
 
 ```powershell
-foreach ($lang in $LANGS) {
-  te translate `
-    --prompts data/raw/strongreject/prompts.jsonl `
-    --target-language $lang `
-    --engine nllb `
-    --checkpoint assets/models/nllb-200-3.3B `
-    --device cuda `
-    --dtype float16 `
-    --output "data/translations/$lang.nllb_3_3b.jsonl"
-}
+te translate `
+  --prompts data/raw/strongreject/prompts.jsonl `
+  --target-language ara `
+  --target-language bul `
+  --target-language dan `
+  --target-language eng `
+  --target-language fin `
+  --target-language ita `
+  --target-language nor `
+  --target-language por `
+  --target-language rus `
+  --target-language spa `
+  --target-language swa `
+  --target-language swe `
+  --target-language ukr `
+  --engine nllb `
+  --checkpoint assets/models/nllb-200-3.3B `
+  --device cuda `
+  --dtype float16 `
+  --output-dir data/translations `
+  --output-template "{lang}.nllb_3_3b.jsonl"
 ```
 
 ### Final 5. Run BLASER QC for every language on GPU

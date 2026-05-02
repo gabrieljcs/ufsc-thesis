@@ -124,11 +124,11 @@ def generate_with_transformers(
         raise RuntimeError("Transformers generation requires torch and transformers. Install the mac or rtx extras.") from exc
 
     resolved_device = _resolve_device(device)
-    torch_dtype = _resolve_dtype(dtype, resolved_device)
+    model_dtype = _resolve_dtype(dtype, resolved_device)
     tokenizer = AutoTokenizer.from_pretrained(model_ref, trust_remote_code=trust_remote_code, local_files_only=_is_local_model_ref(model_ref))
     model = AutoModelForCausalLM.from_pretrained(
         model_ref,
-        torch_dtype=torch_dtype,
+        dtype=model_dtype,
         trust_remote_code=trust_remote_code,
         low_cpu_mem_usage=True,
         local_files_only=_is_local_model_ref(model_ref),

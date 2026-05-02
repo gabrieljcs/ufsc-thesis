@@ -67,7 +67,6 @@ def _resolve_torch_dtype(torch: Any, requested: str, device: str) -> Any | None:
 @dataclass
 class NllbTranslator:
     checkpoint: str
-    target_language: str
     device: str = "auto"
     dtype: str = "auto"
 
@@ -86,17 +85,16 @@ class NllbTranslator:
         self.tokenizer = AutoTokenizer.from_pretrained(self.checkpoint, src_lang=NLLB_CODES["eng"])
         model_kwargs: dict[str, Any] = {}
         if self.resolved_dtype is not None:
-            model_kwargs["torch_dtype"] = self.resolved_dtype
+            model_kwargs["dtype"] = self.resolved_dtype
         info(f"Loading NLLB checkpoint={self.checkpoint} device={self.resolved_device} dtype={self.dtype}")
         self.model = AutoModelForSeq2SeqLM.from_pretrained(self.checkpoint, **model_kwargs)
         self.model.to(self.resolved_device)
         self.model.eval()
         self.torch = torch
-        self.target_code = NLLB_CODES[self.target_language]
 
-    def translate(self, text: str) -> str:
+    def translate(self, text: str, target_language: str) -> str:
         encoded = self.tokenizer(text, return_tensors="pt").to(self.resolved_device)
-        forced_bos_token_id = self.tokenizer.convert_tokens_to_ids(self.target_code)
+        forced_bos_token_id = self.tokenizer.convert_tokens_to_ids(NLLB_CODES[target_language])
         with self.torch.inference_mode():
             generated = self.model.generate(**encoded, forced_bos_token_id=forced_bos_token_id)
         return str(self.tokenizer.batch_decode(generated, skip_special_tokens=True)[0])
@@ -114,7 +112,7 @@ def translate_text(
         return text
     if engine != "nllb":
         raise ValueError(f"Unknown translation engine: {engine}")
-    return NllbTranslator(checkpoint=checkpoint, target_language=target_language, device=device, dtype=dtype).translate(text)
+    return NllbTranslator(checkpoint=checkpoint, device=device, dtype=dtype).translate(text, target_language)
 
 
 def make_translation_log(
@@ -161,21 +159,22 @@ def run_translation(
     device: str = "auto",
     dtype: str = "auto",
     stream: bool = False,
+    translator: NllbTranslator | None = None,
 ) -> list[TranslationLog]:
     logs: list[TranslationLog] = []
     info(f"Translating {len(prompts)} prompts to {target_language} with engine={engine} device={device} dtype={dtype}")
-    translator = None
-    if engine == "nllb" and target_language != "eng":
-        translator = NllbTranslator(checkpoint=checkpoint, target_language=target_language, device=device, dtype=dtype)
+    active_translator = translator
+    if active_translator is None and engine == "nllb" and target_language != "eng":
+        active_translator = NllbTranslator(checkpoint=checkpoint, device=device, dtype=dtype)
     for index, prompt in enumerate(prompts, start=1):
         with step(f"translate {index}/{len(prompts)} prompt_id={prompt.prompt_id} target={target_language}"):
             if target_language == "eng":
                 translated = prompt.text
-            elif translator is not None:
-                translated = translator.translate(prompt.text)
+            elif active_translator is not None:
+                translated = active_translator.translate(prompt.text, target_language)
             else:
                 translated = translate_text(prompt.text, target_language, engine, checkpoint, device=device, dtype=dtype)
-            logged_device = translator.resolved_device if translator is not None else device
+            logged_device = active_translator.resolved_device if active_translator is not None else device
             logs.append(make_translation_log(prompt, target_language, translated, engine, checkpoint, device=logged_device, dtype=dtype))
             if stream:
                 info(f"  src: {prompt.text}")

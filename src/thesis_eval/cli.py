@@ -27,7 +27,7 @@ from thesis_eval.translation.sonar import prewarm_sonar_text_encoder
 from thesis_eval.schema import validate_analysis_rows
 from thesis_eval.translation.audit import AUDIT_COLUMNS, apply_audit_decisions, build_audit_queue
 from thesis_eval.translation.log import load_translation_logs, save_translation_logs
-from thesis_eval.translation.pipeline import PromptRecord, apply_translation_qc, run_translation
+from thesis_eval.translation.pipeline import NllbTranslator, PromptRecord, apply_translation_qc, run_translation
 from thesis_eval.translation.reference_spbleu import attach_reference_scores
 
 
@@ -126,18 +126,43 @@ def _load_prompt_records(path: Path) -> list[PromptRecord]:
 
 def cmd_translate(args: argparse.Namespace) -> None:
     prompts = _load_prompt_records(Path(args.prompts))
-    with step(f"translate file {args.prompts} -> {args.target_language}"):
-        logs = run_translation(
-            prompts,
-            args.target_language,
-            engine=args.engine,
-            checkpoint=args.checkpoint,
-            device=args.device,
-            dtype=args.dtype,
-            stream=args.stream,
-        )
-    save_translation_logs(Path(args.output), logs)
-    print(f"Wrote {len(logs)} translation logs to {args.output}")
+    target_languages = list(args.target_language)
+    if len(target_languages) > 1 and args.output:
+        raise ValueError("Use --output-dir for multi-language translation; --output is only for a single target language.")
+    if not args.output and not args.output_dir:
+        raise ValueError("translate requires --output for one language or --output-dir for one/more languages.")
+
+    translator = None
+    if args.engine == "nllb" and any(language != "eng" for language in target_languages):
+        translator = NllbTranslator(checkpoint=args.checkpoint, device=args.device, dtype=args.dtype)
+
+    written: dict[str, str] = {}
+    for target_language in target_languages:
+        output_path = _translation_output_path(args, target_language)
+        with step(f"translate file {args.prompts} -> {target_language}"):
+            logs = run_translation(
+                prompts,
+                target_language,
+                engine=args.engine,
+                checkpoint=args.checkpoint,
+                device=args.device,
+                dtype=args.dtype,
+                stream=args.stream,
+                translator=translator,
+            )
+        save_translation_logs(output_path, logs)
+        written[target_language] = str(output_path)
+        print(f"Wrote {len(logs)} translation logs to {output_path}")
+    if len(written) > 1:
+        print(json.dumps(written, ensure_ascii=False, indent=2, sort_keys=True))
+
+
+def _translation_output_path(args: argparse.Namespace, target_language: str) -> Path:
+    if args.output:
+        return Path(args.output)
+    output_dir = ensure_dir(Path(args.output_dir))
+    filename = str(args.output_template).format(lang=target_language, target_language=target_language)
+    return output_dir / filename
 
 
 def cmd_translation_qc(args: argparse.Namespace) -> None:
@@ -388,8 +413,10 @@ def build_parser() -> argparse.ArgumentParser:
 
     translate = sub.add_parser("translate")
     translate.add_argument("--prompts", required=True)
-    translate.add_argument("--target-language", required=True)
-    translate.add_argument("--output", required=True)
+    translate.add_argument("--target-language", action="append", required=True)
+    translate.add_argument("--output")
+    translate.add_argument("--output-dir")
+    translate.add_argument("--output-template", default="translations_{lang}.jsonl")
     translate.add_argument("--engine", choices=["placeholder", "nllb"], default="placeholder")
     translate.add_argument("--checkpoint", default="facebook/nllb-200-distilled-600M")
     translate.add_argument("--device", choices=["auto", "cpu", "mps", "cuda"], default="auto")

@@ -26,6 +26,7 @@ Current phase: pipeline foundation and tiny pilot scaffolding.
 - [x] Add GPU-aware NLLB translation flags and keep large translator checkpoints loaded across a run.
 - [x] Document the ordered RTX Sabiá end-to-end pilot commands in `README.md`.
 - [x] Rewrite `README.md` around the Windows host + RTX Docker workflow, with pilot and final end-to-end runbooks.
+- [x] Let one NLLB translation command write multiple target languages so checkpoint shards load once per batch.
 - [ ] Calibrate BLASER pass/flag/fail thresholds on the audited subset.
 - [ ] Run `download-assets --name strongreject` on the MacBook or RTX machine to populate `eval/data/raw/strongreject/`.
 - [ ] Download NLLB, BLASER, MultiJail, BELEBELE, and target models slowly with `download-assets`.
