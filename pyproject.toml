@@ -2,8 +2,50 @@
 name = "thesis-eval"
 version = "0.0.1"
 description = "Cross-lingual jailbreak evaluation of language-specific LLMs"
-requires-python = ">=3.12"
-dependencies = ["pyyaml>=6.0"]
+requires-python = ">=3.12,<3.13"
+dependencies = [
+  "pyyaml>=6.0",
+  "requests>=2.31",
+  "datasets>=2.20",
+  "huggingface_hub>=0.24",
+  "numpy>=1.26",
+  "pandas>=2.2",
+]
+
+[project.optional-dependencies]
+uriel = [
+  "urielplus>=1.2; python_version < '3.12'",
+]
+qc = [
+  "torch==2.8.0",
+  "fairseq2>=0.5.2",
+  "sonar-space>=0.5,<0.6",
+]
+mac = [
+  "torch==2.8.0",
+  "transformers>=4.46",
+  "accelerate>=1.0",
+  "sentencepiece>=0.2",
+  "sacrebleu>=2.4",
+]
+rtx = [
+  "torch==2.8.0",
+  "vllm>=0.9",
+  "transformers>=4.46",
+  "accelerate>=1.0",
+  "sentencepiece>=0.2",
+  "sacrebleu>=2.4",
+]
+test = []
+
+[project.scripts]
+thesis-eval = "thesis_eval.cli:main"
+
+[tool.uv]
+environments = [
+  "sys_platform == 'darwin'",
+  "sys_platform == 'linux'",
+]
 
 [build-system]
 requires = ["hatchling"]

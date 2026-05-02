@@ -1,0 +1,128 @@
+assets:
+  strongreject:
+    kind: strongreject
+    group: datasets
+    groups: [datasets, jailbreaks]
+    source: github
+    output: data/raw/strongreject/prompts.jsonl
+    pilot_output: data/raw/strongreject/pilot_prompts.jsonl
+    pilot_size: 2
+    required_files: [data/raw/strongreject/prompts.jsonl, data/raw/strongreject/pilot_prompts.jsonl]
+    required_columns: [prompt_id, text, harmful_goal, expected_output_form, fixed_constraints, allowed_adaptation, benchmark]
+    description: "Primary forbidden-prompt source. Imports the prompt list only; never uses StrongREJECT's evaluator."
+  multijail:
+    kind: hf_dataset
+    group: datasets
+    groups: [datasets, jailbreaks]
+    repo_id: walledai/MultiJail
+    local_dir: assets/datasets/multijail
+    required_files: [assets/datasets/multijail/README.md]
+    description: "External multilingual validation benchmark."
+  belebele:
+    kind: hf_dataset
+    group: datasets
+    groups: [datasets, specialization]
+    repo_id: facebook/belebele
+    local_dir: assets/datasets/belebele
+    required_files: [assets/datasets/belebele/README.md]
+    description: "Benign multilingual reading-comprehension benchmark for IF/CONS/SPEC."
+  nllb_200:
+    kind: hf_model
+    group: translation
+    groups: [translation]
+    repo_id: facebook/nllb-200-distilled-600M
+    local_dir: assets/models/nllb-200-distilled-600M
+    required_files: [assets/models/nllb-200-distilled-600M/config.json, assets/models/nllb-200-distilled-600M/tokenizer_config.json, assets/models/nllb-200-distilled-600M/pytorch_model.bin]
+    allow_patterns:
+      - config.json
+      - generation_config.json
+      - tokenizer_config.json
+      - special_tokens_map.json
+      - tokenizer.json
+      - sentencepiece.bpe.model
+      - pytorch_model.bin
+    description: "NLLB-200 translator checkpoint for controlled prompt translation."
+  nllb_200_1_3b:
+    kind: hf_model
+    group: translation
+    groups: [translation]
+    repo_id: facebook/nllb-200-1.3B
+    local_dir: assets/models/nllb-200-1.3B
+    required_files: [assets/models/nllb-200-1.3B/config.json, assets/models/nllb-200-1.3B/tokenizer_config.json, assets/models/nllb-200-1.3B/pytorch_model.bin]
+    allow_patterns:
+      - config.json
+      - generation_config.json
+      - tokenizer_config.json
+      - special_tokens_map.json
+      - tokenizer.json
+      - sentencepiece.bpe.model
+      - pytorch_model.bin
+    description: "Larger NLLB-200 1.3B translator checkpoint. Heavier but still smaller than the 3.3B model."
+  nllb_200_3_3b:
+    kind: hf_model
+    group: translation
+    groups: [translation]
+    repo_id: facebook/nllb-200-3.3B
+    local_dir: assets/models/nllb-200-3.3B
+    required_files: [assets/models/nllb-200-3.3B/config.json, assets/models/nllb-200-3.3B/tokenizer_config.json]
+    required_any_files: [[assets/models/nllb-200-3.3B/pytorch_model.bin, assets/models/nllb-200-3.3B/model.safetensors.index.json]]
+    allow_patterns:
+      - config.json
+      - generation_config.json
+      - tokenizer_config.json
+      - special_tokens_map.json
+      - tokenizer.json
+      - sentencepiece.bpe.model
+      - pytorch_model.bin
+      - model.safetensors.index.json
+      - model-*.safetensors
+    description: "Largest official NLLB-200 translator checkpoint. Use on the RTX machine if the 600M/1.3B translations are insufficient."
+  blaser_2_0_qe:
+    kind: hf_model
+    group: translation
+    groups: [translation]
+    repo_id: facebook/blaser-2.0-qe
+    local_dir: assets/models/blaser-2.0-qe
+    required_files: [assets/models/blaser-2.0-qe/README.md, assets/models/blaser-2.0-qe/model.pt]
+    allow_patterns:
+      - README.md
+      - config.json
+      - '*.json'
+      - '*.model'
+      - '*.spm'
+      - '*.pt'
+      - '*.bin'
+      - '*.safetensors'
+    description: "BLASER 2.0 reference-free QE checkpoint. SONAR runtime assets may be fetched separately by the SONAR package."
+  sabia_7b:
+    kind: hf_model
+    group: targets
+    groups: [targets]
+    repo_id: maritaca-ai/sabia-7b
+    local_dir: assets/models/sabia-7b
+    required_files: [assets/models/sabia-7b/config.json]
+    description: "Portuguese-aligned target model."
+  fauno:
+    kind: hf_model
+    group: targets
+    groups: [targets]
+    repo_id: andreabac3/Fauno-Italian-LLM-7B
+    local_dir: assets/models/fauno-italian-llm-7b
+    required_files: [assets/models/fauno-italian-llm-7b/config.json]
+    description: "Italian-aligned target model."
+  gpt_sw3:
+    kind: hf_model
+    group: targets
+    groups: [targets]
+    repo_id: AI-Sweden-Models/gpt-sw3-6.7b-v2-instruct
+    local_dir: assets/models/gpt-sw3-6.7b-v2-instruct
+    required_files: [assets/models/gpt-sw3-6.7b-v2-instruct/config.json]
+    description: "Swedish-aligned target model."
+  bggpt:
+    kind: hf_model
+    group: targets
+    groups: [targets]
+    repo_id: INSAIT-Institute/BgGPT-7B-Instruct-v0.2
+    local_dir: assets/models/bggpt-7b-instruct-v0.2
+    required_files: [assets/models/bggpt-7b-instruct-v0.2/config.json]
+    description: "Bulgarian-aligned target model."

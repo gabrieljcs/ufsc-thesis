@@ -21,3 +21,7 @@ outputs/tables/*
 !outputs/tables/.gitkeep
 outputs/figures/*
 !outputs/figures/.gitkeep
+outputs/pilot/*
+!outputs/pilot/.gitkeep
+assets/*
+!assets/.gitkeep

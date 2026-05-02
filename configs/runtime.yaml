@@ -1,0 +1,11 @@
+profiles:
+  macbook:
+    target_backend: transformers
+    device: auto
+    dtype: auto
+    notes: "Apple Silicon path. Use mock pilot by default; use transformers for optional tiny real tests."
+  rtx_5070_ti:
+    target_backend: vllm
+    device: cuda
+    dtype: auto
+    notes: "Linux Docker path with CUDA 12.8 and vLLM. Use for full local target-model generations."
