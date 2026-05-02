@@ -30,6 +30,7 @@ Current phase: pipeline foundation and tiny pilot scaffolding.
 - [x] Let BLASER QC and target generation batch multiple language files per model load.
 - [x] Add target-model chat-template visibility and apply chat templates in vLLM when available.
 - [x] Switch the Portuguese target from base Sabiá-7B to instruction-tuned Sagui-7B-Instruct after pilot sanity checks.
+- [x] Compute tokenizer diagnostics with full chat-template tokenization and aligned-language token inflation.
 - [ ] Calibrate BLASER pass/flag/fail thresholds on the audited subset.
 - [ ] Run `download-assets --name strongreject` on the MacBook or RTX machine to populate `eval/data/raw/strongreject/`.
 - [ ] Download NLLB, BLASER, MultiJail, BELEBELE, and target models slowly with `download-assets`.

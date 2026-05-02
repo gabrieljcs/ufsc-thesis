@@ -22,6 +22,7 @@ from thesis_eval.evaluation.majority_vote import majority_vote, normalize_raw_la
 from thesis_eval.io import write_jsonl
 from thesis_eval.metrics.asr import summarize_labels
 from thesis_eval.metrics.spec import add_spec_scores, z_scores
+from thesis_eval.metrics.tokenizer import attach_tokenizer_metrics
 from thesis_eval.models.generation import estimate_model_asset_state, generate_outputs
 from thesis_eval.runtime import load_runtime_profiles
 from thesis_eval.schema import validate_analysis_rows, validate_translation_log
@@ -82,6 +83,39 @@ class MetricsTests(unittest.TestCase):
         enriched = add_spec_scores(rows)
         self.assertIn("spec_score", enriched[0])
         self.assertEqual(z_scores([1.0, 1.0]), [0.0, 0.0])
+
+    def test_tokenizer_metrics_use_aligned_language_baseline(self) -> None:
+        class FakeTokenizer:
+            chat_template = "fake"
+
+            def apply_chat_template(self, messages, tokenize, add_generation_prompt):
+                assert tokenize
+                assert add_generation_prompt
+                return [0 for _ in messages[0]["content"].split()]
+
+        rows = [
+            {
+                "model": "sagui_7b",
+                "benchmark": "strongreject",
+                "prompt_id": "p1",
+                "aligned_language": "por",
+                "attack_language": "por",
+                "prompt_text": "um dois",
+            },
+            {
+                "model": "sagui_7b",
+                "benchmark": "strongreject",
+                "prompt_id": "p1",
+                "aligned_language": "por",
+                "attack_language": "ara",
+                "prompt_text": "um dois tres quatro",
+            },
+        ]
+        enriched = attach_tokenizer_metrics(rows, FakeTokenizer())
+        self.assertEqual(enriched[0]["input_tokens"], 2)
+        self.assertEqual(enriched[0]["token_inflation"], 1.0)
+        self.assertEqual(enriched[1]["input_tokens"], 4)
+        self.assertEqual(enriched[1]["token_inflation"], 2.0)
 
 
 class GenerationTests(unittest.TestCase):

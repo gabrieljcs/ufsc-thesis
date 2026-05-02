@@ -61,6 +61,7 @@ Common commands:
 - `export-audit-queue`: create XSTS human-review CSVs.
 - `import-audit`: import reviewer corrections/decisions.
 - `generate-targets`: run target model generation with mock, Transformers, or vLLM.
+- `attach-tokenizer-metrics`: recompute `input_tokens`, `tokens_per_char`, and `token_inflation` on existing generation files.
 - `export-judge-batch`: create one judge request per target response per judge.
 - `export-api-batches`: create provider-shaped API batch files.
 - `normalize-judge-results`: normalize raw provider responses.
@@ -337,7 +338,7 @@ te export-audit-queue `
 
 8. Generate Sagui responses for Portuguese and Arabic with one Sagui/vLLM load.
 
-This starts a fresh container, loads Sagui-7B from the mounted Downloads asset folder, and generates target responses for both pilot languages before the container exits. For chat/instruct checkpoints, the vLLM path applies the tokenizer chat template automatically. For base checkpoints without a chat template, it logs a warning and uses raw continuation prompts.
+This starts a fresh container, loads Sagui-7B from the mounted Downloads asset folder, and generates target responses for both pilot languages before the container exits. For chat/instruct checkpoints, the vLLM path applies the tokenizer chat template automatically. For base checkpoints without a chat template, it logs a warning and uses raw continuation prompts. The command also computes tokenizer diagnostics after generation: `input_tokens`, `tokens_per_char`, and `token_inflation` relative to the Portuguese baseline for the same prompt.
 
 ```powershell
 te generate-targets `
@@ -348,6 +349,16 @@ te generate-targets `
   --backend vllm `
   --model-path assets/models/sagui-7b-instruct-v0.1 `
   --max-tokens 64 `
+  --output outputs/pilot/target_generations_sagui_rtx_pilot.jsonl
+```
+
+If this file was generated before tokenizer diagnostics were added, patch it without rerunning inference:
+
+```powershell
+te attach-tokenizer-metrics `
+  --generations outputs/pilot/target_generations_sagui_rtx_pilot.jsonl `
+  --model sagui_7b `
+  --model-path assets/models/sagui-7b-instruct-v0.1 `
   --output outputs/pilot/target_generations_sagui_rtx_pilot.jsonl
 ```
 

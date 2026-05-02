@@ -19,6 +19,7 @@ from thesis_eval.evaluation.api_batches import (
 )
 from thesis_eval.evaluation.judge_batch import build_judge_requests, combine_judge_results
 from thesis_eval.io import read_csv_dicts, read_jsonl, write_csv_dicts, write_jsonl
+from thesis_eval.metrics.tokenizer import attach_tokenizer_metrics, load_tokenizer
 from thesis_eval.models.generation import attach_outputs, build_generation_rows, estimate_model_asset_state, generate_outputs
 from thesis_eval.paths import DATA_DIR, OUTPUT_DIR, THESIS_ROOT, ensure_dir
 from thesis_eval.pipeline import enrich_generation_rows, run_mock_pilot
@@ -229,9 +230,7 @@ def cmd_generate_targets(args: argparse.Namespace) -> None:
     backend = args.backend or (profile.target_backend if profile else "auto")
     device = args.device or (profile.device if profile else "auto")
     dtype = args.dtype or (profile.dtype if profile else "auto")
-    model_asset = assets.get(args.model)
-    asset_path = model_asset.local_dir if model_asset and model_asset.local_dir and model_asset.local_dir.exists() else None
-    model_ref = args.model_path or (str(asset_path) if asset_path else cfg.models[args.model]["hf_id"])
+    model_ref = _resolve_model_ref(args.model, args.model_path)
     translation_paths = [Path(path) for path in args.translations]
     groups: list[tuple[Path, list[dict[str, Any]]]] = []
     rows: list[dict[str, Any]] = []
@@ -257,6 +256,13 @@ def cmd_generate_targets(args: argparse.Namespace) -> None:
                 stream=args.stream,
             )
     enriched = enrich_generation_rows(attach_outputs(rows, outputs), Path(args.distance_csv))
+    if not args.skip_tokenizer_metrics and backend != "mock":
+        with step("tokenizer metrics"):
+            enriched = attach_tokenizer_metrics(enriched, load_tokenizer(model_ref, trust_remote_code=args.trust_remote_code))
+    elif args.skip_tokenizer_metrics:
+        info("Skipping tokenizer metrics by request")
+    else:
+        info("Skipping tokenizer metrics for mock generation")
     if args.output_dir:
         written: dict[str, str] = {}
         cursor = 0
@@ -278,6 +284,49 @@ def cmd_generate_targets(args: argparse.Namespace) -> None:
     else:
         write_jsonl(Path(args.output), enriched)
         print(f"Wrote {len(rows)} target generations to {args.output}")
+
+
+def cmd_attach_tokenizer_metrics(args: argparse.Namespace) -> None:
+    rows = read_jsonl(Path(args.generations))
+    if not rows:
+        write_jsonl(Path(args.output), [])
+        print(f"Wrote 0 generation rows with tokenizer metrics to {args.output}")
+        return
+    row_models = {str(row["model"]) for row in rows}
+    if args.model:
+        unexpected = row_models.difference({args.model})
+        if unexpected:
+            raise ValueError(f"--model {args.model!r} does not match generation row models: {sorted(row_models)}")
+        models = [args.model]
+    else:
+        models = sorted(row_models)
+    if args.model_path and len(models) != 1:
+        raise ValueError("--model-path can only be used when the generation file contains one model or --model is set.")
+
+    output_rows = [dict(row) for row in rows]
+    for model in models:
+        model_ref = _resolve_model_ref(model, args.model_path if len(models) == 1 else None)
+        model_indexes = [index for index, row in enumerate(output_rows) if str(row["model"]) == model]
+        model_rows = [output_rows[index] for index in model_indexes]
+        info(f"Computing tokenizer metrics for {len(model_rows)} rows model={model} model_ref={model_ref}")
+        with step(f"tokenizer metrics for {model}"):
+            metric_rows = attach_tokenizer_metrics(
+                model_rows,
+                load_tokenizer(model_ref, trust_remote_code=args.trust_remote_code),
+            )
+        for index, metric_row in zip(model_indexes, metric_rows, strict=True):
+            output_rows[index] = metric_row
+
+    write_jsonl(Path(args.output), output_rows)
+    print(f"Wrote {len(output_rows)} generation rows with tokenizer metrics to {args.output}")
+
+
+def _resolve_model_ref(model: str, model_path: str | None = None) -> str:
+    cfg = load_config()
+    assets = load_assets()
+    model_asset = assets.get(model)
+    asset_path = model_asset.local_dir if model_asset and model_asset.local_dir and model_asset.local_dir.exists() else None
+    return model_path or (str(asset_path) if asset_path else cfg.models[model]["hf_id"])
 
 
 def _single_target_language(rows: list[dict[str, object]]) -> str:
@@ -537,8 +586,17 @@ def build_parser() -> argparse.ArgumentParser:
     gen.add_argument("--trust-remote-code", action="store_true")
     gen.add_argument("--model-path")
     gen.add_argument("--stream", action="store_true")
+    gen.add_argument("--skip-tokenizer-metrics", action="store_true")
     gen.add_argument("--distance-csv", default=str(DATA_DIR / "uriel_plus" / "distance_matrix.csv"))
     gen.set_defaults(func=cmd_generate_targets)
+
+    token_metrics = sub.add_parser("attach-tokenizer-metrics")
+    token_metrics.add_argument("--generations", required=True)
+    token_metrics.add_argument("--output", required=True)
+    token_metrics.add_argument("--model")
+    token_metrics.add_argument("--model-path")
+    token_metrics.add_argument("--trust-remote-code", action="store_true")
+    token_metrics.set_defaults(func=cmd_attach_tokenizer_metrics)
 
     model_status = sub.add_parser("model-status")
     model_status.add_argument("--model", default="sagui_7b")
