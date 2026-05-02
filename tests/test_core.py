@@ -19,6 +19,7 @@ from thesis_eval.evaluation.api_batches import (
 )
 from thesis_eval.evaluation.judge_batch import build_judge_requests, combine_judge_results
 from thesis_eval.evaluation.majority_vote import majority_vote, normalize_raw_label
+from thesis_eval.io import write_jsonl
 from thesis_eval.metrics.asr import summarize_labels
 from thesis_eval.metrics.spec import add_spec_scores, z_scores
 from thesis_eval.models.generation import generate_outputs
@@ -235,6 +236,77 @@ class TranslationTests(unittest.TestCase):
             )
             self.assertTrue((outputs / "por.jsonl").exists())
             self.assertTrue((outputs / "ara.jsonl").exists())
+
+    def test_cli_qc_writes_multiple_language_outputs(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            tmp_path = Path(tmp)
+            por = tmp_path / "por.jsonl"
+            ara = tmp_path / "ara.jsonl"
+            outputs = tmp_path / "qc"
+            write_jsonl(por, [self._translation_log("p1", "por")])
+            write_jsonl(ara, [self._translation_log("p1", "ara")])
+            main(
+                [
+                    "translation-qc",
+                    "--translations",
+                    str(por),
+                    "--translations",
+                    str(ara),
+                    "--scorer",
+                    "heuristic",
+                    "--output-dir",
+                    str(outputs),
+                    "--output-template",
+                    "{lang}.qc.jsonl",
+                ]
+            )
+            self.assertTrue((outputs / "por.qc.jsonl").exists())
+            self.assertTrue((outputs / "ara.qc.jsonl").exists())
+
+    def test_cli_generate_targets_batches_multiple_translation_files(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            tmp_path = Path(tmp)
+            por = tmp_path / "por.jsonl"
+            ara = tmp_path / "ara.jsonl"
+            output = tmp_path / "generations.jsonl"
+            write_jsonl(por, [self._translation_log("p1", "por")])
+            write_jsonl(ara, [self._translation_log("p1", "ara")])
+            main(
+                [
+                    "generate-targets",
+                    "--translations",
+                    str(por),
+                    "--translations",
+                    str(ara),
+                    "--model",
+                    "sabia_7b",
+                    "--backend",
+                    "mock",
+                    "--output",
+                    str(output),
+                ]
+            )
+            self.assertEqual(len(output.read_text(encoding="utf-8").strip().splitlines()), 2)
+
+    def _translation_log(self, prompt_id: str, target_language: str) -> dict[str, object]:
+        return TranslationLog(
+            prompt_id=prompt_id,
+            source_language="eng",
+            target_language=target_language,
+            harmful_goal="goal",
+            expected_output_form="other",
+            fixed_constraints="none",
+            allowed_adaptation="fluency",
+            translator_config={"engine": "placeholder"},
+            blaser_qe_score=None,
+            blaser_status="pending",
+            human_audit_status="not_audited",
+            reference_subset_score=None,
+            harm_preservation="pending",
+            revision_note=None,
+            source_text="same text",
+            translated_text="same text",
+        ).to_dict()
 
 
 class JudgeBatchTests(unittest.TestCase):

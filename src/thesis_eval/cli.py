@@ -3,6 +3,7 @@ from __future__ import annotations
 import argparse
 import json
 from pathlib import Path
+from typing import Any
 
 from thesis_eval.assets import asset_status, download_asset, load_assets, select_assets, verify_assets
 from thesis_eval.benchmarks.strongreject import import_strongreject, write_prompt_records
@@ -166,7 +167,15 @@ def _translation_output_path(args: argparse.Namespace, target_language: str) -> 
 
 
 def cmd_translation_qc(args: argparse.Namespace) -> None:
-    logs = load_translation_logs(Path(args.translations))
+    translation_paths = [Path(path) for path in args.translations]
+    if not args.output and not args.output_dir:
+        raise ValueError("translation-qc requires --output or --output-dir.")
+    groups: list[tuple[Path, list[dict[str, object]]]] = []
+    logs: list[dict[str, object]] = []
+    for translation_path in translation_paths:
+        group_logs = load_translation_logs(translation_path)
+        groups.append((translation_path, group_logs))
+        logs.extend(group_logs)
     pass_threshold = args.pass_threshold
     fail_threshold = args.fail_threshold
     if pass_threshold is None:
@@ -182,8 +191,27 @@ def cmd_translation_qc(args: argparse.Namespace) -> None:
             scorer=args.scorer,
             device=args.device,
         )
-    write_jsonl(Path(args.output), qc_logs)
-    print(f"Wrote {len(qc_logs)} QC records to {args.output}")
+    if args.output_dir:
+        written: dict[str, str] = {}
+        cursor = 0
+        for input_path, group_logs in groups:
+            qc_slice = qc_logs[cursor : cursor + len(group_logs)]
+            cursor += len(group_logs)
+            output_path = _language_output_path(
+                args.output_dir,
+                args.output_template,
+                _single_target_language(qc_slice),
+                input_path,
+                model=None,
+            )
+            write_jsonl(output_path, qc_slice)
+            written[str(output_path)] = str(len(qc_slice))
+            print(f"Wrote {len(qc_slice)} QC records to {output_path}")
+        if len(written) > 1:
+            print(json.dumps(written, ensure_ascii=False, indent=2, sort_keys=True))
+    else:
+        write_jsonl(Path(args.output), qc_logs)
+        print(f"Wrote {len(qc_logs)} QC records to {args.output}")
 
 
 def cmd_prewarm_sonar(args: argparse.Namespace) -> None:
@@ -193,6 +221,8 @@ def cmd_prewarm_sonar(args: argparse.Namespace) -> None:
 
 
 def cmd_generate_targets(args: argparse.Namespace) -> None:
+    if not args.output and not args.output_dir:
+        raise ValueError("generate-targets requires --output or --output-dir.")
     cfg = load_config()
     assets = load_assets()
     profile = resolve_runtime_profile(args.profile) if args.profile else None
@@ -202,8 +232,14 @@ def cmd_generate_targets(args: argparse.Namespace) -> None:
     model_asset = assets.get(args.model)
     asset_path = model_asset.local_dir if model_asset and model_asset.local_dir and model_asset.local_dir.exists() else None
     model_ref = args.model_path or (str(asset_path) if asset_path else cfg.models[args.model]["hf_id"])
-    translations = load_translation_logs(Path(args.translations))
-    rows = build_generation_rows(translations, model=args.model, aligned_language=cfg.aligned_language[args.model], benchmark=args.benchmark)
+    translation_paths = [Path(path) for path in args.translations]
+    groups: list[tuple[Path, list[dict[str, Any]]]] = []
+    rows: list[dict[str, Any]] = []
+    for translation_path in translation_paths:
+        translations = load_translation_logs(translation_path)
+        group_rows = build_generation_rows(translations, model=args.model, aligned_language=cfg.aligned_language[args.model], benchmark=args.benchmark)
+        groups.append((translation_path, group_rows))
+        rows.extend(group_rows)
     info(f"Generating {len(rows)} target responses with backend={backend} model={args.model} model_ref={model_ref}")
     if args.mock_output:
         outputs = [args.mock_output for _ in rows]
@@ -221,8 +257,53 @@ def cmd_generate_targets(args: argparse.Namespace) -> None:
                 stream=args.stream,
             )
     enriched = enrich_generation_rows(attach_outputs(rows, outputs), Path(args.distance_csv))
-    write_jsonl(Path(args.output), enriched)
-    print(f"Wrote {len(rows)} target generations to {args.output}")
+    if args.output_dir:
+        written: dict[str, str] = {}
+        cursor = 0
+        for input_path, group_rows in groups:
+            enriched_slice = enriched[cursor : cursor + len(group_rows)]
+            cursor += len(group_rows)
+            output_path = _language_output_path(
+                args.output_dir,
+                args.output_template,
+                _single_attack_language(enriched_slice),
+                input_path,
+                model=args.model,
+            )
+            write_jsonl(output_path, enriched_slice)
+            written[str(output_path)] = str(len(enriched_slice))
+            print(f"Wrote {len(enriched_slice)} target generations to {output_path}")
+        if len(written) > 1:
+            print(json.dumps(written, ensure_ascii=False, indent=2, sort_keys=True))
+    else:
+        write_jsonl(Path(args.output), enriched)
+        print(f"Wrote {len(rows)} target generations to {args.output}")
+
+
+def _single_target_language(rows: list[dict[str, object]]) -> str:
+    languages = {str(row["target_language"]) for row in rows}
+    if len(languages) != 1:
+        raise ValueError(f"Expected one target language in output group, found {sorted(languages)}")
+    return next(iter(languages))
+
+
+def _single_attack_language(rows: list[dict[str, Any]]) -> str:
+    languages = {str(row["attack_language"]) for row in rows}
+    if len(languages) != 1:
+        raise ValueError(f"Expected one attack language in output group, found {sorted(languages)}")
+    return next(iter(languages))
+
+
+def _language_output_path(output_dir: str, output_template: str, language: str, input_path: Path, model: str | None) -> Path:
+    output_root = ensure_dir(Path(output_dir))
+    filename = output_template.format(
+        lang=language,
+        target_language=language,
+        attack_language=language,
+        stem=input_path.stem,
+        model=model or "",
+    )
+    return output_root / filename
 
 
 def cmd_model_status(args: argparse.Namespace) -> None:
@@ -425,8 +506,10 @@ def build_parser() -> argparse.ArgumentParser:
     translate.set_defaults(func=cmd_translate)
 
     qc = sub.add_parser("translation-qc")
-    qc.add_argument("--translations", required=True)
-    qc.add_argument("--output", required=True)
+    qc.add_argument("--translations", action="append", required=True)
+    qc.add_argument("--output")
+    qc.add_argument("--output-dir")
+    qc.add_argument("--output-template", default="{stem}.qc.jsonl")
     qc.add_argument("--scorer", choices=["heuristic", "blaser"], default="heuristic")
     qc.add_argument("--pass-threshold", type=float)
     qc.add_argument("--fail-threshold", type=float)
@@ -438,10 +521,12 @@ def build_parser() -> argparse.ArgumentParser:
     sonar.set_defaults(func=cmd_prewarm_sonar)
 
     gen = sub.add_parser("generate-targets")
-    gen.add_argument("--translations", required=True)
+    gen.add_argument("--translations", action="append", required=True)
     gen.add_argument("--model", default="sabia_7b")
     gen.add_argument("--benchmark", default="strongreject")
-    gen.add_argument("--output", required=True)
+    gen.add_argument("--output")
+    gen.add_argument("--output-dir")
+    gen.add_argument("--output-template", default="target_generations_{model}_{lang}.jsonl")
     gen.add_argument("--profile", choices=["macbook", "rtx_5070_ti"])
     gen.add_argument("--backend", choices=["auto", "mock", "vllm", "transformers"])
     gen.add_argument("--device", choices=["auto", "cpu", "mps", "cuda"])

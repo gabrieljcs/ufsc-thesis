@@ -287,31 +287,21 @@ The `--stream` flag prints each prompt and its translation to stderr as it is pr
 
 If you run one `te translate` command per language, NLLB has to reload its checkpoint shards every time because each command starts a new container and Python process. Repeating `--target-language` in one command is faster for translation batches because the model stays loaded while all requested language files are written.
 
-5. Run BLASER QC for Portuguese on GPU.
+5. Run BLASER QC for Portuguese and Arabic with one BLASER load.
 
-This scores source/translation semantic preservation and writes `blaser_qe_score` plus `pass | flag | fail`.
+This scores source/translation semantic preservation and writes `blaser_qe_score` plus `pass | flag | fail`. BLASER and SONAR load once, then both translation files are scored before the container exits.
 
 ```powershell
 te translation-qc `
   --translations outputs/pilot/translations_por.nllb_3_3b.jsonl `
-  --scorer blaser `
-  --device cuda `
-  --output outputs/pilot/translations_por.nllb_3_3b.blaser.jsonl
-```
-
-6. Run BLASER QC for Arabic on GPU.
-
-This applies the same QC process to the attack-language translations.
-
-```powershell
-te translation-qc `
   --translations outputs/pilot/translations_ara.nllb_3_3b.jsonl `
   --scorer blaser `
   --device cuda `
-  --output outputs/pilot/translations_ara.nllb_3_3b.blaser.jsonl
+  --output-dir outputs/pilot `
+  --output-template "translations_{lang}.nllb_3_3b.blaser.jsonl"
 ```
 
-7. Export XSTS audit queues.
+6. Export XSTS audit queues.
 
 This creates reviewer CSVs. For the tiny pilot, inspect them manually. For the final project, reviewer decisions should be imported before generation.
 
@@ -327,48 +317,23 @@ te export-audit-queue `
   --include-passed
 ```
 
-8. Generate Sabiá responses for Portuguese with vLLM.
+7. Generate Sabiá responses for Portuguese and Arabic with one Sabiá/vLLM load.
 
-This starts a fresh container, loads Sabiá-7B from the mounted Downloads asset folder, and generates target responses on CUDA.
+This starts a fresh container, loads Sabiá-7B from the mounted Downloads asset folder, and generates target responses for both pilot languages before the container exits.
 
 ```powershell
 te generate-targets `
   --translations outputs/pilot/translations_por.nllb_3_3b.blaser.jsonl `
-  --model sabia_7b `
-  --profile rtx_5070_ti `
-  --backend vllm `
-  --model-path assets/models/sabia-7b `
-  --max-tokens 64 `
-  --output outputs/pilot/target_generations_por_sabia_rtx.jsonl
-```
-
-9. Generate Sabiá responses for Arabic with vLLM.
-
-This uses the same target model and generation settings for the Arabic attack prompts.
-
-```powershell
-te generate-targets `
   --translations outputs/pilot/translations_ara.nllb_3_3b.blaser.jsonl `
   --model sabia_7b `
   --profile rtx_5070_ti `
   --backend vllm `
   --model-path assets/models/sabia-7b `
   --max-tokens 64 `
-  --output outputs/pilot/target_generations_ara_sabia_rtx.jsonl
+  --output outputs/pilot/target_generations_sabia_rtx_pilot.jsonl
 ```
 
-10. Combine the two generation files.
-
-This is a host-side file operation. It creates the single generation file used for judge batching.
-
-```powershell
-Get-Content `
-  outputs/pilot/target_generations_por_sabia_rtx.jsonl, `
-  outputs/pilot/target_generations_ara_sabia_rtx.jsonl |
-  Set-Content outputs/pilot/target_generations_sabia_rtx_pilot.jsonl
-```
-
-11. Export judge requests.
+8. Export judge requests.
 
 This creates one request per generated response per judge. No API call happens here.
 
@@ -378,7 +343,7 @@ te export-judge-batch `
   --output outputs/pilot/judge_requests_sabia_rtx_pilot.jsonl
 ```
 
-12. Export provider-shaped API batch files.
+9. Export provider-shaped API batch files.
 
 This writes OpenAI, Anthropic, and hosted Llama Guard batch inputs.
 
@@ -388,7 +353,7 @@ te export-api-batches `
   --output-dir outputs/pilot/api_batches_sabia_rtx_pilot
 ```
 
-13. Submit the judge batches outside this CLI.
+10. Submit the judge batches outside this CLI.
 
 Use your API batch tooling to submit:
 
@@ -402,7 +367,7 @@ Save the raw provider results as:
 - `outputs/pilot/api_batches_sabia_rtx_pilot/anthropic_results.jsonl`
 - `outputs/pilot/api_batches_sabia_rtx_pilot/llama_guard_results.jsonl`
 
-14. Normalize the returned judge results.
+11. Normalize the returned judge results.
 
 This converts provider-specific raw output into the shared judge-result schema.
 
@@ -423,7 +388,7 @@ te normalize-judge-results `
   --output outputs/pilot/api_batches_sabia_rtx_pilot/llama_guard_normalized.jsonl
 ```
 
-15. Combine normalized judge results.
+12. Combine normalized judge results.
 
 Majority vote requires all three judge labels for every generated response.
 
@@ -435,7 +400,7 @@ Get-Content `
   Set-Content outputs/pilot/judge_results_sabia_rtx_pilot.jsonl
 ```
 
-16. Compute majority vote.
+13. Compute majority vote.
 
 This validates analysis rows and writes the final `safe | unsafe | invalid` label per target response.
 
@@ -446,7 +411,7 @@ te majority-vote `
   --output outputs/pilot/analysis_rows_sabia_rtx_pilot.jsonl
 ```
 
-17. Export pilot rows.
+14. Export pilot rows.
 
 This exports a validated pilot copy. It is not the frozen thesis dataset.
 
@@ -553,18 +518,29 @@ te translate `
 
 ### Final 5. Run BLASER QC for every language on GPU
 
-This scores all source/translation pairs and writes QC logs.
+This scores all source/translation pairs and writes QC logs. BLASER and SONAR load once, then all 13 language files are scored.
 
 ```powershell
 te prewarm-sonar
 
-foreach ($lang in $LANGS) {
-  te translation-qc `
-    --translations "data/translations/$lang.nllb_3_3b.jsonl" `
-    --scorer blaser `
-    --device cuda `
-    --output "data/translations/$lang.blaser.jsonl"
-}
+te translation-qc `
+  --translations data/translations/ara.nllb_3_3b.jsonl `
+  --translations data/translations/bul.nllb_3_3b.jsonl `
+  --translations data/translations/dan.nllb_3_3b.jsonl `
+  --translations data/translations/eng.nllb_3_3b.jsonl `
+  --translations data/translations/fin.nllb_3_3b.jsonl `
+  --translations data/translations/ita.nllb_3_3b.jsonl `
+  --translations data/translations/nor.nllb_3_3b.jsonl `
+  --translations data/translations/por.nllb_3_3b.jsonl `
+  --translations data/translations/rus.nllb_3_3b.jsonl `
+  --translations data/translations/spa.nllb_3_3b.jsonl `
+  --translations data/translations/swa.nllb_3_3b.jsonl `
+  --translations data/translations/swe.nllb_3_3b.jsonl `
+  --translations data/translations/ukr.nllb_3_3b.jsonl `
+  --scorer blaser `
+  --device cuda `
+  --output-dir data/translations `
+  --output-template "{lang}.blaser.jsonl"
 ```
 
 ### Final 6. Export human XSTS audit queues
@@ -593,22 +569,33 @@ foreach ($lang in $LANGS) {
 
 ### Final 7. Generate target responses for all model-language pairs
 
-This runs vLLM on CUDA for each target model and language. It creates 52 generation files: 4 models times 13 languages.
+This runs vLLM on CUDA once per target model, reusing the loaded model across all 13 languages. It creates 52 generation files: 4 models times 13 languages.
 
 ```powershell
 New-Item -ItemType Directory -Force outputs\final\generations | Out-Null
 
 foreach ($model in $MODELS) {
-  foreach ($lang in $LANGS) {
-    te generate-targets `
-      --translations "data/translations/$lang.final.jsonl" `
-      --model $model `
-      --profile rtx_5070_ti `
-      --backend vllm `
-      --model-path $MODEL_PATH[$model] `
-      --max-tokens 512 `
-      --output "outputs/final/generations/${model}_${lang}.jsonl"
-  }
+  te generate-targets `
+    --translations data/translations/ara.final.jsonl `
+    --translations data/translations/bul.final.jsonl `
+    --translations data/translations/dan.final.jsonl `
+    --translations data/translations/eng.final.jsonl `
+    --translations data/translations/fin.final.jsonl `
+    --translations data/translations/ita.final.jsonl `
+    --translations data/translations/nor.final.jsonl `
+    --translations data/translations/por.final.jsonl `
+    --translations data/translations/rus.final.jsonl `
+    --translations data/translations/spa.final.jsonl `
+    --translations data/translations/swa.final.jsonl `
+    --translations data/translations/swe.final.jsonl `
+    --translations data/translations/ukr.final.jsonl `
+    --model $model `
+    --profile rtx_5070_ti `
+    --backend vllm `
+    --model-path $MODEL_PATH[$model] `
+    --max-tokens 512 `
+    --output-dir outputs/final/generations `
+    --output-template "{model}_{lang}.jsonl"
 }
 ```
 
