@@ -1,0 +1,13 @@
+# HF IDs are best-guess defaults; confirm in Phase 3 before loading.
+sabia_7b:
+  hf_id: maritaca-ai/sabia-7b
+  aligned_language: por
+fauno:
+  hf_id: andreabac3/Fauno-Italian-LLM-7B
+  aligned_language: ita
+gpt_sw3:
+  hf_id: AI-Sweden-Models/gpt-sw3-6.7b-v2-instruct
+  aligned_language: swe
+bggpt:
+  hf_id: INSAIT-Institute/BgGPT-7B-Instruct-v0.2
+  aligned_language: bul

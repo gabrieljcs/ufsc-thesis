@@ -1,0 +1,23 @@
+.env
+.venv/
+__pycache__/
+*.pyc
+.DS_Store
+.ipynb_checkpoints/
+*.parquet
+
+# Ignore generated artifacts and downloaded data, but keep the directory
+# structure via .gitkeep sentinels. Per-leaf patterns are used because git
+# negations can't re-include files inside an excluded directory.
+data/raw/strongreject/*
+!data/raw/strongreject/.gitkeep
+data/raw/multijail/*
+!data/raw/multijail/.gitkeep
+data/raw/belebele/*
+!data/raw/belebele/.gitkeep
+data/translations/*
+!data/translations/.gitkeep
+outputs/tables/*
+!outputs/tables/.gitkeep
+outputs/figures/*
+!outputs/figures/.gitkeep
