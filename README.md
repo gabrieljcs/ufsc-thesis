@@ -257,7 +257,15 @@ This writes the full normalized prompt file plus a 2-prompt pilot file.
 te import-strongreject --source github --pilot-size 2
 ```
 
-3. Prewarm SONAR.
+3. Check whether the target model has a chat template.
+
+This reports model metadata from the downloaded Sabiá files. If `has_chat_template` is `false`, generation is raw language-model continuation rather than chat/instruction following. The upstream `maritaca-ai/sabia-7b` checkpoint is a base language model, so prompt echoing is expected.
+
+```powershell
+te model-status --model sabia_7b
+```
+
+4. Prewarm SONAR.
 
 This downloads the SONAR text encoder (~3 GB) into the persistent cache so the later BLASER QC step does not block on it. With the TTY flag the helper sets, fairseq2's progress bars are visible while it runs. Expect 5–15 min on the first run, near-instant after that as long as `$CACHE` is mounted.
 
@@ -265,7 +273,7 @@ This downloads the SONAR text encoder (~3 GB) into the persistent cache so the l
 te prewarm-sonar
 ```
 
-4. Translate the pilot prompts into Portuguese and Arabic with one NLLB load.
+5. Translate the pilot prompts into Portuguese and Arabic with one NLLB load.
 
 This creates the aligned-language baseline prompts for Sabiá (`por`) and the first attack-language prompts (`ara`). NLLB is loaded on CUDA in fp16 once, then reused for both languages before the container exits.
 
@@ -287,7 +295,7 @@ The `--stream` flag prints each prompt and its translation to stderr as it is pr
 
 If you run one `te translate` command per language, NLLB has to reload its checkpoint shards every time because each command starts a new container and Python process. Repeating `--target-language` in one command is faster for translation batches because the model stays loaded while all requested language files are written.
 
-5. Run BLASER QC for Portuguese and Arabic with one BLASER load.
+6. Run BLASER QC for Portuguese and Arabic with one BLASER load.
 
 This scores source/translation semantic preservation and writes `blaser_qe_score` plus `pass | flag | fail`. BLASER and SONAR load once, then both translation files are scored before the container exits.
 
@@ -301,7 +309,7 @@ te translation-qc `
   --output-template "translations_{lang}.nllb_3_3b.blaser.jsonl"
 ```
 
-6. Export XSTS audit queues.
+7. Export XSTS audit queues.
 
 This creates reviewer CSVs. For the tiny pilot, inspect them manually. For the final project, reviewer decisions should be imported before generation.
 
@@ -317,9 +325,9 @@ te export-audit-queue `
   --include-passed
 ```
 
-7. Generate Sabiá responses for Portuguese and Arabic with one Sabiá/vLLM load.
+8. Generate Sabiá responses for Portuguese and Arabic with one Sabiá/vLLM load.
 
-This starts a fresh container, loads Sabiá-7B from the mounted Downloads asset folder, and generates target responses for both pilot languages before the container exits.
+This starts a fresh container, loads Sabiá-7B from the mounted Downloads asset folder, and generates target responses for both pilot languages before the container exits. For chat/instruct checkpoints, the vLLM path applies the tokenizer chat template automatically. For base checkpoints without a chat template, it logs a warning and uses raw continuation prompts.
 
 ```powershell
 te generate-targets `
@@ -333,7 +341,7 @@ te generate-targets `
   --output outputs/pilot/target_generations_sabia_rtx_pilot.jsonl
 ```
 
-8. Export judge requests.
+9. Export judge requests.
 
 This creates one request per generated response per judge. No API call happens here.
 
@@ -343,7 +351,7 @@ te export-judge-batch `
   --output outputs/pilot/judge_requests_sabia_rtx_pilot.jsonl
 ```
 
-9. Export provider-shaped API batch files.
+10. Export provider-shaped API batch files.
 
 This writes OpenAI, Anthropic, and hosted Llama Guard batch inputs.
 
@@ -353,7 +361,7 @@ te export-api-batches `
   --output-dir outputs/pilot/api_batches_sabia_rtx_pilot
 ```
 
-10. Submit the judge batches outside this CLI.
+11. Submit the judge batches outside this CLI.
 
 Use your API batch tooling to submit:
 
@@ -367,7 +375,7 @@ Save the raw provider results as:
 - `outputs/pilot/api_batches_sabia_rtx_pilot/anthropic_results.jsonl`
 - `outputs/pilot/api_batches_sabia_rtx_pilot/llama_guard_results.jsonl`
 
-11. Normalize the returned judge results.
+12. Normalize the returned judge results.
 
 This converts provider-specific raw output into the shared judge-result schema.
 
@@ -388,7 +396,7 @@ te normalize-judge-results `
   --output outputs/pilot/api_batches_sabia_rtx_pilot/llama_guard_normalized.jsonl
 ```
 
-12. Combine normalized judge results.
+13. Combine normalized judge results.
 
 Majority vote requires all three judge labels for every generated response.
 
@@ -400,7 +408,7 @@ Get-Content `
   Set-Content outputs/pilot/judge_results_sabia_rtx_pilot.jsonl
 ```
 
-13. Compute majority vote.
+14. Compute majority vote.
 
 This validates analysis rows and writes the final `safe | unsafe | invalid` label per target response.
 
@@ -411,7 +419,7 @@ te majority-vote `
   --output outputs/pilot/analysis_rows_sabia_rtx_pilot.jsonl
 ```
 
-14. Export pilot rows.
+15. Export pilot rows.
 
 This exports a validated pilot copy. It is not the frozen thesis dataset.
 
@@ -730,6 +738,7 @@ tedocker python -m unittest
 - **SONAR/HF Hub redownloads on every run:** the persistent cache mount is missing. Confirm `$CACHE` is set and that `tedocker` includes `-v "${CACHE}:/root/.cache"`.
 - **CUDA runs out of memory:** run one stage per command as shown, keep `--dtype float16`, and lower `--max-tokens` for pilot/debug runs.
 - **BLASER or SONAR downloads during QC:** expected on first run. `prewarm-sonar` makes this less surprising.
+- **Sabiá echoes the prompt:** `maritaca-ai/sabia-7b` is a base language model without an instruction/chat template. Run `te model-status --model sabia_7b`; if `has_chat_template` is `false`, bad zero-shot instruction-following output is expected. Use an instruction-tuned target or revise the experimental design before treating those generations as thesis evidence.
 - **Majority vote fails:** at least one generation is missing one of the three judge results. Normalize and combine all three providers before running `majority-vote`.
 - **Do not use StrongREJECT's evaluator:** this project always uses the three API judges and majority vote.
 - **Do not overwrite `outputs/dataset_frozen.parquet` during pilots:** pilot outputs belong under `outputs/pilot/`.

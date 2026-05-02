@@ -22,7 +22,7 @@ from thesis_eval.evaluation.majority_vote import majority_vote, normalize_raw_la
 from thesis_eval.io import write_jsonl
 from thesis_eval.metrics.asr import summarize_labels
 from thesis_eval.metrics.spec import add_spec_scores, z_scores
-from thesis_eval.models.generation import generate_outputs
+from thesis_eval.models.generation import estimate_model_asset_state, generate_outputs
 from thesis_eval.runtime import load_runtime_profiles
 from thesis_eval.schema import validate_analysis_rows, validate_translation_log
 from thesis_eval.translation.audit import apply_audit_decisions, build_audit_queue
@@ -89,6 +89,15 @@ class GenerationTests(unittest.TestCase):
         outputs = generate_outputs(["prompt"], "unused/model", backend="mock")
         self.assertEqual(len(outputs), 1)
         self.assertIn("mock target response", outputs[0])
+
+    def test_model_status_reports_chat_template(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp)
+            (path / "config.json").write_text('{"model_type":"llama","architectures":["LlamaForCausalLM"]}', encoding="utf-8")
+            (path / "tokenizer_config.json").write_text('{"chat_template":"{{ messages }}"}', encoding="utf-8")
+            result = estimate_model_asset_state("fixture/model", local_dir=str(path))
+            self.assertTrue(result["has_chat_template"])
+            self.assertEqual(result["model_type"], "llama")
 
 
 class UrielTests(unittest.TestCase):

@@ -1,6 +1,8 @@
 from __future__ import annotations
 
+import json
 import sys
+from pathlib import Path
 from typing import Any
 
 from thesis_eval.progress import info, step
@@ -74,11 +76,21 @@ def generate_outputs(
 
 def estimate_model_asset_state(hf_id: str, local_dir: str | None = None) -> dict[str, object]:
     if local_dir is None:
-        return {"hf_id": hf_id, "local_dir": None, "exists": None, "files": None, "bytes": None, "has_config": None}
-    from pathlib import Path
-
+        return {
+            "hf_id": hf_id,
+            "local_dir": None,
+            "exists": None,
+            "files": None,
+            "bytes": None,
+            "has_config": None,
+            "has_chat_template": None,
+            "model_type": None,
+            "architectures": None,
+        }
     path = Path(local_dir)
     files = [child for child in path.rglob("*") if child.is_file()] if path.exists() else []
+    config = _read_json(path / "config.json")
+    tokenizer_config = _read_json(path / "tokenizer_config.json")
     return {
         "hf_id": hf_id,
         "local_dir": str(path),
@@ -86,6 +98,9 @@ def estimate_model_asset_state(hf_id: str, local_dir: str | None = None) -> dict
         "files": len(files),
         "bytes": sum(child.stat().st_size for child in files),
         "has_config": (path / "config.json").exists(),
+        "has_chat_template": bool(tokenizer_config.get("chat_template")),
+        "model_type": config.get("model_type"),
+        "architectures": config.get("architectures"),
     }
 
 
@@ -98,8 +113,15 @@ def generate_with_vllm(
 ) -> list[str]:
     try:
         from vllm import LLM, SamplingParams
+        from transformers import AutoTokenizer
     except ImportError as exc:
         raise RuntimeError("vLLM is not installed. Use the Docker GPU profile or run with --mock-output.") from exc
+    tokenizer = AutoTokenizer.from_pretrained(model_ref, trust_remote_code=trust_remote_code, local_files_only=_is_local_model_ref(model_ref))
+    formatted_prompts = [_format_prompt(tokenizer, prompt) for prompt in prompts]
+    if getattr(tokenizer, "chat_template", None):
+        info("Applying tokenizer chat template before vLLM generation")
+    else:
+        info("Tokenizer has no chat_template; vLLM will use raw continuation prompts")
     llm = LLM(
         model=model_ref,
         trust_remote_code=trust_remote_code,
@@ -107,7 +129,7 @@ def generate_with_vllm(
         gpu_memory_utilization=0.90,
     )
     sampling = SamplingParams(max_tokens=max_tokens, temperature=temperature)
-    outputs = llm.generate(prompts, sampling)
+    outputs = llm.generate(formatted_prompts, sampling)
     return [output.outputs[0].text for output in outputs]
 
 
@@ -249,9 +271,16 @@ def _resolve_dtype(dtype: str, device: str) -> Any:
 
 
 def _is_local_model_ref(model_ref: str) -> bool:
-    from pathlib import Path
-
     return Path(model_ref).exists()
+
+
+def _read_json(path: Path) -> dict[str, Any]:
+    if not path.exists():
+        return {}
+    try:
+        return json.loads(path.read_text(encoding="utf-8"))
+    except Exception:
+        return {}
 
 
 def attach_outputs(rows: list[dict[str, Any]], outputs: list[str]) -> list[dict[str, Any]]:

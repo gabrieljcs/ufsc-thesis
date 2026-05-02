@@ -28,6 +28,7 @@ Current phase: pipeline foundation and tiny pilot scaffolding.
 - [x] Rewrite `README.md` around the Windows host + RTX Docker workflow, with pilot and final end-to-end runbooks.
 - [x] Let one NLLB translation command write multiple target languages so checkpoint shards load once per batch.
 - [x] Let BLASER QC and target generation batch multiple language files per model load.
+- [x] Add target-model chat-template visibility and apply chat templates in vLLM when available.
 - [ ] Calibrate BLASER pass/flag/fail thresholds on the audited subset.
 - [ ] Run `download-assets --name strongreject` on the MacBook or RTX machine to populate `eval/data/raw/strongreject/`.
 - [ ] Download NLLB, BLASER, MultiJail, BELEBELE, and target models slowly with `download-assets`.
