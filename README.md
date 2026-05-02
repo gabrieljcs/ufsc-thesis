@@ -67,12 +67,12 @@ Common commands:
 - `majority-vote`: require all three judges and compute final labels.
 - `export-results`: export validated analysis rows.
 
-After the Windows setup defines `$GPU`, ask the CLI for flags:
+After the Windows setup defines the `te` function, ask the CLI for flags:
 
 ```powershell
-docker @GPU thesis-eval --help
-docker @GPU thesis-eval translate --help
-docker @GPU thesis-eval generate-targets --help
+te --help
+te translate --help
+te generate-targets --help
 ```
 
 ## Windows RTX Setup
@@ -135,20 +135,34 @@ This image contains the project CLI, PyTorch CUDA, vLLM, Transformers, NLLB depe
 docker build -f docker/Dockerfile.gpu -t thesis-eval:gpu .
 ```
 
-6. Define the reusable Docker wrapper.
+6. Define the reusable Docker helper functions.
 
 Keep using the same PowerShell session after this. If you open a new terminal, rerun this block.
 
 ```powershell
-$GPU = @(
-  "run", "--rm", "--gpus", "all",
-  "-v", "${PROJECT}:/work/eval",
-  "-v", "${ASSETS}:/work/eval/assets",
-  "-v", "${HF_CACHE}:/root/.cache/huggingface",
-  "-w", "/work/eval",
-  "--env-file", ".env",
-  "thesis-eval:gpu"
-)
+function tedocker {
+  param(
+    [Parameter(ValueFromRemainingArguments = $true)]
+    [string[]] $Arguments
+  )
+
+  docker run --rm --gpus all `
+    -v "${PROJECT}:/work/eval" `
+    -v "${ASSETS}:/work/eval/assets" `
+    -v "${HF_CACHE}:/root/.cache/huggingface" `
+    -w /work/eval `
+    --env-file .env `
+    thesis-eval:gpu @Arguments
+}
+
+function te {
+  param(
+    [Parameter(ValueFromRemainingArguments = $true)]
+    [string[]] $Arguments
+  )
+
+  tedocker thesis-eval @Arguments
+}
 ```
 
 7. Smoke-test the image.
@@ -156,9 +170,9 @@ $GPU = @(
 This confirms that the container sees CUDA and that the thesis CLI can load its config.
 
 ```powershell
-docker @GPU python -c "import torch; print(torch.cuda.is_available()); print(torch.cuda.get_device_name(0))"
-docker @GPU thesis-eval validate-config
-docker @GPU thesis-eval runtime-profiles
+tedocker python -c "import torch; print(torch.cuda.is_available()); print(torch.cuda.get_device_name(0))"
+te validate-config
+te runtime-profiles
 ```
 
 ## Asset Downloads
@@ -168,47 +182,47 @@ Downloads are modular. They write into `/work/eval/assets`, which is the mounted
 List the manifest:
 
 ```powershell
-docker @GPU thesis-eval list-assets
-docker @GPU thesis-eval asset-status
+te list-assets
+te asset-status
 ```
 
 Download and verify one thing at a time:
 
 ```powershell
-docker @GPU thesis-eval download-assets --name strongreject
-docker @GPU thesis-eval verify-assets --name strongreject
+te download-assets --name strongreject
+te verify-assets --name strongreject
 
-docker @GPU thesis-eval download-assets --name nllb_200_3_3b
-docker @GPU thesis-eval verify-assets --name nllb_200_3_3b
+te download-assets --name nllb_200_3_3b
+te verify-assets --name nllb_200_3_3b
 
-docker @GPU thesis-eval download-assets --name blaser_2_0_qe
-docker @GPU thesis-eval verify-assets --name blaser_2_0_qe
+te download-assets --name blaser_2_0_qe
+te verify-assets --name blaser_2_0_qe
 
-docker @GPU thesis-eval download-assets --name sabia_7b
-docker @GPU thesis-eval verify-assets --name sabia_7b
+te download-assets --name sabia_7b
+te verify-assets --name sabia_7b
 ```
 
 Other target models for the full run:
 
 ```powershell
-docker @GPU thesis-eval download-assets --name fauno
-docker @GPU thesis-eval verify-assets --name fauno
+te download-assets --name fauno
+te verify-assets --name fauno
 
-docker @GPU thesis-eval download-assets --name gpt_sw3
-docker @GPU thesis-eval verify-assets --name gpt_sw3
+te download-assets --name gpt_sw3
+te verify-assets --name gpt_sw3
 
-docker @GPU thesis-eval download-assets --name bggpt
-docker @GPU thesis-eval verify-assets --name bggpt
+te download-assets --name bggpt
+te verify-assets --name bggpt
 ```
 
 Other datasets for the full run:
 
 ```powershell
-docker @GPU thesis-eval download-assets --name multijail
-docker @GPU thesis-eval verify-assets --name multijail
+te download-assets --name multijail
+te verify-assets --name multijail
 
-docker @GPU thesis-eval download-assets --name belebele
-docker @GPU thesis-eval verify-assets --name belebele
+te download-assets --name belebele
+te verify-assets --name belebele
 ```
 
 Notes:
@@ -234,8 +248,8 @@ The pilot does not create or overwrite the frozen dataset.
 This validates config and recreates the URIEL+ distance matrix used later to attach linguistic distance values.
 
 ```powershell
-docker @GPU thesis-eval validate-config
-docker @GPU thesis-eval prepare-uriel
+te validate-config
+te prepare-uriel
 ```
 
 2. Import StrongREJECT and create the pilot prompt slice.
@@ -243,7 +257,7 @@ docker @GPU thesis-eval prepare-uriel
 This writes the full normalized prompt file plus a 2-prompt pilot file.
 
 ```powershell
-docker @GPU thesis-eval import-strongreject --source github --pilot-size 2
+te import-strongreject --source github --pilot-size 2
 ```
 
 3. Prewarm SONAR.
@@ -251,7 +265,7 @@ docker @GPU thesis-eval import-strongreject --source github --pilot-size 2
 This lets SONAR/fairseq2 download and initialize its text encoder before the BLASER scoring step.
 
 ```powershell
-docker @GPU thesis-eval prewarm-sonar
+te prewarm-sonar
 ```
 
 4. Translate the pilot prompts into Portuguese with NLLB on GPU.
@@ -259,7 +273,7 @@ docker @GPU thesis-eval prewarm-sonar
 This creates the aligned-language baseline prompts for Sabiá. The NLLB model is loaded on CUDA in fp16.
 
 ```powershell
-docker @GPU thesis-eval translate `
+te translate `
   --prompts data/raw/strongreject/pilot_prompts.jsonl `
   --target-language por `
   --engine nllb `
@@ -274,7 +288,7 @@ docker @GPU thesis-eval translate `
 This creates the first cross-lingual attack prompts with the same translator and decoding setup.
 
 ```powershell
-docker @GPU thesis-eval translate `
+te translate `
   --prompts data/raw/strongreject/pilot_prompts.jsonl `
   --target-language ara `
   --engine nllb `
@@ -289,7 +303,7 @@ docker @GPU thesis-eval translate `
 This scores source/translation semantic preservation and writes `blaser_qe_score` plus `pass | flag | fail`.
 
 ```powershell
-docker @GPU thesis-eval translation-qc `
+te translation-qc `
   --translations outputs/pilot/translations_por.nllb_3_3b.jsonl `
   --scorer blaser `
   --device cuda `
@@ -301,7 +315,7 @@ docker @GPU thesis-eval translation-qc `
 This applies the same QC process to the attack-language translations.
 
 ```powershell
-docker @GPU thesis-eval translation-qc `
+te translation-qc `
   --translations outputs/pilot/translations_ara.nllb_3_3b.jsonl `
   --scorer blaser `
   --device cuda `
@@ -313,12 +327,12 @@ docker @GPU thesis-eval translation-qc `
 This creates reviewer CSVs. For the tiny pilot, inspect them manually. For the final project, reviewer decisions should be imported before generation.
 
 ```powershell
-docker @GPU thesis-eval export-audit-queue `
+te export-audit-queue `
   --translations outputs/pilot/translations_por.nllb_3_3b.blaser.jsonl `
   --output outputs/pilot/audit_por.nllb_3_3b.csv `
   --include-passed
 
-docker @GPU thesis-eval export-audit-queue `
+te export-audit-queue `
   --translations outputs/pilot/translations_ara.nllb_3_3b.blaser.jsonl `
   --output outputs/pilot/audit_ara.nllb_3_3b.csv `
   --include-passed
@@ -329,7 +343,7 @@ docker @GPU thesis-eval export-audit-queue `
 This starts a fresh container, loads Sabiá-7B from the mounted Downloads asset folder, and generates target responses on CUDA.
 
 ```powershell
-docker @GPU thesis-eval generate-targets `
+te generate-targets `
   --translations outputs/pilot/translations_por.nllb_3_3b.blaser.jsonl `
   --model sabia_7b `
   --profile rtx_5070_ti `
@@ -344,7 +358,7 @@ docker @GPU thesis-eval generate-targets `
 This uses the same target model and generation settings for the Arabic attack prompts.
 
 ```powershell
-docker @GPU thesis-eval generate-targets `
+te generate-targets `
   --translations outputs/pilot/translations_ara.nllb_3_3b.blaser.jsonl `
   --model sabia_7b `
   --profile rtx_5070_ti `
@@ -370,7 +384,7 @@ Get-Content `
 This creates one request per generated response per judge. No API call happens here.
 
 ```powershell
-docker @GPU thesis-eval export-judge-batch `
+te export-judge-batch `
   --generations outputs/pilot/target_generations_sabia_rtx_pilot.jsonl `
   --output outputs/pilot/judge_requests_sabia_rtx_pilot.jsonl
 ```
@@ -380,7 +394,7 @@ docker @GPU thesis-eval export-judge-batch `
 This writes OpenAI, Anthropic, and hosted Llama Guard batch inputs.
 
 ```powershell
-docker @GPU thesis-eval export-api-batches `
+te export-api-batches `
   --requests outputs/pilot/judge_requests_sabia_rtx_pilot.jsonl `
   --output-dir outputs/pilot/api_batches_sabia_rtx_pilot
 ```
@@ -404,17 +418,17 @@ Save the raw provider results as:
 This converts provider-specific raw output into the shared judge-result schema.
 
 ```powershell
-docker @GPU thesis-eval normalize-judge-results `
+te normalize-judge-results `
   --provider openai `
   --input outputs/pilot/api_batches_sabia_rtx_pilot/openai_results.jsonl `
   --output outputs/pilot/api_batches_sabia_rtx_pilot/openai_normalized.jsonl
 
-docker @GPU thesis-eval normalize-judge-results `
+te normalize-judge-results `
   --provider anthropic `
   --input outputs/pilot/api_batches_sabia_rtx_pilot/anthropic_results.jsonl `
   --output outputs/pilot/api_batches_sabia_rtx_pilot/anthropic_normalized.jsonl
 
-docker @GPU thesis-eval normalize-judge-results `
+te normalize-judge-results `
   --provider hosted `
   --input outputs/pilot/api_batches_sabia_rtx_pilot/llama_guard_results.jsonl `
   --output outputs/pilot/api_batches_sabia_rtx_pilot/llama_guard_normalized.jsonl
@@ -437,7 +451,7 @@ Get-Content `
 This validates analysis rows and writes the final `safe | unsafe | invalid` label per target response.
 
 ```powershell
-docker @GPU thesis-eval majority-vote `
+te majority-vote `
   --generations outputs/pilot/target_generations_sabia_rtx_pilot.jsonl `
   --judge-results outputs/pilot/judge_results_sabia_rtx_pilot.jsonl `
   --output outputs/pilot/analysis_rows_sabia_rtx_pilot.jsonl
@@ -448,7 +462,7 @@ docker @GPU thesis-eval majority-vote `
 This exports a validated pilot copy. It is not the frozen thesis dataset.
 
 ```powershell
-docker @GPU thesis-eval export-results `
+te export-results `
   --rows outputs/pilot/analysis_rows_sabia_rtx_pilot.jsonl `
   --output outputs/pilot/analysis_rows_sabia_rtx_pilot.export.jsonl
 ```
@@ -466,7 +480,7 @@ The final project repeats the same shape as the pilot, but expands to:
 
 ### Final 1. Define language and model variables
 
-Run this in the same PowerShell session as `$GPU`.
+Run this in the same PowerShell session where you defined `te`.
 
 ```powershell
 $LANGS = @("ara","bul","dan","eng","fin","ita","nor","por","rus","spa","swa","swe","ukr")
@@ -484,8 +498,8 @@ $MODEL_PATH = @{
 This imports the full StrongREJECT source and prepares URIEL+.
 
 ```powershell
-docker @GPU thesis-eval prepare-uriel
-docker @GPU thesis-eval import-strongreject --source github --pilot-size 2
+te prepare-uriel
+te import-strongreject --source github --pilot-size 2
 ```
 
 The full prompt file is `data/raw/strongreject/prompts.jsonl`. The pilot file remains available separately.
@@ -495,29 +509,29 @@ The full prompt file is `data/raw/strongreject/prompts.jsonl`. The pilot file re
 This pulls every dataset/model required for the main run. Keep it modular if your connection is unstable.
 
 ```powershell
-docker @GPU thesis-eval download-assets --name strongreject
-docker @GPU thesis-eval download-assets --name multijail
-docker @GPU thesis-eval download-assets --name belebele
-docker @GPU thesis-eval download-assets --name nllb_200_3_3b
-docker @GPU thesis-eval download-assets --name blaser_2_0_qe
-docker @GPU thesis-eval download-assets --name sabia_7b
-docker @GPU thesis-eval download-assets --name fauno
-docker @GPU thesis-eval download-assets --name gpt_sw3
-docker @GPU thesis-eval download-assets --name bggpt
+te download-assets --name strongreject
+te download-assets --name multijail
+te download-assets --name belebele
+te download-assets --name nllb_200_3_3b
+te download-assets --name blaser_2_0_qe
+te download-assets --name sabia_7b
+te download-assets --name fauno
+te download-assets --name gpt_sw3
+te download-assets --name bggpt
 ```
 
 Verify them:
 
 ```powershell
-docker @GPU thesis-eval verify-assets --name strongreject
-docker @GPU thesis-eval verify-assets --name multijail
-docker @GPU thesis-eval verify-assets --name belebele
-docker @GPU thesis-eval verify-assets --name nllb_200_3_3b
-docker @GPU thesis-eval verify-assets --name blaser_2_0_qe
-docker @GPU thesis-eval verify-assets --name sabia_7b
-docker @GPU thesis-eval verify-assets --name fauno
-docker @GPU thesis-eval verify-assets --name gpt_sw3
-docker @GPU thesis-eval verify-assets --name bggpt
+te verify-assets --name strongreject
+te verify-assets --name multijail
+te verify-assets --name belebele
+te verify-assets --name nllb_200_3_3b
+te verify-assets --name blaser_2_0_qe
+te verify-assets --name sabia_7b
+te verify-assets --name fauno
+te verify-assets --name gpt_sw3
+te verify-assets --name bggpt
 ```
 
 ### Final 4. Translate every StrongREJECT language on GPU
@@ -526,7 +540,7 @@ This runs NLLB-200 3.3B once per language. Each command exits after writing the 
 
 ```powershell
 foreach ($lang in $LANGS) {
-  docker @GPU thesis-eval translate `
+  te translate `
     --prompts data/raw/strongreject/prompts.jsonl `
     --target-language $lang `
     --engine nllb `
@@ -542,10 +556,10 @@ foreach ($lang in $LANGS) {
 This scores all source/translation pairs and writes QC logs.
 
 ```powershell
-docker @GPU thesis-eval prewarm-sonar
+te prewarm-sonar
 
 foreach ($lang in $LANGS) {
-  docker @GPU thesis-eval translation-qc `
+  te translation-qc `
     --translations "data/translations/$lang.nllb_3_3b.jsonl" `
     --scorer blaser `
     --device cuda `
@@ -559,7 +573,7 @@ This creates one CSV per language. Review all flagged/failing rows plus the plan
 
 ```powershell
 foreach ($lang in $LANGS) {
-  docker @GPU thesis-eval export-audit-queue `
+  te export-audit-queue `
     --translations "data/translations/$lang.blaser.jsonl" `
     --output "data/translations/$lang.audit.csv" `
     --include-passed
@@ -570,7 +584,7 @@ After review, import the decisions. The reviewer-edited CSVs should keep the sam
 
 ```powershell
 foreach ($lang in $LANGS) {
-  docker @GPU thesis-eval import-audit `
+  te import-audit `
     --translations "data/translations/$lang.blaser.jsonl" `
     --audit-csv "data/translations/$lang.audit.csv" `
     --output "data/translations/$lang.final.jsonl"
@@ -586,7 +600,7 @@ New-Item -ItemType Directory -Force outputs\final\generations | Out-Null
 
 foreach ($model in $MODELS) {
   foreach ($lang in $LANGS) {
-    docker @GPU thesis-eval generate-targets `
+    te generate-targets `
       --translations "data/translations/$lang.final.jsonl" `
       --model $model `
       --profile rtx_5070_ti `
@@ -615,11 +629,11 @@ Get-ChildItem outputs\final\generations\*.jsonl |
 This creates the request files for all three judges. No local judge model is loaded.
 
 ```powershell
-docker @GPU thesis-eval export-judge-batch `
+te export-judge-batch `
   --generations outputs/final/target_generations_all.jsonl `
   --output outputs/final/judge_requests_all.jsonl
 
-docker @GPU thesis-eval export-api-batches `
+te export-api-batches `
   --requests outputs/final/judge_requests_all.jsonl `
   --output-dir outputs/final/api_batches
 ```
@@ -641,17 +655,17 @@ Save raw results as:
 This converts all provider responses into the shared judge-result schema.
 
 ```powershell
-docker @GPU thesis-eval normalize-judge-results `
+te normalize-judge-results `
   --provider openai `
   --input outputs/final/api_batches/openai_results.jsonl `
   --output outputs/final/api_batches/openai_normalized.jsonl
 
-docker @GPU thesis-eval normalize-judge-results `
+te normalize-judge-results `
   --provider anthropic `
   --input outputs/final/api_batches/anthropic_results.jsonl `
   --output outputs/final/api_batches/anthropic_normalized.jsonl
 
-docker @GPU thesis-eval normalize-judge-results `
+te normalize-judge-results `
   --provider hosted `
   --input outputs/final/api_batches/llama_guard_results.jsonl `
   --output outputs/final/api_batches/llama_guard_normalized.jsonl
@@ -672,7 +686,7 @@ Get-Content `
 This requires all three judge results for every response. It will fail rather than silently label incomplete rows.
 
 ```powershell
-docker @GPU thesis-eval majority-vote `
+te majority-vote `
   --generations outputs/final/target_generations_all.jsonl `
   --judge-results outputs/final/judge_results_all.jsonl `
   --output outputs/final/analysis_rows_all.jsonl
@@ -683,7 +697,7 @@ docker @GPU thesis-eval majority-vote `
 Only do this once the final run is complete and checked. This is the file the Results chapter should be based on.
 
 ```powershell
-docker @GPU thesis-eval export-results `
+te export-results `
   --rows outputs/final/analysis_rows_all.jsonl `
   --output outputs/dataset_frozen.parquet
 ```
@@ -691,7 +705,7 @@ docker @GPU thesis-eval export-results `
 If the frozen file already exists and you intentionally need to replace it:
 
 ```powershell
-docker @GPU thesis-eval export-results `
+te export-results `
   --rows outputs/final/analysis_rows_all.jsonl `
   --output outputs/dataset_frozen.parquet `
   --allow-frozen-overwrite
@@ -719,14 +733,14 @@ PYTHONPATH=src python3 -m unittest
 Or from Docker:
 
 ```powershell
-docker @GPU python -m unittest
+tedocker python -m unittest
 ```
 
 ## Troubleshooting
 
 - **Docker cannot see the GPU:** run `docker run --rm --gpus all nvidia/cuda:12.8.1-base-ubuntu24.04 nvidia-smi`. If that fails, fix Docker Desktop/WSL2/NVIDIA driver first.
 - **vLLM fails on Windows outside Docker:** expected. Use Docker for target inference.
-- **A model downloads into the repo instead of Downloads:** check that `$ASSETS` is mounted with `-v "${ASSETS}:/work/eval/assets"` in `$GPU`.
+- **A model downloads into the repo instead of Downloads:** check that `$ASSETS` is mounted with `-v "${ASSETS}:/work/eval/assets"` inside the `tedocker` function.
 - **CUDA runs out of memory:** run one stage per command as shown, keep `--dtype float16`, and lower `--max-tokens` for pilot/debug runs.
 - **BLASER or SONAR downloads during QC:** expected on first run. `prewarm-sonar` makes this less surprising.
 - **Majority vote fails:** at least one generation is missing one of the three judge results. Normalize and combine all three providers before running `majority-vote`.
