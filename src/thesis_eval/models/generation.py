@@ -100,7 +100,12 @@ def generate_with_vllm(
         from vllm import LLM, SamplingParams
     except ImportError as exc:
         raise RuntimeError("vLLM is not installed. Use the Docker GPU profile or run with --mock-output.") from exc
-    llm = LLM(model=model_ref, trust_remote_code=trust_remote_code)
+    llm = LLM(
+        model=model_ref,
+        trust_remote_code=trust_remote_code,
+        max_model_len=1280,
+        gpu_memory_utilization=0.90,
+    )
     sampling = SamplingParams(max_tokens=max_tokens, temperature=temperature)
     outputs = llm.generate(prompts, sampling)
     return [output.outputs[0].text for output in outputs]
