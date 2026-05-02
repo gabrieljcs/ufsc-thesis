@@ -24,17 +24,18 @@ Current phase: pipeline foundation and tiny pilot scaffolding.
 - [x] Add progress logging and explicit SONAR prewarm command for BLASER QC.
 - [x] Make target generation prefer local downloaded model assets and expose `--model-path`.
 - [x] Add GPU-aware NLLB translation flags and keep large translator checkpoints loaded across a run.
-- [x] Document the ordered RTX Sabiá end-to-end pilot commands in `README.md`.
+- [x] Document the ordered RTX Sagui end-to-end pilot commands in `README.md`.
 - [x] Rewrite `README.md` around the Windows host + RTX Docker workflow, with pilot and final end-to-end runbooks.
 - [x] Let one NLLB translation command write multiple target languages so checkpoint shards load once per batch.
 - [x] Let BLASER QC and target generation batch multiple language files per model load.
 - [x] Add target-model chat-template visibility and apply chat templates in vLLM when available.
+- [x] Switch the Portuguese target from base Sabiá-7B to instruction-tuned Sagui-7B-Instruct after pilot sanity checks.
 - [ ] Calibrate BLASER pass/flag/fail thresholds on the audited subset.
 - [ ] Run `download-assets --name strongreject` on the MacBook or RTX machine to populate `eval/data/raw/strongreject/`.
 - [ ] Download NLLB, BLASER, MultiJail, BELEBELE, and target models slowly with `download-assets`.
 - [ ] Run `verify-assets` after each downloaded asset.
 - [ ] Run the no-inference 2-prompt pilot on the MacBook Pro.
-- [ ] Try optional MacBook Sabiá 2-prompt generation smoke test with `scripts/macbook_sabia_generation_smoke.sh`.
+- [ ] Try optional MacBook Sagui 2-prompt generation smoke test with `scripts/macbook_sagui_generation_smoke.sh`.
 - [ ] Run a real 2-prompt pilot through local vLLM target inference on the RTX machine.
 - [ ] Batch query all three API judges and import their results.
 - [ ] Add human XSTS audit import examples.

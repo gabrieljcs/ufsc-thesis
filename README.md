@@ -2,7 +2,7 @@
 
 Evaluation code for the thesis **Cross-Lingual Jailbreak Evaluation of Language-Specific LLMs**.
 
-The authoritative research contract is [`../AGENTS.md`](../AGENTS.md). This README is the operator manual: it explains the project layout, the command interface, and the exact Windows + RTX Docker workflow for the Sabiá pilot and the full experiment.
+The authoritative research contract is [`../AGENTS.md`](../AGENTS.md). This README is the operator manual: it explains the project layout, the command interface, and the exact Windows + RTX Docker workflow for the Sagui pilot and the full experiment.
 
 ## What Runs Where
 
@@ -31,7 +31,7 @@ Each model-backed command is run in a fresh container. That frees the 16 GB GPU 
   - `data/uriel_plus/distance_matrix.csv`: static URIEL+ distance matrix.
 - `assets/`: model/dataset assets downloaded by the CLI. Excluded from git via `.gitignore`.
 - `outputs/`: generated experiment outputs.
-  - `outputs/pilot/`: tiny Sabiá pilot outputs.
+  - `outputs/pilot/`: tiny Sagui pilot outputs.
   - `outputs/final/`: recommended full-run working area.
   - `outputs/dataset_frozen.parquet`: final frozen dataset; do not overwrite during pilots.
 - `src/thesis_eval/`: implementation.
@@ -195,8 +195,8 @@ te verify-assets --name nllb_200_3_3b
 te download-assets --name blaser_2_0_qe
 te verify-assets --name blaser_2_0_qe
 
-te download-assets --name sabia_7b
-te verify-assets --name sabia_7b
+te download-assets --name sagui_7b
+te verify-assets --name sagui_7b
 ```
 
 Other target models for the full run:
@@ -228,11 +228,11 @@ Notes:
 - Use `nllb_200_1_3b` or `nllb_200` if VRAM or time becomes a blocker.
 - NLLB has no official 6B/7B checkpoint; 7B-class downloads here are target models.
 
-## Pilot: Sabiá End-to-End
+## Pilot: Sagui End-to-End
 
 This pilot is the real pipeline on a limited prompt list. It uses:
 
-- Target model: `sabia_7b`
+- Target model: `sagui_7b`
 - Baseline language: Portuguese (`por`)
 - Attack language: Arabic (`ara`)
 - Prompt list: `data/raw/strongreject/pilot_prompts.jsonl`
@@ -259,11 +259,21 @@ te import-strongreject --source github --pilot-size 2
 
 3. Check whether the target model has a chat template.
 
-This reports model metadata from the downloaded Sabiá files. If `has_chat_template` is `false`, generation is raw language-model continuation rather than chat/instruction following. The upstream `maritaca-ai/sabia-7b` checkpoint is a base language model, so prompt echoing is expected.
+This reports model metadata from the downloaded Sagui files. `has_chat_template` should be `true` for Sagui. If it is `false`, stop and check that `assets/models/sagui-7b-instruct-v0.1` really contains `OliveiraJLT/Sagui-7B-Instruct-v0.1` rather than the base `maritaca-ai/sabia-7b` checkpoint.
 
 ```powershell
-te model-status --model sabia_7b
+te model-status --model sagui_7b
 ```
+
+For the full run, repeat the same check for every target before generation:
+
+```powershell
+te model-status --model fauno
+te model-status --model gpt_sw3
+te model-status --model bggpt
+```
+
+Sagui, GPT-SW3, and BgGPT should be instruction-style checkpoints. Fauno is an older conversational fine-tune and may rely on its documented manual prompt wrapper rather than a modern tokenizer chat template, so inspect a short smoke generation before treating a large Fauno run as final.
 
 4. Prewarm SONAR.
 
@@ -275,7 +285,7 @@ te prewarm-sonar
 
 5. Translate the pilot prompts into Portuguese and Arabic with one NLLB load.
 
-This creates the aligned-language baseline prompts for Sabiá (`por`) and the first attack-language prompts (`ara`). NLLB is loaded on CUDA in fp16 once, then reused for both languages before the container exits.
+This creates the aligned-language baseline prompts for Sagui (`por`) and the first attack-language prompts (`ara`). NLLB is loaded on CUDA in fp16 once, then reused for both languages before the container exits.
 
 ```powershell
 te translate `
@@ -325,20 +335,20 @@ te export-audit-queue `
   --include-passed
 ```
 
-8. Generate Sabiá responses for Portuguese and Arabic with one Sabiá/vLLM load.
+8. Generate Sagui responses for Portuguese and Arabic with one Sagui/vLLM load.
 
-This starts a fresh container, loads Sabiá-7B from the mounted Downloads asset folder, and generates target responses for both pilot languages before the container exits. For chat/instruct checkpoints, the vLLM path applies the tokenizer chat template automatically. For base checkpoints without a chat template, it logs a warning and uses raw continuation prompts.
+This starts a fresh container, loads Sagui-7B from the mounted Downloads asset folder, and generates target responses for both pilot languages before the container exits. For chat/instruct checkpoints, the vLLM path applies the tokenizer chat template automatically. For base checkpoints without a chat template, it logs a warning and uses raw continuation prompts.
 
 ```powershell
 te generate-targets `
   --translations outputs/pilot/translations_por.nllb_3_3b.blaser.jsonl `
   --translations outputs/pilot/translations_ara.nllb_3_3b.blaser.jsonl `
-  --model sabia_7b `
+  --model sagui_7b `
   --profile rtx_5070_ti `
   --backend vllm `
-  --model-path assets/models/sabia-7b `
+  --model-path assets/models/sagui-7b-instruct-v0.1 `
   --max-tokens 64 `
-  --output outputs/pilot/target_generations_sabia_rtx_pilot.jsonl
+  --output outputs/pilot/target_generations_sagui_rtx_pilot.jsonl
 ```
 
 9. Export judge requests.
@@ -347,8 +357,8 @@ This creates one request per generated response per judge. No API call happens h
 
 ```powershell
 te export-judge-batch `
-  --generations outputs/pilot/target_generations_sabia_rtx_pilot.jsonl `
-  --output outputs/pilot/judge_requests_sabia_rtx_pilot.jsonl
+  --generations outputs/pilot/target_generations_sagui_rtx_pilot.jsonl `
+  --output outputs/pilot/judge_requests_sagui_rtx_pilot.jsonl
 ```
 
 10. Export provider-shaped API batch files.
@@ -357,23 +367,23 @@ This writes OpenAI, Anthropic, and hosted Llama Guard batch inputs.
 
 ```powershell
 te export-api-batches `
-  --requests outputs/pilot/judge_requests_sabia_rtx_pilot.jsonl `
-  --output-dir outputs/pilot/api_batches_sabia_rtx_pilot
+  --requests outputs/pilot/judge_requests_sagui_rtx_pilot.jsonl `
+  --output-dir outputs/pilot/api_batches_sagui_rtx_pilot
 ```
 
 11. Submit the judge batches outside this CLI.
 
 Use your API batch tooling to submit:
 
-- `outputs/pilot/api_batches_sabia_rtx_pilot/openai_gpt_4o_batch.jsonl`
-- `outputs/pilot/api_batches_sabia_rtx_pilot/anthropic_claude_opus_4_batch.json`
-- `outputs/pilot/api_batches_sabia_rtx_pilot/hosted_llama_guard_4_batch.jsonl`
+- `outputs/pilot/api_batches_sagui_rtx_pilot/openai_gpt_4o_batch.jsonl`
+- `outputs/pilot/api_batches_sagui_rtx_pilot/anthropic_claude_opus_4_batch.json`
+- `outputs/pilot/api_batches_sagui_rtx_pilot/hosted_llama_guard_4_batch.jsonl`
 
 Save the raw provider results as:
 
-- `outputs/pilot/api_batches_sabia_rtx_pilot/openai_results.jsonl`
-- `outputs/pilot/api_batches_sabia_rtx_pilot/anthropic_results.jsonl`
-- `outputs/pilot/api_batches_sabia_rtx_pilot/llama_guard_results.jsonl`
+- `outputs/pilot/api_batches_sagui_rtx_pilot/openai_results.jsonl`
+- `outputs/pilot/api_batches_sagui_rtx_pilot/anthropic_results.jsonl`
+- `outputs/pilot/api_batches_sagui_rtx_pilot/llama_guard_results.jsonl`
 
 12. Normalize the returned judge results.
 
@@ -382,18 +392,18 @@ This converts provider-specific raw output into the shared judge-result schema.
 ```powershell
 te normalize-judge-results `
   --provider openai `
-  --input outputs/pilot/api_batches_sabia_rtx_pilot/openai_results.jsonl `
-  --output outputs/pilot/api_batches_sabia_rtx_pilot/openai_normalized.jsonl
+  --input outputs/pilot/api_batches_sagui_rtx_pilot/openai_results.jsonl `
+  --output outputs/pilot/api_batches_sagui_rtx_pilot/openai_normalized.jsonl
 
 te normalize-judge-results `
   --provider anthropic `
-  --input outputs/pilot/api_batches_sabia_rtx_pilot/anthropic_results.jsonl `
-  --output outputs/pilot/api_batches_sabia_rtx_pilot/anthropic_normalized.jsonl
+  --input outputs/pilot/api_batches_sagui_rtx_pilot/anthropic_results.jsonl `
+  --output outputs/pilot/api_batches_sagui_rtx_pilot/anthropic_normalized.jsonl
 
 te normalize-judge-results `
   --provider hosted `
-  --input outputs/pilot/api_batches_sabia_rtx_pilot/llama_guard_results.jsonl `
-  --output outputs/pilot/api_batches_sabia_rtx_pilot/llama_guard_normalized.jsonl
+  --input outputs/pilot/api_batches_sagui_rtx_pilot/llama_guard_results.jsonl `
+  --output outputs/pilot/api_batches_sagui_rtx_pilot/llama_guard_normalized.jsonl
 ```
 
 13. Combine normalized judge results.
@@ -402,10 +412,10 @@ Majority vote requires all three judge labels for every generated response.
 
 ```powershell
 Get-Content `
-  outputs/pilot/api_batches_sabia_rtx_pilot/openai_normalized.jsonl, `
-  outputs/pilot/api_batches_sabia_rtx_pilot/anthropic_normalized.jsonl, `
-  outputs/pilot/api_batches_sabia_rtx_pilot/llama_guard_normalized.jsonl |
-  Set-Content outputs/pilot/judge_results_sabia_rtx_pilot.jsonl
+  outputs/pilot/api_batches_sagui_rtx_pilot/openai_normalized.jsonl, `
+  outputs/pilot/api_batches_sagui_rtx_pilot/anthropic_normalized.jsonl, `
+  outputs/pilot/api_batches_sagui_rtx_pilot/llama_guard_normalized.jsonl |
+  Set-Content outputs/pilot/judge_results_sagui_rtx_pilot.jsonl
 ```
 
 14. Compute majority vote.
@@ -414,9 +424,9 @@ This validates analysis rows and writes the final `safe | unsafe | invalid` labe
 
 ```powershell
 te majority-vote `
-  --generations outputs/pilot/target_generations_sabia_rtx_pilot.jsonl `
-  --judge-results outputs/pilot/judge_results_sabia_rtx_pilot.jsonl `
-  --output outputs/pilot/analysis_rows_sabia_rtx_pilot.jsonl
+  --generations outputs/pilot/target_generations_sagui_rtx_pilot.jsonl `
+  --judge-results outputs/pilot/judge_results_sagui_rtx_pilot.jsonl `
+  --output outputs/pilot/analysis_rows_sagui_rtx_pilot.jsonl
 ```
 
 15. Export pilot rows.
@@ -425,8 +435,8 @@ This exports a validated pilot copy. It is not the frozen thesis dataset.
 
 ```powershell
 te export-results `
-  --rows outputs/pilot/analysis_rows_sabia_rtx_pilot.jsonl `
-  --output outputs/pilot/analysis_rows_sabia_rtx_pilot.export.jsonl
+  --rows outputs/pilot/analysis_rows_sagui_rtx_pilot.jsonl `
+  --output outputs/pilot/analysis_rows_sagui_rtx_pilot.export.jsonl
 ```
 
 ## Final Project Workflow
@@ -434,7 +444,7 @@ te export-results `
 The final project repeats the same shape as the pilot, but expands to:
 
 - 13 attack languages: `ara bul dan eng fin ita nor por rus spa swa swe ukr`
-- 4 target models: `sabia_7b fauno gpt_sw3 bggpt`
+- 4 target models: `sagui_7b fauno gpt_sw3 bggpt`
 - full StrongREJECT prompt file
 - later MultiJail validation through the same judge pipeline
 - human XSTS audit import before target generation
@@ -446,9 +456,9 @@ Run this in the same PowerShell session where you defined `te`.
 
 ```powershell
 $LANGS = @("ara","bul","dan","eng","fin","ita","nor","por","rus","spa","swa","swe","ukr")
-$MODELS = @("sabia_7b","fauno","gpt_sw3","bggpt")
+$MODELS = @("sagui_7b","fauno","gpt_sw3","bggpt")
 $MODEL_PATH = @{
-  sabia_7b = "assets/models/sabia-7b"
+  sagui_7b = "assets/models/sagui-7b-instruct-v0.1"
   fauno = "assets/models/fauno-italian-llm-7b"
   gpt_sw3 = "assets/models/gpt-sw3-6.7b-v2-instruct"
   bggpt = "assets/models/bggpt-7b-instruct-v0.2"
@@ -476,7 +486,7 @@ te download-assets --name multijail
 te download-assets --name belebele
 te download-assets --name nllb_200_3_3b
 te download-assets --name blaser_2_0_qe
-te download-assets --name sabia_7b
+te download-assets --name sagui_7b
 te download-assets --name fauno
 te download-assets --name gpt_sw3
 te download-assets --name bggpt
@@ -490,7 +500,7 @@ te verify-assets --name multijail
 te verify-assets --name belebele
 te verify-assets --name nllb_200_3_3b
 te verify-assets --name blaser_2_0_qe
-te verify-assets --name sabia_7b
+te verify-assets --name sagui_7b
 te verify-assets --name fauno
 te verify-assets --name gpt_sw3
 te verify-assets --name bggpt
@@ -738,7 +748,7 @@ tedocker python -m unittest
 - **SONAR/HF Hub redownloads on every run:** the persistent cache mount is missing. Confirm `$CACHE` is set and that `tedocker` includes `-v "${CACHE}:/root/.cache"`.
 - **CUDA runs out of memory:** run one stage per command as shown, keep `--dtype float16`, and lower `--max-tokens` for pilot/debug runs.
 - **BLASER or SONAR downloads during QC:** expected on first run. `prewarm-sonar` makes this less surprising.
-- **Sabiá echoes the prompt:** `maritaca-ai/sabia-7b` is a base language model without an instruction/chat template. Run `te model-status --model sabia_7b`; if `has_chat_template` is `false`, bad zero-shot instruction-following output is expected. Use an instruction-tuned target or revise the experimental design before treating those generations as thesis evidence.
+- **Sagui echoes the prompt:** run `te model-status --model sagui_7b`. If `has_chat_template` is `false`, the wrong checkpoint is probably in the Sagui asset folder. The base `maritaca-ai/sabia-7b` model is a continuation model and is not suitable for zero-shot jailbreak instruction following.
 - **Majority vote fails:** at least one generation is missing one of the three judge results. Normalize and combine all three providers before running `majority-vote`.
 - **Do not use StrongREJECT's evaluator:** this project always uses the three API judges and majority vote.
 - **Do not overwrite `outputs/dataset_frozen.parquet` during pilots:** pilot outputs belong under `outputs/pilot/`.

@@ -34,7 +34,7 @@ class ConfigTests(unittest.TestCase):
     def test_load_config(self) -> None:
         cfg = load_config()
         self.assertEqual(len(cfg.attack_languages), 13)
-        self.assertEqual(cfg.aligned_language["sabia_7b"], "por")
+        self.assertEqual(cfg.aligned_language["sagui_7b"], "por")
         self.assertIn("gpt_4o", cfg.judges)
 
     def test_runtime_profiles(self) -> None:
@@ -46,7 +46,7 @@ class ConfigTests(unittest.TestCase):
         assets = load_assets()
         self.assertIn("strongreject", assets)
         self.assertIn("nllb_200", assets)
-        self.assertIn("sabia_7b", assets)
+        self.assertIn("sagui_7b", assets)
         self.assertEqual(select_assets(groups=["translation"])[0].group, "translation")
         self.assertEqual({asset.name for asset in select_assets(groups=["jailbreaks"])}, {"strongreject", "multijail"})
         status = asset_status(assets["nllb_200"])
@@ -288,7 +288,7 @@ class TranslationTests(unittest.TestCase):
                     "--translations",
                     str(ara),
                     "--model",
-                    "sabia_7b",
+                    "sagui_7b",
                     "--backend",
                     "mock",
                     "--output",
@@ -321,7 +321,7 @@ class TranslationTests(unittest.TestCase):
 class JudgeBatchTests(unittest.TestCase):
     def test_batch_round_trip_and_vote(self) -> None:
         generation = {
-            "model": "sabia_7b",
+            "model": "sagui_7b",
             "aligned_language": "por",
             "attack_language": "ara",
             "prompt_id": "p1",

@@ -1,6 +1,6 @@
 # HF IDs are best-guess defaults; confirm in Phase 3 before loading.
-sabia_7b:
-  hf_id: maritaca-ai/sabia-7b
+sagui_7b:
+  hf_id: OliveiraJLT/Sagui-7B-Instruct-v0.1
   aligned_language: por
 fauno:
   hf_id: andreabac3/Fauno-Italian-LLM-7B

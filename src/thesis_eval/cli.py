@@ -522,7 +522,7 @@ def build_parser() -> argparse.ArgumentParser:
 
     gen = sub.add_parser("generate-targets")
     gen.add_argument("--translations", action="append", required=True)
-    gen.add_argument("--model", default="sabia_7b")
+    gen.add_argument("--model", default="sagui_7b")
     gen.add_argument("--benchmark", default="strongreject")
     gen.add_argument("--output")
     gen.add_argument("--output-dir")
@@ -541,7 +541,7 @@ def build_parser() -> argparse.ArgumentParser:
     gen.set_defaults(func=cmd_generate_targets)
 
     model_status = sub.add_parser("model-status")
-    model_status.add_argument("--model", default="sabia_7b")
+    model_status.add_argument("--model", default="sagui_7b")
     model_status.set_defaults(func=cmd_model_status)
 
     export_batch = sub.add_parser("export-judge-batch")

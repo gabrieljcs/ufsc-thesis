@@ -88,7 +88,7 @@ def run_mock_pilot(output_dir: Path = OUTPUT_DIR / "pilot", prompts_path: Path |
     qc_path = output_dir / "translations_qc.jsonl"
     write_jsonl(qc_path, qc_logs)
 
-    generation_rows = build_generation_rows(qc_logs, model="sabia_7b", aligned_language=cfg.aligned_language["sabia_7b"])
+    generation_rows = build_generation_rows(qc_logs, model="sagui_7b", aligned_language=cfg.aligned_language["sagui_7b"])
     mock_outputs = ["[mock target response: replace with vLLM output before research use.]" for _ in generation_rows]
     generations = enrich_generation_rows(attach_outputs(generation_rows, mock_outputs), distance_csv)
     generations_path = output_dir / "target_generations.jsonl"

@@ -109,14 +109,14 @@ assets:
       - '*.bin'
       - '*.safetensors'
     description: "BLASER 2.0 reference-free QE checkpoint. SONAR runtime assets may be fetched separately by the SONAR package."
-  sabia_7b:
+  sagui_7b:
     kind: hf_model
     group: targets
     groups: [targets]
-    repo_id: maritaca-ai/sabia-7b
-    local_dir: assets/models/sabia-7b
-    required_files: [assets/models/sabia-7b/config.json]
-    description: "Portuguese-aligned target model."
+    repo_id: OliveiraJLT/Sagui-7B-Instruct-v0.1
+    local_dir: assets/models/sagui-7b-instruct-v0.1
+    required_files: [assets/models/sagui-7b-instruct-v0.1/config.json]
+    description: "Portuguese-aligned instruction-tuned target model fine-tuned from Sabiá-7B."
   fauno:
     kind: hf_model
     group: targets
