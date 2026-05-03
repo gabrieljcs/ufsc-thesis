@@ -14,6 +14,10 @@ class ConfigBundle:
     models: dict[str, dict[str, Any]]
 
 
+PAIRED_ALIGNMENT_POLES = {"weak", "strong"}
+REFERENCE_ALIGNMENT_POLES = {"reference"}
+
+
 def load_config(config_dir: Path = CONFIG_DIR) -> ConfigBundle:
     languages = read_yaml(config_dir / "languages.yaml")
     models = read_yaml(config_dir / "models.yaml")
@@ -38,8 +42,13 @@ def load_config(config_dir: Path = CONFIG_DIR) -> ConfigBundle:
         if access_mode not in {"open_weight", "api"}:
             raise ValueError(f"{model_name} access_mode must be open_weight or api")
         pole = model_cfg.get("alignment_pole")
-        if pole not in {"weak", "strong"}:
-            raise ValueError(f"{model_name} alignment_pole must be weak or strong")
+        if pole not in PAIRED_ALIGNMENT_POLES | REFERENCE_ALIGNMENT_POLES:
+            raise ValueError(f"{model_name} alignment_pole must be weak, strong, or reference")
+        analysis_role = model_cfg.get("analysis_role", "paired")
+        if pole in REFERENCE_ALIGNMENT_POLES and analysis_role != "reference_baseline":
+            raise ValueError(f"{model_name} reference models must set analysis_role=reference_baseline")
+        if pole in PAIRED_ALIGNMENT_POLES and analysis_role not in {"paired", None}:
+            raise ValueError(f"{model_name} paired models must not use analysis_role={analysis_role!r}")
         if not model_cfg.get("provider_model_id"):
             raise ValueError(f"{model_name} must define provider_model_id")
     return ConfigBundle(

@@ -2,6 +2,8 @@ from __future__ import annotations
 
 from typing import Any
 
+from thesis_eval.analysis.reporting import paired_design_rows
+
 
 def fit_main_glmm(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
     try:
@@ -13,7 +15,7 @@ def fit_main_glmm(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
     data = pd.DataFrame(
         [
             row
-            for row in rows
+            for row in paired_design_rows(rows)
             if not row.get("excluded")
             and row.get("unsafe_binary") is not None
             and row.get("distance") is not None

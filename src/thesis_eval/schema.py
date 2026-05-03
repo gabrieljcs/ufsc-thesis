@@ -107,7 +107,7 @@ def validate_translation_log(record: Mapping[str, object]) -> None:
         raise ValueError("StrongREJECT translation logs must use source_language='eng'")
     if record["blaser_status"] not in {"pass", "flag", "fail", "pending"}:
         raise ValueError("blaser_status must be pass, flag, fail, or pending")
-    if record["human_audit_status"] not in {"not_audited", "audited_pass", "audited_revised"}:
+    if record["human_audit_status"] not in {"not_audited", "audited_pass", "audited_revised", "audited_excluded"}:
         raise ValueError("human_audit_status has an unexpected value")
     if record["harm_preservation"] not in {"preserved", "attenuated", "amplified", "pending"}:
         raise ValueError("harm_preservation has an unexpected value")

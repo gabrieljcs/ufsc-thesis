@@ -27,6 +27,15 @@ def coverage_by_model(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
     return output
 
 
+def paired_design_rows(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    return [
+        row
+        for row in rows
+        if row.get("model_alignment_pole") in {"weak", "strong"}
+        and row.get("analysis_role", "paired") != "reference_baseline"
+    ]
+
+
 def asr_by_model_language(rows: list[dict[str, Any]], exclude_aligned: bool = False) -> list[dict[str, Any]]:
     grouped: dict[tuple[str, str], list[dict[str, Any]]] = defaultdict(list)
     for row in rows:
@@ -54,6 +63,69 @@ def asr_by_model_language(rows: list[dict[str, Any]], exclude_aligned: bool = Fa
             }
         )
     return output
+
+
+def reference_distance_curve(rows: list[dict[str, Any]], reference_model: str = "llama3_1_8b_reference") -> list[dict[str, Any]]:
+    summaries = asr_by_model_language([row for row in rows if row.get("model") == reference_model])
+    distances: dict[str, float] = {}
+    for row in rows:
+        if row.get("model") == reference_model and row.get("distance") is not None:
+            distances[str(row["attack_language"])] = float(row["distance"])
+    output: list[dict[str, Any]] = []
+    for summary in summaries:
+        language = str(summary["attack_language"])
+        output.append(
+            {
+                "reference_model": reference_model,
+                "attack_language": language,
+                "distance_from_english": distances.get(language),
+                "n": summary["n"],
+                "unsafe": summary["unsafe"],
+                "asr": summary["asr"],
+                "mean_strongreject_score": summary["mean_strongreject_score"],
+                "refusal_rate": summary["refusal_rate"],
+            }
+        )
+    return sorted(output, key=lambda row: (row["distance_from_english"] is None, row["distance_from_english"] or 0.0, row["attack_language"]))
+
+
+def counterfactual_safety_by_aligned_language(
+    rows: list[dict[str, Any]],
+    reference_model: str = "llama3_1_8b_reference",
+) -> list[dict[str, Any]]:
+    summaries = {
+        (str(row["model"]), str(row["attack_language"])): row
+        for row in asr_by_model_language(rows)
+    }
+    output: list[dict[str, Any]] = []
+    seen: set[tuple[str, str]] = set()
+    for row in rows:
+        model = str(row["model"])
+        if model == reference_model or row.get("model_alignment_pole") not in {"weak", "strong"}:
+            continue
+        aligned_language = str(row.get("aligned_language"))
+        key = (model, aligned_language)
+        if key in seen:
+            continue
+        seen.add(key)
+        model_summary = summaries.get(key)
+        reference_summary = summaries.get((reference_model, aligned_language))
+        if model_summary is None or reference_summary is None:
+            continue
+        output.append(
+            {
+                "aligned_language": aligned_language,
+                "model": model,
+                "model_alignment_pole": row.get("model_alignment_pole"),
+                "model_asr": model_summary["asr"],
+                "reference_model": reference_model,
+                "reference_asr_same_language": reference_summary["asr"],
+                "asr_gap_model_minus_reference": model_summary["asr"] - reference_summary["asr"],
+                "model_n": model_summary["n"],
+                "reference_n": reference_summary["n"],
+            }
+        )
+    return sorted(output, key=lambda row: (row["aligned_language"], row["model_alignment_pole"], row["model"]))
 
 
 def closest_farthest_by_model(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
@@ -139,6 +211,7 @@ def tokenizer_diagnostics(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
 
 
 def collinearity_diagnostics(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    rows = paired_design_rows(rows)
     pairs = [
         (float(row["distance"]), float(row["spec_score"]))
         for row in rows
@@ -163,6 +236,7 @@ def collinearity_diagnostics(rows: list[dict[str, Any]]) -> list[dict[str, Any]]
 
 
 def prereg_distance_slope_retention(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    rows = paired_design_rows(rows)
     grouped: dict[tuple[str, str, str], list[dict[str, Any]]] = defaultdict(list)
     for row in rows:
         if row.get("excluded") or row.get("unsafe_binary") is None or row.get("distance") is None:

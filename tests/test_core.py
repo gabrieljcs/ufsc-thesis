@@ -17,7 +17,12 @@ from thesis_eval.benchmarks.uriel import (
 from thesis_eval.cli import main
 from thesis_eval.config import load_config
 from thesis_eval.analysis.dataset import build_frozen_rows
-from thesis_eval.analysis.reporting import prereg_distance_slope_retention, prereg_falsification_summary
+from thesis_eval.analysis.reporting import (
+    counterfactual_safety_by_aligned_language,
+    prereg_distance_slope_retention,
+    prereg_falsification_summary,
+    reference_distance_curve,
+)
 from thesis_eval.benchmarks.belebele import compute_if_cons, parse_choice
 from thesis_eval.evaluation.strongreject import score_generation_rows
 from thesis_eval.io import write_jsonl
@@ -29,6 +34,7 @@ from thesis_eval.runtime import load_runtime_profiles
 from thesis_eval.schema import validate_analysis_rows, validate_translation_log
 from thesis_eval.translation.audit import apply_audit_decisions, build_audit_queue
 from thesis_eval.translation.calibration import calibrate_blaser_thresholds
+from thesis_eval.translation.llm_audit import build_xsts_prompt, judge_audit_rows
 from thesis_eval.translation.log import TranslationLog
 from thesis_eval.translation.pipeline import PromptRecord, apply_translation_qc, run_translation
 
@@ -36,11 +42,13 @@ from thesis_eval.translation.pipeline import PromptRecord, apply_translation_qc,
 class ConfigTests(unittest.TestCase):
     def test_load_config(self) -> None:
         cfg = load_config()
-        self.assertEqual(len(cfg.models), 8)
+        self.assertEqual(len(cfg.models), 9)
         self.assertEqual(len(cfg.attack_languages), 13)
         self.assertEqual(cfg.aligned_language["sagui_7b"], "por")
         self.assertEqual(cfg.aligned_language["llamantino_2_ultrachat_7b"], "ita")
         self.assertEqual(cfg.models["sabia_3"]["access_mode"], "api")
+        self.assertEqual(cfg.models["llama3_1_8b_reference"]["alignment_pole"], "reference")
+        self.assertEqual(cfg.models["llama3_1_8b_reference"]["analysis_role"], "reference_baseline")
 
     def test_runtime_profiles(self) -> None:
         profiles = load_runtime_profiles()
@@ -54,8 +62,10 @@ class ConfigTests(unittest.TestCase):
         self.assertIn("sagui_7b", assets)
         self.assertIn("sabia_3", assets)
         self.assertIn("llamantino_2_ultrachat_7b", assets)
+        self.assertIn("llama3_1_8b_reference", assets)
         self.assertEqual(select_assets(groups=["translation"])[0].group, "translation")
         self.assertEqual({asset.name for asset in select_assets(groups=["jailbreaks"])}, {"strongreject", "multijail"})
+        self.assertEqual({asset.name for asset in select_assets(groups=["reference_targets"])}, {"llama3_1_8b_reference"})
         status = asset_status(assets["nllb_200"])
         self.assertEqual(status["name"], "nllb_200")
 
@@ -182,6 +192,41 @@ class MetricsTests(unittest.TestCase):
         self.assertTrue(pair_rows[0]["slope_sign_retained"])
         summary = prereg_falsification_summary(rows)
         self.assertEqual(summary[0]["pairs_with_slope_sign_retained"], 1)
+
+    def test_reference_baseline_descriptive_tables(self) -> None:
+        rows = [
+            {
+                "model": "llama3_1_8b_reference",
+                "model_alignment_pole": "reference",
+                "aligned_language": "eng",
+                "attack_language": "por",
+                "unsafe_binary": unsafe,
+                "strongreject_score": float(unsafe),
+                "refusal_binary": 1 - unsafe,
+                "distance": 0.25,
+                "excluded": False,
+            }
+            for unsafe in [1, 0]
+        ] + [
+            {
+                "model": "sagui_7b",
+                "model_alignment_pole": "weak",
+                "aligned_language": "por",
+                "attack_language": "por",
+                "unsafe_binary": unsafe,
+                "strongreject_score": float(unsafe),
+                "refusal_binary": 1 - unsafe,
+                "distance": 0.0,
+                "excluded": False,
+            }
+            for unsafe in [0, 0]
+        ]
+        curve = reference_distance_curve(rows)
+        self.assertEqual(curve[0]["attack_language"], "por")
+        self.assertEqual(curve[0]["distance_from_english"], 0.25)
+        safety = counterfactual_safety_by_aligned_language(rows)
+        self.assertEqual(safety[0]["model"], "sagui_7b")
+        self.assertEqual(safety[0]["asr_gap_model_minus_reference"], -0.5)
 
 
 class GenerationTests(unittest.TestCase):
@@ -635,6 +680,8 @@ class AuditTests(unittest.TestCase):
         ).to_dict()
         queue = build_audit_queue([log])
         self.assertEqual(len(queue), 1)
+        self.assertEqual(queue[0]["audit_plan"], "plan_b")
+        self.assertEqual(queue[0]["audit_method"], "uncalibrated_llm_xsts")
         updated = apply_audit_decisions(
             [log],
             [
@@ -643,11 +690,62 @@ class AuditTests(unittest.TestCase):
                     "target_language": "ara",
                     "audit_decision": "pass",
                     "harm_preservation": "preserved",
+                    "translated_text": "translation",
                 }
             ],
         )
         self.assertEqual(updated[0]["human_audit_status"], "audited_pass")
         self.assertEqual(updated[0]["harm_preservation"], "preserved")
+        self.assertFalse(updated[0]["translation_revised"])
+
+    def test_plan_a_audit_queue_marks_tiers_and_exclusions(self) -> None:
+        logs = [
+            self._audit_log("p1", "ara"),
+            self._audit_log("p2", "fin"),
+        ]
+        queue = build_audit_queue(logs, audit_plan="plan_a")
+        by_lang = {row["target_language"]: row for row in queue}
+        self.assertEqual(by_lang["ara"]["audit_tier"], "tier_a")
+        self.assertEqual(by_lang["ara"]["audit_method"], "human_xsts")
+        self.assertEqual(by_lang["fin"]["audit_tier"], "tier_b")
+        self.assertTrue(by_lang["fin"]["caveat_language"])
+        updated = apply_audit_decisions(
+            logs,
+            [{"prompt_id": "p2", "target_language": "fin", "audit_decision": "exclude"}],
+        )
+        self.assertTrue(updated[1]["translation_excluded"])
+        self.assertEqual(updated[1]["human_audit_status"], "audited_excluded")
+
+    def test_llm_audit_mock_fills_decision_columns(self) -> None:
+        queue = build_audit_queue([self._audit_log("p1", "ara")])
+        judged = judge_audit_rows(queue, provider="mock", model="mock-xsts")
+        self.assertEqual(judged[0]["xsts_score"], 4)
+        self.assertEqual(judged[0]["xsts_judge_model"], "mock-xsts")
+        self.assertEqual(judged[0]["audit_decision"], "pass")
+        self.assertTrue(judged[0]["xsts_note"])
+        prompt = build_xsts_prompt(queue[0])
+        self.assertIn("XSTS", prompt)
+        self.assertIn("Source (English)", prompt)
+
+    def _audit_log(self, prompt_id: str, target_language: str) -> dict[str, object]:
+        return TranslationLog(
+            prompt_id=prompt_id,
+            source_language="eng",
+            target_language=target_language,
+            harmful_goal="goal",
+            expected_output_form="other",
+            fixed_constraints="none",
+            allowed_adaptation="fluency",
+            translator_config={"engine": "placeholder"},
+            blaser_qe_score=0.5,
+            blaser_status="flag",
+            human_audit_status="not_audited",
+            reference_subset_score=None,
+            harm_preservation="pending",
+            revision_note=None,
+            source_text="source",
+            translated_text="translation",
+        ).to_dict()
 
     def test_blaser_calibration(self) -> None:
         result = calibrate_blaser_thresholds(

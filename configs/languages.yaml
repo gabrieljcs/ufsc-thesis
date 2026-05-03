@@ -8,3 +8,4 @@ aligned_language:
   ai_sweden_llama3_8b: swe
   bggpt_7b: bul
   bggpt_gemma_9b: bul
+  llama3_1_8b_reference: eng

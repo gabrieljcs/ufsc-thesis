@@ -262,3 +262,25 @@ assets:
       - model-*.safetensors
       - model.safetensors.index.json
     description: "Bulgarian strong-pole instruction-tuned target model."
+  llama3_1_8b_reference:
+    kind: hf_model
+    group: targets
+    groups: [targets, reference_targets]
+    repo_id: meta-llama/Llama-3.1-8B-Instruct
+    local_dir: assets/models/llama-3.1-8b-instruct
+    required_files: [assets/models/llama-3.1-8b-instruct/config.json]
+    required_any_files: [[assets/models/llama-3.1-8b-instruct/model.safetensors.index.json, assets/models/llama-3.1-8b-instruct/model.safetensors]]
+    allow_patterns:
+      - .gitattributes
+      - LICENSE
+      - README.md
+      - USE_POLICY.md
+      - config.json
+      - generation_config.json
+      - tokenizer_config.json
+      - special_tokens_map.json
+      - tokenizer.json
+      - model.safetensors
+      - model-*.safetensors
+      - model.safetensors.index.json
+    description: "English-aligned LLaMA-3.1 8B reference baseline; descriptive only, excluded from paired-design inferential models."

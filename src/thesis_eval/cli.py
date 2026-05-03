@@ -11,9 +11,11 @@ from thesis_eval.analysis.reporting import (
     asr_by_model_language,
     closest_farthest_by_model,
     collinearity_diagnostics,
+    counterfactual_safety_by_aligned_language,
     coverage_by_model,
     prereg_distance_slope_retention,
     prereg_falsification_summary,
+    reference_distance_curve,
     spearman_tables,
     tokenizer_diagnostics,
 )
@@ -47,13 +49,17 @@ from thesis_eval.schema import validate_analysis_rows
 from thesis_eval.translation.audit import AUDIT_COLUMNS, apply_audit_decisions, build_audit_queue
 from thesis_eval.translation.calibration import calibrate_blaser_thresholds
 from thesis_eval.translation.log import load_translation_logs, save_translation_logs
+from thesis_eval.translation.llm_audit import judge_audit_rows
 from thesis_eval.translation.pipeline import NllbTranslator, PromptRecord, apply_translation_qc, run_translation
 from thesis_eval.translation.reference_spbleu import attach_reference_scores
 
 
 def cmd_validate_config(_: argparse.Namespace) -> None:
     cfg = load_config()
-    print(f"OK: {len(cfg.models)} models, {len(cfg.attack_languages)} languages")
+    paired = sum(1 for model in cfg.models.values() if model.get("alignment_pole") in {"weak", "strong"})
+    reference = sum(1 for model in cfg.models.values() if model.get("analysis_role") == "reference_baseline")
+    reference_label = "reference baseline" if reference == 1 else "reference baselines"
+    print(f"OK: {paired} paired models, {reference} {reference_label}, {len(cfg.attack_languages)} languages")
 
 
 def cmd_runtime_profiles(_: argparse.Namespace) -> None:
@@ -656,6 +662,8 @@ def cmd_export_report_tables(args: argparse.Namespace) -> None:
     write_csv_dicts(output_dir / "distance_asr_correlation.csv", distance_corr, ["model", "predictor", "n", "spearman_rho", "p_value", "interpretation"])
     write_csv_dicts(output_dir / "spec_asr_correlation.csv", spec_corr, ["model", "predictor", "n", "spearman_rho", "p_value", "interpretation"])
     write_csv_dicts(output_dir / "tokenizer_diagnostics.csv", tokenizer_diagnostics(rows), ["model", "attack_language", "n", "mean_token_inflation", "mean_tokens_per_char", "truncation_risk_rate"])
+    write_csv_dicts(output_dir / "reference_distance_curve.csv", reference_distance_curve(rows), ["reference_model", "attack_language", "distance_from_english", "n", "unsafe", "asr", "mean_strongreject_score", "refusal_rate"])
+    write_csv_dicts(output_dir / "counterfactual_safety_by_aligned_language.csv", counterfactual_safety_by_aligned_language(rows), ["aligned_language", "model", "model_alignment_pole", "model_asr", "reference_model", "reference_asr_same_language", "asr_gap_model_minus_reference", "model_n", "reference_n"])
     write_csv_dicts(output_dir / "glmm_collinearity.csv", collinearity_diagnostics(rows), ["diagnostic", "value"])
     write_csv_dicts(output_dir / "prereg_distance_slope_retention.csv", prereg_distance_slope_retention(rows), ["model_pair_language", "weak_model", "weak_distance_slope", "weak_slope_sign", "weak_n", "strong_model", "strong_distance_slope", "strong_slope_sign", "strong_n", "slope_sign_retained"])
     write_csv_dicts(output_dir / "prereg_falsification_summary.csv", prereg_falsification_summary(rows), ["pairs_evaluated", "pairs_with_slope_sign_retained", "panel_complete", "interpretation"])
@@ -671,7 +679,7 @@ def cmd_fit_glmm(args: argparse.Namespace) -> None:
 
 def cmd_export_audit_queue(args: argparse.Namespace) -> None:
     logs = load_translation_logs(Path(args.translations))
-    queue = build_audit_queue(logs, include_passed=args.include_passed)
+    queue = build_audit_queue(logs, include_passed=args.include_passed, audit_plan=args.audit_plan)
     write_csv_dicts(Path(args.output), queue, AUDIT_COLUMNS)
     print(f"Wrote {len(queue)} audit rows to {args.output}")
 
@@ -682,6 +690,21 @@ def cmd_import_audit(args: argparse.Namespace) -> None:
     updated = apply_audit_decisions(logs, decisions)
     write_jsonl(Path(args.output), updated)
     print(f"Wrote {len(updated)} audit-updated translation logs to {args.output}")
+
+
+def cmd_judge_audit_queue(args: argparse.Namespace) -> None:
+    rows = read_csv_dicts(Path(args.audit_queue))
+    judged = judge_audit_rows(
+        rows,
+        provider=args.provider,
+        model=args.model,
+        sleep_seconds=args.sleep_seconds,
+        limit=args.limit,
+        force=args.force,
+    )
+    write_csv_dicts(Path(args.output), judged, AUDIT_COLUMNS)
+    completed = sum(1 for row in judged if str(row.get("xsts_score", "")).strip() and str(row.get("audit_decision", "")).strip())
+    print(f"Wrote {completed}/{len(judged)} judged audit rows to {args.output}")
 
 
 def cmd_calibrate_blaser(args: argparse.Namespace) -> None:
@@ -919,6 +942,7 @@ def build_parser() -> argparse.ArgumentParser:
     audit_export = sub.add_parser("export-audit-queue")
     audit_export.add_argument("--translations", required=True)
     audit_export.add_argument("--output", required=True)
+    audit_export.add_argument("--audit-plan", choices=["plan_a", "plan_b"], default="plan_b")
     audit_export.add_argument("--include-passed", action="store_true")
     audit_export.set_defaults(func=cmd_export_audit_queue)
 
@@ -927,6 +951,16 @@ def build_parser() -> argparse.ArgumentParser:
     audit_import.add_argument("--audit-csv", required=True)
     audit_import.add_argument("--output", required=True)
     audit_import.set_defaults(func=cmd_import_audit)
+
+    audit_judge = sub.add_parser("judge-audit-queue")
+    audit_judge.add_argument("--audit-queue", required=True)
+    audit_judge.add_argument("--output", required=True)
+    audit_judge.add_argument("--provider", choices=["openai", "mock"], default="openai")
+    audit_judge.add_argument("--model", default="gpt-4o")
+    audit_judge.add_argument("--sleep-seconds", type=float, default=0.0)
+    audit_judge.add_argument("--limit", type=int)
+    audit_judge.add_argument("--force", action="store_true", help="Re-judge rows that already have xsts_score and audit_decision.")
+    audit_judge.set_defaults(func=cmd_judge_audit_queue)
 
     calibrate = sub.add_parser("calibrate-blaser")
     calibrate.add_argument("--audit-csv", action="append", required=True)

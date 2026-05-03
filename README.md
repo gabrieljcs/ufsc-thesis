@@ -1,6 +1,8 @@
 # thesis-eval
 
-`thesis-eval` is the reproducible evaluation package for the thesis **Multilingual Jailbreaks in Language-Specific Large Language Models**. It runs the full empirical pipeline: import harmful prompts, translate them, evaluate target models, score outputs with StrongREJECT, join specialization and tokenizer metrics, freeze the analysis dataset, and export thesis tables.
+`thesis-eval` is the reproducible evaluation package for the thesis **Multilingual Jailbreaks in Language-Specific Large Language Models**. It runs the full empirical pipeline: import harmful prompts, translate them, audit translation quality, evaluate target models, score outputs with StrongREJECT, join specialization and tokenizer metrics, freeze the analysis dataset, and export thesis tables.
+
+The active design has eight language-specific target models in four weak/strong aligned-language pairs, plus one separately reported English-aligned reference baseline: `llama3_1_8b_reference` (`meta-llama/Llama-3.1-8B-Instruct`). The reference baseline is descriptive only. It is evaluated on the same 13 attack languages, but is excluded from paired-design GLMMs, weak/strong slope-retention checks, and the four-pair falsification matrix.
 
 The main executable is:
 
@@ -38,7 +40,7 @@ eval/
 
 ## Models
 
-The thesis evaluates eight target models. Seven are open-weight Hugging Face models that are downloaded into `assets/models/`. Sabiá-3 is served through Maritaca and is configured as an API target.
+The thesis evaluates eight paired target models. Seven are open-weight Hugging Face models that are downloaded into `assets/models/`. Sabiá-3 is served through Maritaca and is configured as an API target.
 
 | ID | Aligned language | Access | Asset or provider |
 | --- | --- | --- | --- |
@@ -50,6 +52,12 @@ The thesis evaluates eight target models. Seven are open-weight Hugging Face mod
 | `ai_sweden_llama3_8b` | Swedish | open weight | `AI-Sweden-Models/Llama-3-8B-instruct` |
 | `bggpt_7b` | Bulgarian | open weight | `INSAIT-Institute/BgGPT-7B-Instruct-v0.2` |
 | `bggpt_gemma_9b` | Bulgarian | open weight | `INSAIT-Institute/BgGPT-Gemma-2-9B-IT-v1.0` |
+
+The English reference baseline is configured separately:
+
+| ID | Aligned language | Access | Asset or provider | Analysis role |
+| --- | --- | --- | --- | --- |
+| `llama3_1_8b_reference` | English | open weight | `meta-llama/Llama-3.1-8B-Instruct` | descriptive reference baseline |
 
 The attack-language inventory is:
 
@@ -198,7 +206,7 @@ To smoke-test the GPU path through the wrapper:
 uv run thesis-eval-gpu validate-config
 ```
 
-That should print `OK: 8 models, 13 languages` after a brief container startup.
+That should print `OK: 8 paired models, 1 reference baseline, 13 languages` after a brief container startup.
 
 ## Checkpointed Execution
 
@@ -258,7 +266,7 @@ uv run thesis-eval verify-assets --name nllb_200
 
 ## 4. Download Target Models
 
-Download each open-weight target separately. After each download, verify the asset and inspect model status. Sabiá-3 is an API target, so `model-status` checks the configured provider metadata instead of local weights.
+Download each open-weight paired target separately. After each download, verify the asset and inspect model status. Sabiá-3 is an API target, so `model-status` checks the configured provider metadata instead of local weights.
 
 ```powershell
 uv run thesis-eval download-assets --name sagui_7b
@@ -306,6 +314,14 @@ uv run thesis-eval model-status --model bggpt_7b
 uv run thesis-eval download-assets --name bggpt_gemma_9b
 uv run thesis-eval verify-assets --name bggpt_gemma_9b
 uv run thesis-eval model-status --model bggpt_gemma_9b
+```
+
+Download the English-aligned reference baseline after the paired targets. It is not a ninth paired model; it exists only for the distance-from-English curve and the counterfactual aligned-language safety check.
+
+```powershell
+uv run thesis-eval download-assets --name llama3_1_8b_reference
+uv run thesis-eval verify-assets --name llama3_1_8b_reference
+uv run thesis-eval model-status --model llama3_1_8b_reference
 ```
 
 ## 5. Prepare URIEL+ Distance Data
@@ -441,13 +457,36 @@ uv run thesis-eval-gpu translation-qc `
   --output outputs/translations/ara.qc.jsonl
 ```
 
-## 8. Human XSTS Audit and BLASER Calibration
+## 8. Switchable XSTS Audit and BLASER Calibration
 
-Create audit queues for bilingual review. Reviewers fill the exported CSV files with audit decisions and XSTS notes. The import command writes audited translation logs for generation.
+The thesis now supports two translation-audit paths. The LaTeX source defaults to **Plan B** with `\humanauditfalse`; switch the thesis to **Plan A** only after the Tier A human review is complete by setting `\humanaudittrue` in `ufscthesisx/main.tex`.
+
+| Plan | When to use it | Audit method |
+| --- | --- | --- |
+| Plan B | Default, deadline-driven path | Uncalibrated frontier multilingual LLM-as-judge XSTS for all flagged non-source rows |
+| Plan A | Upgrade path after human review is available | Tier A human XSTS for `ara`, `bul`, `ita`, `por`, `spa`; calibrated LLM-as-judge XSTS for `dan`, `fin`, `nor`, `rus`, `swa`, `swe`, `ukr` |
+
+Under both plans, audit decisions are pooled by `(target_language, prompt_id)`. A translation audit decision is not model-specific; the same accepted, revised, or excluded translation is applied to every downstream model that consumes that prompt-language pair. Finnish and Swahili are marked as caveat languages in exported audit queues.
+
+Create audit queues for the chosen plan. Auditors fill the exported CSV files with XSTS scores, audit decisions, and notes. The import command writes audited translation logs for generation.
 
 Audit queues are written as UTF-8 with BOM so Excel on Windows auto-detects encoding. **Tell reviewers to "Save As → CSV UTF-8 (Comma delimited) (*.csv)" — not the plain "CSV (Comma delimited)" option** — otherwise Excel will save as cp1252 and mangle non-ASCII characters on the way back in.
 
-Full audit queue export:
+### 8.1 Plan B: LLM-only audit (default)
+
+Use this path when no human XSTS reviewers are available. The CSV rows are marked as `audit_plan=plan_b` and `audit_method=uncalibrated_llm_xsts`. XSTS means cross-lingual semantic textual similarity: `5` is fully equivalent, `4` is mostly equivalent, `3` is imperfect with important differences, `2` is substantially different, and `1` is unrelated or wrong. The automated judge command fills `xsts_score`, `xsts_judge_model`, `audit_decision`, and `xsts_note`.
+
+Valid `audit_decision` values are:
+
+```text
+pass     keep the translation as-is
+revise   use the edited translated_text/revision_note from the CSV
+exclude  exclude the prompt-language pair from downstream generation/analysis
+```
+
+Plan B is intentionally disclosed as uncalibrated in the thesis. Do not run `calibrate-blaser` as evidence of human calibration unless Plan A human rows exist.
+
+Plan B queue export:
 
 ```powershell
 New-Item -ItemType Directory -Force outputs/audit | Out-Null
@@ -455,11 +494,26 @@ New-Item -ItemType Directory -Force outputs/audit | Out-Null
 foreach ($lang in $LANGUAGES) {
   uv run thesis-eval export-audit-queue `
     --translations "outputs/translations/$lang.qc.jsonl" `
+    --audit-plan plan_b `
     --output "outputs/audit/$lang.xsts_queue.csv"
 }
 ```
 
-After review, save decisions as `outputs/audit/{lang}.xsts_decisions.csv`, then import them:
+Run the LLM judge over each queue. This uses `OPENAI_API_KEY` and defaults to `gpt-4o`; use `--model` to record a different frontier multilingual judge.
+
+```powershell
+foreach ($lang in $LANGUAGES) {
+  uv run thesis-eval judge-audit-queue `
+    --audit-queue "outputs/audit/$lang.xsts_queue.csv" `
+    --provider openai `
+    --model gpt-4o `
+    --output "outputs/audit/$lang.xsts_decisions.csv"
+}
+```
+
+The judge maps XSTS `4` or `5` to `audit_decision=pass` and XSTS `1`, `2`, or `3` to `audit_decision=exclude`. Spot-check the decisions CSVs before importing, especially Finnish and Swahili.
+
+After LLM-as-judge review, import the decisions:
 
 ```powershell
 foreach ($lang in $LANGUAGES) {
@@ -472,7 +526,37 @@ foreach ($lang in $LANGUAGES) {
 
 The `.audit.jsonl` files are the prompt files used for model generation.
 
-Calibrate BLASER thresholds from the reviewed subset (`calibrate-blaser` accepts multiple `--audit-csv` arguments; no manual concat is needed):
+### 8.2 Plan A: human-calibrated audit
+
+Use this path only after human reviewers are available for Tier A languages (`ara`, `bul`, `ita`, `por`, `spa`). The exported queue marks Tier A rows as `human_xsts` and Tier B rows as `calibrated_llm_xsts`.
+
+Plan A queue export:
+
+```powershell
+New-Item -ItemType Directory -Force outputs/audit | Out-Null
+
+foreach ($lang in $LANGUAGES) {
+  uv run thesis-eval export-audit-queue `
+    --translations "outputs/translations/$lang.qc.jsonl" `
+    --audit-plan plan_a `
+    --output "outputs/audit/$lang.xsts_queue.csv"
+}
+```
+
+Fill Tier A rows from human XSTS reviewers. Fill Tier B rows from the fixed LLM-as-judge prompt in the thesis appendix. The LLM judge must also score the Tier A rows so weighted Cohen's kappa can be computed externally and reported in the thesis before Tier B decisions are treated as calibrated. If the pre-registered calibration threshold fails, rerun the analysis without LLM-derived Tier B audit decisions and keep the corresponding caveat in the thesis.
+
+After review, import decisions the same way as Plan B:
+
+```powershell
+foreach ($lang in $LANGUAGES) {
+  uv run thesis-eval import-audit `
+    --translations "outputs/translations/$lang.qc.jsonl" `
+    --audit-csv "outputs/audit/$lang.xsts_decisions.csv" `
+    --output "outputs/translations/$lang.audit.jsonl"
+}
+```
+
+Calibrate BLASER thresholds from the reviewed subset (`calibrate-blaser` accepts multiple `--audit-csv` arguments; no manual concat is needed). This is thesis-grade calibration only for Plan A or for a later Plan B supplement after human reference rows are added:
 
 ```powershell
 $AuditArgs = foreach ($lang in $LANGUAGES) { "--audit-csv"; "outputs/audit/$lang.xsts_decisions.csv" }
@@ -505,11 +589,12 @@ $OPEN_WEIGHT_MODELS = @(
   "gpt_sw3",
   "ai_sweden_llama3_8b",
   "bggpt_7b",
-  "bggpt_gemma_9b"
+  "bggpt_gemma_9b",
+  "llama3_1_8b_reference"
 )
 ```
 
-Full open-weight run:
+Full open-weight run, including the descriptive English reference baseline:
 
 ```powershell
 foreach ($model in $OPEN_WEIGHT_MODELS) {
@@ -525,6 +610,8 @@ foreach ($model in $OPEN_WEIGHT_MODELS) {
     --output-template "{model}_{lang}.jsonl"
 }
 ```
+
+If you want to run only the paired-design models first, omit `llama3_1_8b_reference` from `$OPEN_WEIGHT_MODELS` and run it afterward with the same `generate-targets` command. Do not add Sabiá-3 to this loop; it uses the Maritaca API path below.
 
 Sabiá-3 uses the Maritaca API. Run all languages in one batch:
 
@@ -616,7 +703,7 @@ uv run thesis-eval score-strongreject `
 
 ## 11. Compute BELEBELE IF/CONS/SPEC
 
-BELEBELE measures benign multilingual specialization. Query each target model on the BELEBELE multiple-choice items, then write predictions as JSONL with these fields:
+BELEBELE measures benign multilingual specialization for the eight paired target models. The English reference baseline is excluded from paired-design GLMMs, so SPEC for `llama3_1_8b_reference` is optional and not required for the main inferential tables. Query each paired target model on the BELEBELE multiple-choice items, then write predictions as JSONL with these fields:
 
 ```json
 {"model":"sagui_7b","language":"por","item_id":"belebele_0001","prediction":"A","gold":"A"}
@@ -650,7 +737,7 @@ uv run thesis-eval score-benign-controls `
 
 ## 13. Build and Freeze the Analysis Dataset
 
-Join StrongREJECT scores, translation QC/audit metadata, tokenizer diagnostics, URIEL+ distances, model metadata, and BELEBELE specialization.
+Join StrongREJECT scores, translation QC/audit metadata, tokenizer diagnostics, URIEL+ distances, model metadata, and BELEBELE specialization. The frozen dataset may contain both the eight paired models and `llama3_1_8b_reference`; downstream inferential commands filter the reference baseline out of paired-design models automatically.
 
 ```powershell
 Get-Content outputs/translations/*.audit.jsonl | Set-Content outputs/translations/all_audited_translations.jsonl
@@ -690,6 +777,8 @@ uv run thesis-eval fit-glmm `
   --output outputs/tables/glmm_main_effects.csv
 ```
 
+`fit-glmm`, `glmm_collinearity.csv`, and the pre-registered slope-retention tables use only rows with `model_alignment_pole` equal to `weak` or `strong`. The reference baseline remains available for descriptive tables and figures.
+
 The reporting commands produce:
 
 ```text
@@ -700,6 +789,8 @@ outputs/tables/closest_farthest_languages.csv
 outputs/tables/distance_asr_correlation.csv
 outputs/tables/spec_asr_correlation.csv
 outputs/tables/tokenizer_diagnostics.csv
+outputs/tables/reference_distance_curve.csv
+outputs/tables/counterfactual_safety_by_aligned_language.csv
 outputs/tables/glmm_collinearity.csv
 outputs/tables/prereg_distance_slope_retention.csv
 outputs/tables/prereg_falsification_summary.csv

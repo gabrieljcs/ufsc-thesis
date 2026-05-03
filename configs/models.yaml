@@ -62,3 +62,12 @@ bggpt_gemma_9b:
   alignment_pole: strong
   access_mode: open_weight
   aligned_language: bul
+llama3_1_8b_reference:
+  hf_id: meta-llama/Llama-3.1-8B-Instruct
+  provider_model_id: meta-llama/Llama-3.1-8B-Instruct
+  display_name: LLaMA-3.1-8B-Instruct
+  pair_language: eng
+  alignment_pole: reference
+  analysis_role: reference_baseline
+  access_mode: open_weight
+  aligned_language: eng
