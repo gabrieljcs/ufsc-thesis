@@ -244,6 +244,29 @@ class GenerationTests(unittest.TestCase):
             self.assertTrue(result["has_chat_template"])
             self.assertEqual(result["model_type"], "llama")
 
+    def test_generation_rows_skip_translation_exclusions(self) -> None:
+        from thesis_eval.models.generation import build_generation_rows
+
+        translations = [
+            {
+                "prompt_id": "p1",
+                "target_language": "por",
+                "translated_text": "keep",
+                "source_text": "source",
+                "translation_excluded": False,
+            },
+            {
+                "prompt_id": "p2",
+                "target_language": "por",
+                "translated_text": "drop",
+                "source_text": "source",
+                "translation_excluded": True,
+            },
+        ]
+        rows = build_generation_rows(translations, model="sagui_7b", aligned_language="por")
+        self.assertEqual(len(rows), 1)
+        self.assertEqual(rows[0]["prompt_id"], "p1")
+
 
 class StrongRejectScoringTests(unittest.TestCase):
     def test_mock_strongreject_scoring_preserves_subscores(self) -> None:

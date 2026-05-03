@@ -577,7 +577,7 @@ uv run thesis-eval reference-spbleu `
 
 ## 9. Generate Target Responses
 
-Open-weight models use vLLM on the RTX machine. The full run below writes one output file per model-language pair.
+Open-weight models use vLLM on the RTX machine. Move cautiously here: after the Plan B audit, `generate-targets` skips rows marked `translation_excluded=true`, so a full all-language run for one model should currently generate 4,021 retained prompt-language rows split across 13 output files.
 
 ```powershell
 New-Item -ItemType Directory -Force outputs/generations | Out-Null
@@ -593,6 +593,48 @@ $OPEN_WEIGHT_MODELS = @(
   "llama3_1_8b_reference"
 )
 ```
+
+### 9.1 One Open-Weight Model Across All Languages
+
+Recommended cautious path: run one model across all audited languages, inspect the per-language outputs, then continue to the next model.
+
+```powershell
+$MODEL = "sagui_7b"
+
+uv run thesis-eval-gpu generate-targets `
+  @AuditArgs `
+  --model $MODEL `
+  --backend vllm `
+  --profile rtx_5070_ti `
+  --max-tokens 512 `
+  --temperature 0.0 `
+  --trust-remote-code `
+  --output-dir outputs/generations `
+  --output-template "{model}_{lang}.jsonl"
+```
+
+Check that the expected 13 files were written:
+
+```powershell
+Get-ChildItem "outputs/generations/$MODEL`_*.jsonl" |
+  Select-Object Name, Length
+```
+
+Then repeat by changing `$MODEL` to each open-weight target:
+
+```powershell
+$MODEL = "llamantino_2_ultrachat_7b"
+$MODEL = "llamantino_anita_8b"
+$MODEL = "gpt_sw3"
+$MODEL = "ai_sweden_llama3_8b"
+$MODEL = "bggpt_7b"
+$MODEL = "bggpt_gemma_9b"
+$MODEL = "llama3_1_8b_reference"
+```
+
+Run `llama3_1_8b_reference` when you are ready for the descriptive English reference baseline. It is generated like the other open-weight models, but remains excluded from paired-design inferential models.
+
+### 9.2 All Open-Weight Models
 
 Full open-weight run, including the descriptive English reference baseline:
 

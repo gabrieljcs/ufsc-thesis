@@ -12,6 +12,8 @@ from thesis_eval.progress import info, step
 def build_generation_rows(translations: list[dict[str, Any]], model: str, aligned_language: str, benchmark: str = "strongreject") -> list[dict[str, Any]]:
     rows: list[dict[str, Any]] = []
     for index, translation in enumerate(translations, start=1):
+        if translation.get("translation_excluded"):
+            continue
         prompt_id = str(translation["prompt_id"])
         attack_language = str(translation["target_language"])
         rows.append(
