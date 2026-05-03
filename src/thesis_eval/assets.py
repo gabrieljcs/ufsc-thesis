@@ -246,14 +246,16 @@ def _verify_hf_snapshot(local_dir: Path, expect_config: bool) -> list[dict[str, 
     refs = local_dir / ".cache" / "huggingface"
     checks.append({"name": "hf cache metadata", "ok": refs.exists(), "path": str(refs)})
     config = local_dir / "config.json"
+    adapter_config = local_dir / "adapter_config.json"
     if expect_config:
-        checks.append({"name": "config.json", "ok": config.exists(), "path": str(config)})
-        if config.exists():
+        config_path = config if config.exists() else adapter_config
+        checks.append({"name": "model config", "ok": config_path.exists(), "path": str(config_path)})
+        if config_path.exists():
             try:
-                json.loads(config.read_text(encoding="utf-8"))
-                checks.append({"name": "config.json parseable", "ok": True, "path": str(config)})
+                json.loads(config_path.read_text(encoding="utf-8"))
+                checks.append({"name": "model config parseable", "ok": True, "path": str(config_path)})
             except Exception as exc:
-                checks.append({"name": "config.json parseable", "ok": False, "path": str(config), "message": str(exc)})
+                checks.append({"name": "model config parseable", "ok": False, "path": str(config_path), "message": str(exc)})
     file_count = sum(1 for path in local_dir.rglob("*") if path.is_file())
     checks.append({"name": "snapshot nonempty", "ok": file_count > 0, "files": file_count})
     if expect_config:
@@ -268,6 +270,7 @@ def _verify_hf_model_weights(local_dir: Path) -> dict[str, Any]:
         "tf_model.h5",
         "flax_model.msgpack",
         "model.pt",
+        "adapter_model.bin",
     ]
     present_single = [name for name in single_files if (local_dir / name).is_file()]
     if present_single:

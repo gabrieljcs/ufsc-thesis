@@ -116,6 +116,19 @@ assets:
     repo_id: OliveiraJLT/Sagui-7B-Instruct-v0.1
     local_dir: assets/models/sagui-7b-instruct-v0.1
     required_files: [assets/models/sagui-7b-instruct-v0.1/config.json]
+    required_any_files: [[assets/models/sagui-7b-instruct-v0.1/model.safetensors.index.json, assets/models/sagui-7b-instruct-v0.1/model.safetensors]]
+    allow_patterns:
+      - .gitattributes
+      - README.md
+      - config.json
+      - generation_config.json
+      - tokenizer_config.json
+      - special_tokens_map.json
+      - tokenizer.json
+      - tokenizer.model
+      - model.safetensors
+      - model-*.safetensors
+      - model.safetensors.index.json
     description: "Portuguese-aligned instruction-tuned target model fine-tuned from Sabiá-7B."
   sabia_3:
     kind: api_model
@@ -129,7 +142,12 @@ assets:
     groups: [targets]
     repo_id: andreabac3/Fauno-Italian-LLM-7B
     local_dir: assets/models/fauno-italian-llm-7b
-    required_files: [assets/models/fauno-italian-llm-7b/config.json]
+    required_files: [assets/models/fauno-italian-llm-7b/adapter_config.json, assets/models/fauno-italian-llm-7b/adapter_model.bin]
+    allow_patterns:
+      - .gitattributes
+      - README.md
+      - adapter_config.json
+      - adapter_model.bin
     description: "Italian-aligned target model."
   llamantino_anita_8b:
     kind: hf_model
@@ -138,6 +156,20 @@ assets:
     repo_id: swap-uniba/LLaMAntino-3-ANITA-8B-Inst-DPO-ITA
     local_dir: assets/models/llamantino-3-anita-8b-inst-dpo-ita
     required_files: [assets/models/llamantino-3-anita-8b-inst-dpo-ita/config.json]
+    required_any_files: [[assets/models/llamantino-3-anita-8b-inst-dpo-ita/model.safetensors.index.json, assets/models/llamantino-3-anita-8b-inst-dpo-ita/model.safetensors]]
+    allow_patterns:
+      - .gitattributes
+      - LICENSE.txt
+      - README.md
+      - USE_POLICY.md
+      - config.json
+      - generation_config.json
+      - tokenizer_config.json
+      - special_tokens_map.json
+      - tokenizer.json
+      - model.safetensors
+      - model-*.safetensors
+      - model.safetensors.index.json
     description: "Italian strong-pole instruction-tuned target model."
   gpt_sw3:
     kind: hf_model
@@ -146,6 +178,18 @@ assets:
     repo_id: AI-Sweden-Models/gpt-sw3-6.7b-v2-instruct
     local_dir: assets/models/gpt-sw3-6.7b-v2-instruct
     required_files: [assets/models/gpt-sw3-6.7b-v2-instruct/config.json]
+    required_any_files: [[assets/models/gpt-sw3-6.7b-v2-instruct/model.safetensors.index.json, assets/models/gpt-sw3-6.7b-v2-instruct/model.safetensors]]
+    allow_patterns:
+      - .gitattributes
+      - GPT-SW3_MODEL_GUIDELINES
+      - LICENSE
+      - README.md
+      - config.json
+      - tokenizer_config.json
+      - spiece.model
+      - model.safetensors
+      - model-*.safetensors
+      - model.safetensors.index.json
     description: "Swedish-aligned target model."
   ai_sweden_llama3_8b:
     kind: hf_model
@@ -154,6 +198,18 @@ assets:
     repo_id: AI-Sweden-Models/Llama-3-8B-instruct
     local_dir: assets/models/ai-sweden-llama-3-8b-instruct
     required_files: [assets/models/ai-sweden-llama-3-8b-instruct/config.json]
+    required_any_files: [[assets/models/ai-sweden-llama-3-8b-instruct/model.safetensors.index.json, assets/models/ai-sweden-llama-3-8b-instruct/model.safetensors]]
+    allow_patterns:
+      - .gitattributes
+      - README.md
+      - config.json
+      - generation_config.json
+      - tokenizer_config.json
+      - special_tokens_map.json
+      - tokenizer.json
+      - model.safetensors
+      - model-*.safetensors
+      - model.safetensors.index.json
     description: "Swedish strong-pole instruction-tuned target model."
   bggpt_7b:
     kind: hf_model
@@ -162,6 +218,19 @@ assets:
     repo_id: INSAIT-Institute/BgGPT-7B-Instruct-v0.2
     local_dir: assets/models/bggpt-7b-instruct-v0.2
     required_files: [assets/models/bggpt-7b-instruct-v0.2/config.json]
+    required_any_files: [[assets/models/bggpt-7b-instruct-v0.2/model.safetensors.index.json, assets/models/bggpt-7b-instruct-v0.2/model.safetensors]]
+    allow_patterns:
+      - .gitattributes
+      - README.md
+      - config.json
+      - generation_config.json
+      - tokenizer_config.json
+      - special_tokens_map.json
+      - tokenizer.json
+      - tokenizer.model
+      - model.safetensors
+      - model-*.safetensors
+      - model.safetensors.index.json
     description: "Bulgarian-aligned target model."
   bggpt_gemma_9b:
     kind: hf_model
@@ -170,4 +239,18 @@ assets:
     repo_id: INSAIT-Institute/BgGPT-Gemma-2-9B-IT-v1.0
     local_dir: assets/models/bggpt-gemma-2-9b-it-v1.0
     required_files: [assets/models/bggpt-gemma-2-9b-it-v1.0/config.json]
+    required_any_files: [[assets/models/bggpt-gemma-2-9b-it-v1.0/model.safetensors.index.json, assets/models/bggpt-gemma-2-9b-it-v1.0/model.safetensors]]
+    allow_patterns:
+      - .gitattributes
+      - LICENSE
+      - README.md
+      - config.json
+      - generation_config.json
+      - tokenizer_config.json
+      - special_tokens_map.json
+      - tokenizer.json
+      - tokenizer.model
+      - model.safetensors
+      - model-*.safetensors
+      - model.safetensors.index.json
     description: "Bulgarian strong-pole instruction-tuned target model."
