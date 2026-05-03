@@ -256,7 +256,56 @@ def _verify_hf_snapshot(local_dir: Path, expect_config: bool) -> list[dict[str, 
                 checks.append({"name": "config.json parseable", "ok": False, "path": str(config), "message": str(exc)})
     file_count = sum(1 for path in local_dir.rglob("*") if path.is_file())
     checks.append({"name": "snapshot nonempty", "ok": file_count > 0, "files": file_count})
+    if expect_config:
+        checks.append(_verify_hf_model_weights(local_dir))
     return checks
+
+
+def _verify_hf_model_weights(local_dir: Path) -> dict[str, Any]:
+    single_files = [
+        "model.safetensors",
+        "pytorch_model.bin",
+        "tf_model.h5",
+        "flax_model.msgpack",
+        "model.pt",
+    ]
+    present_single = [name for name in single_files if (local_dir / name).is_file()]
+    if present_single:
+        return {"name": "model weights", "ok": True, "files": present_single, "format": "single"}
+
+    index_files = [
+        local_dir / "model.safetensors.index.json",
+        local_dir / "pytorch_model.bin.index.json",
+    ]
+    for index_path in index_files:
+        if not index_path.is_file():
+            continue
+        try:
+            index = json.loads(index_path.read_text(encoding="utf-8"))
+        except Exception as exc:
+            return {"name": "model weights", "ok": False, "index": str(index_path), "message": f"could not parse index: {exc}"}
+        weight_map = index.get("weight_map", {})
+        expected = sorted({str(filename) for filename in weight_map.values()})
+        missing = [filename for filename in expected if not (local_dir / filename).is_file()]
+        return {
+            "name": "model weights",
+            "ok": bool(expected) and not missing,
+            "format": "sharded",
+            "index": str(index_path),
+            "expected_shards": len(expected),
+            "missing_shards": missing[:20],
+            "missing_shard_count": len(missing),
+        }
+
+    shard_patterns = ("model-*.safetensors", "pytorch_model-*.bin")
+    present_shards = sorted(str(path.name) for pattern in shard_patterns for path in local_dir.glob(pattern))
+    return {
+        "name": "model weights",
+        "ok": bool(present_shards),
+        "format": "shards_without_index" if present_shards else "missing",
+        "files": present_shards[:20],
+        "file_count": len(present_shards),
+    }
 
 
 def _hash_summary(local_dir: Path) -> dict[str, Any]:

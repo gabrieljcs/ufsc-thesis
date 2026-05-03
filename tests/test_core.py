@@ -54,6 +54,8 @@ class ConfigTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             local_dir = Path(tmp) / "partial-model"
             local_dir.mkdir()
+            (local_dir / ".cache" / "huggingface").mkdir(parents=True)
+            (local_dir / "config.json").write_text("{}", encoding="utf-8")
             asset = AssetSpec(
                 name="partial",
                 kind="hf_model",
@@ -68,6 +70,32 @@ class ConfigTests(unittest.TestCase):
                 result = download_asset(asset)
             snapshot_download.assert_called_once()
             self.assertEqual(result["action"], "downloaded")
+
+    def test_sharded_hf_asset_requires_all_indexed_shards(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            local_dir = Path(tmp) / "partial-sharded-model"
+            (local_dir / ".cache" / "huggingface").mkdir(parents=True)
+            (local_dir / "config.json").write_text("{}", encoding="utf-8")
+            (local_dir / "model.safetensors.index.json").write_text(
+                '{"weight_map":{"a":"model-00001-of-00002.safetensors","b":"model-00002-of-00002.safetensors"}}',
+                encoding="utf-8",
+            )
+            (local_dir / "model-00001-of-00002.safetensors").write_text("partial", encoding="utf-8")
+            asset = AssetSpec(
+                name="partial_sharded",
+                kind="hf_model",
+                group="targets",
+                groups=("targets",),
+                description="partial sharded fixture",
+                repo_id="org/model",
+                local_dir=local_dir,
+                required_files=(local_dir / "config.json",),
+                required_any_files=((local_dir / "model.safetensors.index.json",),),
+            )
+            result = verify_asset(asset)
+            self.assertFalse(result["ok"])
+            weights_check = next(check for check in result["checks"] if check["name"] == "model weights")
+            self.assertEqual(weights_check["missing_shard_count"], 1)
 
 
 class MetricsTests(unittest.TestCase):
