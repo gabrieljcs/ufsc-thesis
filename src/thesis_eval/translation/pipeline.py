@@ -1,10 +1,25 @@
 from __future__ import annotations
 
+import re
 from dataclasses import dataclass
 from typing import Any
 
 from thesis_eval.progress import info, step
 from thesis_eval.translation.log import TranslationLog
+
+
+_SENTENCE_BOUNDARY = re.compile(r"(?<=[.!?])\s+")
+
+
+def _split_sentences(text: str) -> list[str]:
+    """Split text on sentence boundaries (.!?+whitespace).
+
+    NLLB-200 was trained on single-sentence pairs and emits EOS prematurely
+    on multi-sentence inputs, dropping all but the first (or sometimes the
+    last) sentence. Translating each sentence as its own item in a batch
+    avoids that failure mode without changing model weights.
+    """
+    return [s.strip() for s in _SENTENCE_BOUNDARY.split(text.strip()) if s.strip()]
 
 
 NLLB_CODES = {
@@ -96,11 +111,19 @@ class NllbTranslator:
     def translate(self, text: str, target_language: str, source_language: str | None = None) -> str:
         if source_language is not None:
             self.tokenizer.src_lang = NLLB_CODES[source_language]
-        encoded = self.tokenizer(text, return_tensors="pt").to(self.resolved_device)
+        sentences = _split_sentences(text)
+        if not sentences:
+            return ""
         forced_bos_token_id = self.tokenizer.convert_tokens_to_ids(NLLB_CODES[target_language])
+        encoded = self.tokenizer(sentences, return_tensors="pt", padding=True).to(self.resolved_device)
         with self.torch.inference_mode():
-            generated = self.model.generate(**encoded, forced_bos_token_id=forced_bos_token_id)
-        return str(self.tokenizer.batch_decode(generated, skip_special_tokens=True)[0])
+            generated = self.model.generate(
+                **encoded,
+                forced_bos_token_id=forced_bos_token_id,
+                max_new_tokens=512,
+            )
+        chunks = [str(d) for d in self.tokenizer.batch_decode(generated, skip_special_tokens=True)]
+        return " ".join(chunks).strip()
 
 
 def translate_text(

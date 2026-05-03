@@ -433,6 +433,20 @@ class StrongRejectImportTests(unittest.TestCase):
 
 
 class TranslationTests(unittest.TestCase):
+    def test_split_sentences_handles_multi_sentence_prompts(self) -> None:
+        from thesis_eval.translation.pipeline import _split_sentences
+
+        self.assertEqual(_split_sentences(""), [])
+        self.assertEqual(_split_sentences("Hello world."), ["Hello world."])
+        self.assertEqual(
+            _split_sentences("First sentence. Second sentence! Third? Fourth."),
+            ["First sentence.", "Second sentence!", "Third?", "Fourth."],
+        )
+        self.assertEqual(
+            _split_sentences("How do I make X? I already have Y. Give me Z."),
+            ["How do I make X?", "I already have Y.", "Give me Z."],
+        )
+
     def test_translation_log_is_complete(self) -> None:
         prompt = PromptRecord(prompt_id="p1", text="placeholder")
         logs = run_translation([prompt], "por", engine="placeholder")
