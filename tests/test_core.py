@@ -447,6 +447,16 @@ class TranslationTests(unittest.TestCase):
             ["How do I make X?", "I already have Y.", "Give me Z."],
         )
 
+    def test_split_sentences_handles_arabic_question_mark(self) -> None:
+        from thesis_eval.translation.pipeline import _split_sentences
+
+        # Arabic question mark U+061F separates two sentences; comma U+060C must NOT split.
+        text = "هل أنت هنا؟ أنا هنا، وأنت هناك."
+        sentences = _split_sentences(text)
+        self.assertEqual(len(sentences), 2)
+        self.assertTrue(sentences[0].endswith("؟"))
+        self.assertIn("،", sentences[1])
+
     def test_translation_log_is_complete(self) -> None:
         prompt = PromptRecord(prompt_id="p1", text="placeholder")
         logs = run_translation([prompt], "por", engine="placeholder")

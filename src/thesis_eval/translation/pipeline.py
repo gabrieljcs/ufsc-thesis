@@ -8,16 +8,28 @@ from thesis_eval.progress import info, step
 from thesis_eval.translation.log import TranslationLog
 
 
-_SENTENCE_BOUNDARY = re.compile(r"(?<=[.!?])\s+")
+# Sentence terminators across the attack-language inventory.
+# - .!? cover all Latin- and Cyrillic-script targets (eng, bul, dan, fin, ita,
+#   nor, por, rus, spa, swa, swe, ukr) since Cyrillic typesetting uses ASCII
+#   punctuation.
+# - ؟ (U+061F) is the Arabic question mark; without it, multi-question Arabic
+#   sentences round-trip as a single chunk and trigger NLLB's premature-EOS
+#   failure mode just like English multi-sentence inputs do.
+# Note: we deliberately do NOT include the Arabic comma ، (U+060C) or
+# semicolon ؛ (U+061B): they are used internally within sentences and would
+# cause spurious splits.
+_SENTENCE_BOUNDARY = re.compile(r"(?<=[.!?؟])\s+")
 
 
 def _split_sentences(text: str) -> list[str]:
-    """Split text on sentence boundaries (.!?+whitespace).
+    """Split text on sentence boundaries (.!?؟ + whitespace).
 
     NLLB-200 was trained on single-sentence pairs and emits EOS prematurely
     on multi-sentence inputs, dropping all but the first (or sometimes the
     last) sentence. Translating each sentence as its own item in a batch
-    avoids that failure mode without changing model weights.
+    avoids that failure mode without changing model weights. The same
+    splitter runs in both directions (forward translate and round-trip
+    back-translate), so it must recognize target-language punctuation too.
     """
     return [s.strip() for s in _SENTENCE_BOUNDARY.split(text.strip()) if s.strip()]
 
