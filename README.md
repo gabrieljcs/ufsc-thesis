@@ -88,14 +88,29 @@ uv run thesis-eval runtime-profiles
 uv run thesis-eval list-assets
 ```
 
+## Checkpointed Execution
+
+The workflow below is written one checkpoint at a time. Run one command, verify the output, then continue. This is especially useful for model downloads and generation runs that may take hours.
+
+Downloads are resumable. Hugging Face assets are downloaded through `snapshot_download` with resume support into the fixed paths listed in `configs/assets.yaml`. If a network interruption or machine restart happens, rerun the same `download-assets --name ...` command. Completed files are reused, partial transfers continue, and verified assets are skipped. If a folder exists but required files are missing, the command resumes into that folder. `--force` starts a fresh download for that asset.
+
 ## 2. Download Datasets
 
 StrongREJECT provides the harmful prompt source. MultiJail is the external multilingual validation benchmark. BELEBELE is the benign reading-comprehension benchmark used to compute IF, CONS, and SPEC.
 
 ```bash
 uv run thesis-eval download-assets --name strongreject
-uv run thesis-eval download-assets --name multijail --name belebele
-uv run thesis-eval verify-assets --group datasets
+uv run thesis-eval verify-assets --name strongreject
+```
+
+```bash
+uv run thesis-eval download-assets --name multijail
+uv run thesis-eval verify-assets --name multijail
+```
+
+```bash
+uv run thesis-eval download-assets --name belebele
+uv run thesis-eval verify-assets --name belebele
 ```
 
 StrongREJECT is written to:
@@ -110,31 +125,71 @@ data/raw/strongreject/pilot_prompts.jsonl
 NLLB-200 is used for prompt translation and response back-translation. BLASER 2.0 QE is used for reference-free translation quality screening. The 3.3B NLLB checkpoint is the thesis-grade translation asset for the RTX run; the 600M checkpoint is useful for quick smoke tests.
 
 ```bash
-uv run thesis-eval download-assets --name nllb_200_3_3b --name blaser_2_0_qe
+uv run thesis-eval download-assets --name nllb_200_3_3b
+uv run thesis-eval verify-assets --name nllb_200_3_3b
+```
+
+```bash
+uv run thesis-eval download-assets --name blaser_2_0_qe
 uv run thesis-eval prewarm-sonar
-uv run thesis-eval verify-assets --name nllb_200_3_3b --name blaser_2_0_qe
+uv run thesis-eval verify-assets --name blaser_2_0_qe
 ```
 
 For a smaller local smoke test:
 
 ```bash
 uv run thesis-eval download-assets --name nllb_200
+uv run thesis-eval verify-assets --name nllb_200
 ```
 
 ## 4. Download Target Models
 
-Download all open-weight targets in one step. The Sabiá-3 entry is checked as an API target and has no local weights.
+Download each open-weight target separately. After each download, verify the asset and inspect model status. Sabiá-3 is an API target, so `model-status` checks the configured provider metadata instead of local weights.
 
 ```bash
-uv run thesis-eval download-assets --group targets
-uv run thesis-eval verify-assets --group targets
+uv run thesis-eval download-assets --name sagui_7b
+uv run thesis-eval verify-assets --name sagui_7b
+uv run thesis-eval model-status --model sagui_7b
 ```
 
-Inspect a single model before running generation:
+```bash
+uv run thesis-eval model-status --model sabia_3
+```
 
 ```bash
-uv run thesis-eval model-status --model sagui_7b
-uv run thesis-eval model-status --model sabia_3
+uv run thesis-eval download-assets --name fauno
+uv run thesis-eval verify-assets --name fauno
+uv run thesis-eval model-status --model fauno
+```
+
+```bash
+uv run thesis-eval download-assets --name llamantino_anita_8b
+uv run thesis-eval verify-assets --name llamantino_anita_8b
+uv run thesis-eval model-status --model llamantino_anita_8b
+```
+
+```bash
+uv run thesis-eval download-assets --name gpt_sw3
+uv run thesis-eval verify-assets --name gpt_sw3
+uv run thesis-eval model-status --model gpt_sw3
+```
+
+```bash
+uv run thesis-eval download-assets --name ai_sweden_llama3_8b
+uv run thesis-eval verify-assets --name ai_sweden_llama3_8b
+uv run thesis-eval model-status --model ai_sweden_llama3_8b
+```
+
+```bash
+uv run thesis-eval download-assets --name bggpt_7b
+uv run thesis-eval verify-assets --name bggpt_7b
+uv run thesis-eval model-status --model bggpt_7b
+```
+
+```bash
+uv run thesis-eval download-assets --name bggpt_gemma_9b
+uv run thesis-eval verify-assets --name bggpt_gemma_9b
+uv run thesis-eval model-status --model bggpt_gemma_9b
 ```
 
 ## 5. Prepare URIEL+ Distance Data
@@ -154,31 +209,169 @@ data/uriel_plus/distance_matrix.csv
 
 ## 6. Translate StrongREJECT Prompts
 
-Translate the English StrongREJECT prompts into all attack languages with NLLB-200. The output is one JSONL translation log per language.
+Translate the English StrongREJECT prompts into one attack language at a time with NLLB-200. Each command writes one JSONL translation log, so progress can be checked language by language.
 
 ```bash
 mkdir -p outputs/translations
+PROMPTS=data/raw/strongreject/prompts.jsonl
+NLLB=assets/models/nllb-200-3.3B
+DEVICE=cuda
+```
 
+Arabic:
+
+```bash
 uv run thesis-eval translate \
-  --prompts data/raw/strongreject/prompts.jsonl \
+  --prompts "$PROMPTS" \
   --target-language ara \
+  --engine nllb \
+  --checkpoint "$NLLB" \
+  --device "$DEVICE" \
+  --output outputs/translations/ara.raw.jsonl
+```
+
+Bulgarian:
+
+```bash
+uv run thesis-eval translate \
+  --prompts "$PROMPTS" \
   --target-language bul \
+  --engine nllb \
+  --checkpoint "$NLLB" \
+  --device "$DEVICE" \
+  --output outputs/translations/bul.raw.jsonl
+```
+
+Danish:
+
+```bash
+uv run thesis-eval translate \
+  --prompts "$PROMPTS" \
   --target-language dan \
+  --engine nllb \
+  --checkpoint "$NLLB" \
+  --device "$DEVICE" \
+  --output outputs/translations/dan.raw.jsonl
+```
+
+English baseline:
+
+```bash
+uv run thesis-eval translate \
+  --prompts "$PROMPTS" \
   --target-language eng \
+  --engine nllb \
+  --checkpoint "$NLLB" \
+  --device "$DEVICE" \
+  --output outputs/translations/eng.raw.jsonl
+```
+
+Finnish:
+
+```bash
+uv run thesis-eval translate \
+  --prompts "$PROMPTS" \
   --target-language fin \
+  --engine nllb \
+  --checkpoint "$NLLB" \
+  --device "$DEVICE" \
+  --output outputs/translations/fin.raw.jsonl
+```
+
+Italian:
+
+```bash
+uv run thesis-eval translate \
+  --prompts "$PROMPTS" \
   --target-language ita \
+  --engine nllb \
+  --checkpoint "$NLLB" \
+  --device "$DEVICE" \
+  --output outputs/translations/ita.raw.jsonl
+```
+
+Norwegian:
+
+```bash
+uv run thesis-eval translate \
+  --prompts "$PROMPTS" \
   --target-language nor \
+  --engine nllb \
+  --checkpoint "$NLLB" \
+  --device "$DEVICE" \
+  --output outputs/translations/nor.raw.jsonl
+```
+
+Portuguese:
+
+```bash
+uv run thesis-eval translate \
+  --prompts "$PROMPTS" \
   --target-language por \
+  --engine nllb \
+  --checkpoint "$NLLB" \
+  --device "$DEVICE" \
+  --output outputs/translations/por.raw.jsonl
+```
+
+Russian:
+
+```bash
+uv run thesis-eval translate \
+  --prompts "$PROMPTS" \
   --target-language rus \
+  --engine nllb \
+  --checkpoint "$NLLB" \
+  --device "$DEVICE" \
+  --output outputs/translations/rus.raw.jsonl
+```
+
+Spanish:
+
+```bash
+uv run thesis-eval translate \
+  --prompts "$PROMPTS" \
   --target-language spa \
+  --engine nllb \
+  --checkpoint "$NLLB" \
+  --device "$DEVICE" \
+  --output outputs/translations/spa.raw.jsonl
+```
+
+Swahili:
+
+```bash
+uv run thesis-eval translate \
+  --prompts "$PROMPTS" \
   --target-language swa \
+  --engine nllb \
+  --checkpoint "$NLLB" \
+  --device "$DEVICE" \
+  --output outputs/translations/swa.raw.jsonl
+```
+
+Swedish:
+
+```bash
+uv run thesis-eval translate \
+  --prompts "$PROMPTS" \
   --target-language swe \
+  --engine nllb \
+  --checkpoint "$NLLB" \
+  --device "$DEVICE" \
+  --output outputs/translations/swe.raw.jsonl
+```
+
+Ukrainian:
+
+```bash
+uv run thesis-eval translate \
+  --prompts "$PROMPTS" \
   --target-language ukr \
   --engine nllb \
-  --checkpoint assets/models/nllb-200-3.3B \
-  --device cuda \
-  --output-dir outputs/translations \
-  --output-template "{lang}.raw.jsonl"
+  --checkpoint "$NLLB" \
+  --device "$DEVICE" \
+  --output outputs/translations/ukr.raw.jsonl
 ```
 
 For a two-language pilot:
@@ -187,35 +380,47 @@ For a two-language pilot:
 uv run thesis-eval translate \
   --prompts data/raw/strongreject/pilot_prompts.jsonl \
   --target-language por \
+  --engine nllb \
+  --checkpoint assets/models/nllb-200-distilled-600M \
+  --device auto \
+  --output outputs/pilot/translations/por.raw.jsonl
+```
+
+```bash
+uv run thesis-eval translate \
+  --prompts data/raw/strongreject/pilot_prompts.jsonl \
   --target-language ara \
   --engine nllb \
   --checkpoint assets/models/nllb-200-distilled-600M \
   --device auto \
-  --output-dir outputs/pilot/translations \
-  --output-template "{lang}.raw.jsonl"
+  --output outputs/pilot/translations/ara.raw.jsonl
 ```
 
 ## 7. Run Round-Trip Diagnostics and BLASER QC
 
-Round-trip diagnostics back-translate prompts for inspection. BLASER assigns reference-free QE scores and pass/flag/fail status. The final files from this stage are `outputs/translations/{lang}.qc.jsonl`.
+Round-trip diagnostics back-translate prompts for inspection. BLASER assigns reference-free QE scores and pass/flag/fail status. Run these two commands for one language, check the resulting `.roundtrip.jsonl` and `.qc.jsonl`, then continue to the next language.
+
+Arabic:
 
 ```bash
-LANGS="ara bul dan eng fin ita nor por rus spa swa swe ukr"
+uv run thesis-eval prompt-roundtrip \
+  --translations outputs/translations/ara.raw.jsonl \
+  --engine nllb \
+  --checkpoint "$NLLB" \
+  --device "$DEVICE" \
+  --output outputs/translations/ara.roundtrip.jsonl
 
-for lang in $LANGS; do
-  uv run thesis-eval prompt-roundtrip \
-    --translations "outputs/translations/${lang}.raw.jsonl" \
-    --engine nllb \
-    --checkpoint assets/models/nllb-200-3.3B \
-    --device cuda \
-    --output "outputs/translations/${lang}.roundtrip.jsonl"
+uv run thesis-eval translation-qc \
+  --translations outputs/translations/ara.roundtrip.jsonl \
+  --scorer blaser \
+  --device "$DEVICE" \
+  --output outputs/translations/ara.qc.jsonl
+```
 
-  uv run thesis-eval translation-qc \
-    --translations "outputs/translations/${lang}.roundtrip.jsonl" \
-    --scorer blaser \
-    --device cuda \
-    --output "outputs/translations/${lang}.qc.jsonl"
-done
+Repeat for the remaining languages by replacing `ara` with:
+
+```text
+bul dan eng fin ita nor por rus spa swa swe ukr
 ```
 
 ## 8. Human XSTS Audit and BLASER Calibration
@@ -225,23 +430,23 @@ Create audit queues for bilingual review. Reviewers fill the exported CSV files 
 ```bash
 mkdir -p outputs/audit
 
-for lang in $LANGS; do
-  uv run thesis-eval export-audit-queue \
-    --translations "outputs/translations/${lang}.qc.jsonl" \
-    --output "outputs/audit/${lang}.xsts_queue.csv"
-done
+uv run thesis-eval export-audit-queue \
+  --translations outputs/translations/ara.qc.jsonl \
+  --output outputs/audit/ara.xsts_queue.csv
 ```
+
+Repeat for the remaining languages by replacing `ara` with each language code.
 
 After review, save decisions as `outputs/audit/{lang}.xsts_decisions.csv`, then import them:
 
 ```bash
-for lang in $LANGS; do
-  uv run thesis-eval import-audit \
-    --translations "outputs/translations/${lang}.qc.jsonl" \
-    --audit-csv "outputs/audit/${lang}.xsts_decisions.csv" \
-    --output "outputs/translations/${lang}.audit.jsonl"
-done
+uv run thesis-eval import-audit \
+  --translations outputs/translations/ara.qc.jsonl \
+  --audit-csv outputs/audit/ara.xsts_decisions.csv \
+  --output outputs/translations/ara.audit.jsonl
 ```
+
+Repeat for each reviewed language. The `.audit.jsonl` files are the prompt files used for model generation.
 
 Calibrate BLASER thresholds from the reviewed subset:
 
@@ -264,43 +469,48 @@ uv run thesis-eval reference-spbleu \
 
 ## 9. Generate Target Responses
 
-Open-weight models use vLLM on the RTX machine. The command below runs every open-weight target over all audited translation files and writes one output file per model-language pair.
+Open-weight models use vLLM on the RTX machine. Each command writes one output file for one model-language pair.
 
 ```bash
 mkdir -p outputs/generations
-
-TRANSLATION_ARGS=()
-for lang in $LANGS; do
-  TRANSLATION_ARGS+=(--translations "outputs/translations/${lang}.audit.jsonl")
-done
-
-OPEN_WEIGHT_MODELS="sagui_7b fauno llamantino_anita_8b gpt_sw3 ai_sweden_llama3_8b bggpt_7b bggpt_gemma_9b"
-
-for model in $OPEN_WEIGHT_MODELS; do
-  uv run thesis-eval generate-targets \
-    "${TRANSLATION_ARGS[@]}" \
-    --model "$model" \
-    --backend vllm \
-    --profile rtx_5070_ti \
-    --max-tokens 512 \
-    --temperature 0.0 \
-    --trust-remote-code \
-    --output-dir outputs/generations \
-    --output-template "{model}_{lang}.jsonl"
-done
 ```
 
-Run Sabiá-3 through the Maritaca API:
+Start with one model and one language:
 
 ```bash
 uv run thesis-eval generate-targets \
-  "${TRANSLATION_ARGS[@]}" \
+  --translations outputs/translations/ara.audit.jsonl \
+  --model sagui_7b \
+  --backend vllm \
+  --profile rtx_5070_ti \
+  --max-tokens 512 \
+  --temperature 0.0 \
+  --trust-remote-code \
+  --output outputs/generations/sagui_7b_ara.jsonl
+```
+
+Then continue one model-language cell at a time. Replace `ara` with each language code, and replace `sagui_7b` with each open-weight model:
+
+```text
+sagui_7b
+fauno
+llamantino_anita_8b
+gpt_sw3
+ai_sweden_llama3_8b
+bggpt_7b
+bggpt_gemma_9b
+```
+
+Sabiá-3 uses the Maritaca API:
+
+```bash
+uv run thesis-eval generate-targets \
+  --translations outputs/translations/ara.audit.jsonl \
   --model sabia_3 \
   --backend maritaca \
   --max-tokens 512 \
   --temperature 0.0 \
-  --output-dir outputs/generations \
-  --output-template "{model}_{lang}.jsonl"
+  --output outputs/generations/sabia_3_ara.jsonl
 ```
 
 For a Mac smoke test with one model and one translation file:
@@ -323,17 +533,18 @@ Scoring back-translates non-English model outputs to English with NLLB-200, then
 ```bash
 mkdir -p outputs/scored
 
-for file in outputs/generations/*.jsonl; do
-  base="$(basename "$file" .jsonl)"
-  uv run thesis-eval score-strongreject \
-    --generations "$file" \
-    --evaluator strongreject_rubric \
-    --backtranslate-engine nllb \
-    --checkpoint assets/models/nllb-200-3.3B \
-    --device cuda \
-    --output "outputs/scored/${base}.strongreject.jsonl"
-done
+uv run thesis-eval score-strongreject \
+  --generations outputs/generations/sagui_7b_ara.jsonl \
+  --evaluator strongreject_rubric \
+  --backtranslate-engine nllb \
+  --checkpoint "$NLLB" \
+  --device "$DEVICE" \
+  --output outputs/scored/sagui_7b_ara.strongreject.jsonl
+```
 
+Repeat for each file in `outputs/generations/`. After every generation file has a matching scored file, combine them:
+
+```bash
 cat outputs/scored/*.strongreject.jsonl > outputs/scored/all_strongreject_scores.jsonl
 ```
 

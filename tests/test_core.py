@@ -5,7 +5,7 @@ import unittest
 from pathlib import Path
 from unittest.mock import patch
 
-from thesis_eval.assets import AssetSpec, asset_status, load_assets, select_assets, verify_asset
+from thesis_eval.assets import AssetSpec, asset_status, download_asset, load_assets, select_assets, verify_asset
 from thesis_eval.benchmarks.strongreject import import_strongreject, load_prompt_records, write_prompt_records
 from thesis_eval.benchmarks.uriel import load_distance_matrix, subset_matrix, write_distance_matrix
 from thesis_eval.cli import main
@@ -49,6 +49,25 @@ class ConfigTests(unittest.TestCase):
         self.assertEqual({asset.name for asset in select_assets(groups=["jailbreaks"])}, {"strongreject", "multijail"})
         status = asset_status(assets["nllb_200"])
         self.assertEqual(status["name"], "nllb_200")
+
+    def test_incomplete_hf_asset_resumes_download(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            local_dir = Path(tmp) / "partial-model"
+            local_dir.mkdir()
+            asset = AssetSpec(
+                name="partial",
+                kind="hf_model",
+                group="targets",
+                groups=("targets",),
+                description="partial fixture",
+                repo_id="org/model",
+                local_dir=local_dir,
+                required_files=(local_dir / "config.json",),
+            )
+            with patch("thesis_eval.assets._snapshot_download") as snapshot_download:
+                result = download_asset(asset)
+            snapshot_download.assert_called_once()
+            self.assertEqual(result["action"], "downloaded")
 
 
 class MetricsTests(unittest.TestCase):

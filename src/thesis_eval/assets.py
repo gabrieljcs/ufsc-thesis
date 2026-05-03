@@ -116,7 +116,10 @@ def download_asset(asset: AssetSpec, dry_run: bool = False, force: bool = False)
     if dry_run:
         return {**status_before, "action": "dry_run"}
     if status_before["exists"] and not force:
-        return {**status_before, "action": "skip_exists"}
+        verification = verify_asset(asset)
+        if verification["ok"]:
+            return {**verification, "action": "skip_verified"}
+        info(f"Found incomplete asset {asset.name}; resuming into {status_before['path']}")
 
     if asset.kind == "strongreject":
         if asset.output is None:
