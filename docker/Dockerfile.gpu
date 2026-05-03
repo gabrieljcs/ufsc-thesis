@@ -40,4 +40,7 @@ RUN uv pip install -e . \
       fairseq2 \
       "sonar-space>=0.5,<0.6"
 
+ENV UV_PROJECT_ENVIRONMENT=/opt/venv \
+    UV_NO_SYNC=1
+
 CMD ["thesis-eval", "--help"]

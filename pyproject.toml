@@ -48,6 +48,7 @@ test = []
 
 [project.scripts]
 thesis-eval = "thesis_eval.cli:main"
+thesis-eval-gpu = "thesis_eval.gpu_runner:main"
 
 [tool.uv]
 environments = [

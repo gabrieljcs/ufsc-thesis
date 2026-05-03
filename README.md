@@ -59,26 +59,82 @@ ara bul dan eng fin ita nor por rus spa swa swe ukr
 
 ## 1. Environment Setup
 
-Use the RTX profile for the full thesis run. It installs vLLM for target-model inference, QC dependencies for BLASER, StrongREJECT scoring, and analysis libraries. `pyarrow` is included here so the frozen dataset can also be exported as Parquet.
+The full thesis pipeline (translation, BLASER QC, target generation, StrongREJECT scoring) runs on a CUDA GPU through PyTorch and vLLM. **Use the Docker GPU profile.** Native installs cover only narrower cases — Apple Silicon smoke tests and Windows analysis-only work — described in §1.3.
+
+> **Why Docker for the GPU path?** PyPI's default `torch` wheel on Windows is CPU-only, so `torch.cuda.is_available()` returns `False` even on a working NVIDIA driver. vLLM has no Windows wheel at all, and `fairseq2` / `sonar-space` (used by BLASER QC) are gated to non-Windows platforms in `pyproject.toml`. The Docker image builds on `nvidia/cuda:12.8.1-cudnn-devel-ubuntu24.04` with `torch` pinned to `cu128` (Blackwell-ready, e.g. RTX 50-series) and a Linux `vllm`, so every command in this README works end-to-end. See [`docker/README.md`](docker/README.md) for image internals.
+
+### 1.1 Build the GPU image
+
+Prerequisites:
+
+- An NVIDIA GPU with a recent driver (the CUDA 12.8 runtime is bundled in the image; only the host driver matters).
+- Docker Desktop with the WSL 2 backend and GPU passthrough enabled (Settings → Resources → WSL Integration) on Windows, or Docker Engine + NVIDIA Container Toolkit on Linux.
+- ~30 GB free disk for the image and downloaded model assets.
+
+Build once from the repo root:
 
 ```powershell
-Set-Location "/Users/gabriel/Developer/ufsc-thesis/eval"
-uv sync --extra rtx --extra qc --extra scoring --extra analysis
+docker build -f docker/Dockerfile.gpu -t thesis-eval:gpu .
 ```
 
-For a Mac smoke test with Transformers instead of vLLM:
+Smoke-check GPU access from inside the image:
 
 ```powershell
-uv sync --extra mac --extra qc --extra scoring --extra analysis
+docker run --rm --gpus all thesis-eval:gpu nvidia-smi
+docker run --rm --gpus all thesis-eval:gpu python -c "import torch; print(torch.cuda.is_available(), torch.cuda.get_device_name(0))"
 ```
 
-Prepare the standalone URIEL+ script environment used by `prepare-uriel`:
+The second line should print `True <your GPU name>` (e.g. `True NVIDIA GeForce RTX 5070 Ti`). If it prints `False`, the host driver is missing or Docker Desktop's GPU support is not enabled.
+
+### 1.2 Run thesis-eval commands
+
+Two console scripts are registered:
+
+| Script | Where it runs | Use for |
+| --- | --- | --- |
+| `thesis-eval-gpu` | host shell → re-execs in GPU container | any command that needs CUDA, vLLM, NLLB inference, or BLASER QC |
+| `thesis-eval` | host shell, native | dataset downloads, asset/config checks, audit-CSV management, analysis |
+
+`thesis-eval-gpu` is a thin wrapper ([`src/thesis_eval/gpu_runner.py`](src/thesis_eval/gpu_runner.py)) that forwards your arguments into the GPU container with the right `docker run` flags (bind mount, GPU passthrough, `--env-file`). From PowerShell, bash, or zsh — same syntax, no shell-quoting fork:
 
 ```powershell
-uv sync --script scripts/compute_urielplus.py
+uv run thesis-eval-gpu translate `
+  --prompts data/raw/strongreject/prompts.jsonl `
+  --target-language ara `
+  --engine nllb `
+  --checkpoint assets/models/nllb-200-3.3B `
+  --device cuda `
+  --output outputs/translations/ara.raw.jsonl
 ```
 
-Set credentials for gated Hugging Face assets, StrongREJECT rubric scoring, and Sabiá-3:
+is equivalent to, but more ergonomic than:
+
+```powershell
+docker run --rm --gpus all `
+  -v "${PWD}:/work/eval" `
+  -w /work/eval `
+  --env-file .env `
+  thesis-eval:gpu `
+  uv run thesis-eval translate <same args>
+```
+
+`.env` is auto-detected and the `--env-file` flag is skipped if it doesn't exist. Override the image tag with the `THESIS_EVAL_GPU_IMAGE` environment variable.
+
+The pipeline mixes the two scripts: §3 (`prewarm-sonar`), §6 (translate), §7 (round-trip + QC), §9 (`generate-targets`, except `--backend maritaca`), and §10 (StrongREJECT scoring) use `thesis-eval-gpu`; everything else (§2, §4, §5, §8, §11–§14) uses plain `thesis-eval`. Each section below shows the right one for that step.
+
+**Persistence.** The bind mount means everything `thesis-eval-gpu` writes lands on your host disk in real time — `assets/models/` for downloaded model snapshots, `data/raw/` for datasets, and `outputs/` for translations, generations, scored rows, and the frozen dataset. These artifacts survive `--rm`, image rebuilds, and machine restarts. The container itself is ephemeral (process state, `/tmp`, `/opt/venv`); only the bind mount is durable. You can kill a container mid-run and resume later — long downloads (`download-assets`) and per-language outputs are written incrementally, so the next session picks up where the last one stopped.
+
+The image also sets `UV_PROJECT_ENVIRONMENT=/opt/venv` and `UV_NO_SYNC=1`, so `uv run` reuses the pre-built system venv without creating a stray `.venv` in the mount or re-resolving dependencies on every call.
+
+**Credentials.** Save credentials at the repo root in `.env` — one `KEY=VALUE` per line, no quotes, no `export` prefix:
+
+```text
+HF_TOKEN=...
+OPENAI_API_KEY=...
+MARITACA_API_KEY=...
+```
+
+`thesis-eval-gpu` injects these into the container automatically. For host-side `thesis-eval` commands, also set them in your shell so `huggingface_hub` and the OpenAI/Maritaca clients can read them:
 
 ```powershell
 $env:HF_TOKEN = "..."
@@ -86,13 +142,63 @@ $env:OPENAI_API_KEY = "..."
 $env:MARITACA_API_KEY = "..."
 ```
 
-Check the configuration and runtime profiles:
+**Interactive container shell** (alternative for back-to-back GPU commands without per-call container startup):
+
+```powershell
+docker run -it --rm --gpus all `
+  -v "${PWD}:/work/eval" `
+  -w /work/eval `
+  --env-file .env `
+  thesis-eval:gpu bash
+```
+
+Inside that shell, drop the `-gpu` suffix — `uv run thesis-eval ...` works directly. Note that the README's command blocks use PowerShell syntax (backtick line-continuation); inside the container's bash shell you'll need backslash (`\`) continuations instead. The `thesis-eval-gpu` wrapper avoids this fork because it parses arguments in your host shell and forwards them as a list (no shell quoting).
+
+> **Windows PowerShell:** use `${PWD}` (not `$PWD`) for the bind-mount path and backtick (`` ` ``) for line continuation. On Linux/WSL bash, use `$PWD` and `\` instead.
+
+### 1.3 Native installs (limited use)
+
+Apple Silicon smoke tests with Transformers on MPS (no vLLM, no CUDA):
+
+```powershell
+uv sync --extra mac --extra qc --extra scoring --extra analysis
+```
+
+Windows analysis-only work — table export, dataset freeze, GLMM fits — without GPU inference:
+
+```powershell
+uv sync --extra analysis --extra scoring
+```
+
+The `[rtx]` and `[qc]` extras are unsupported on native Windows: PyPI returns CPU-only `torch`, and `vllm`, `fairseq2`, and `sonar-space` are gated to `sys_platform != 'win32'` in `pyproject.toml`. Use the Docker container (§1.1) for any command that needs CUDA, vLLM, or BLASER QC.
+
+### 1.4 URIEL+ standalone script environment
+
+URIEL+ depends on TensorFlow Addons, which has no Python 3.12 wheels, so `prepare-uriel` (§5) shells out to a standalone uv script env:
+
+```powershell
+uv sync --script scripts/compute_urielplus.py
+```
+
+This runs on the host (any OS) — it does not need the GPU container.
+
+### 1.5 Validate the install
+
+These commands are config-only (no GPU needed):
 
 ```powershell
 uv run thesis-eval validate-config
 uv run thesis-eval runtime-profiles
 uv run thesis-eval list-assets
 ```
+
+To smoke-test the GPU path through the wrapper:
+
+```powershell
+uv run thesis-eval-gpu validate-config
+```
+
+That should print `OK: 8 models, 13 languages` after a brief container startup.
 
 ## Checkpointed Execution
 
@@ -137,7 +243,7 @@ uv run thesis-eval verify-assets --name nllb_200_3_3b
 
 ```powershell
 uv run thesis-eval download-assets --name blaser_2_0_qe
-uv run thesis-eval prewarm-sonar
+uv run thesis-eval-gpu prewarm-sonar
 uv run thesis-eval verify-assets --name blaser_2_0_qe
 ```
 
@@ -243,7 +349,7 @@ $DEVICE = "cuda"
 To translate the full 13-language inventory in one run:
 
 ```powershell
-uv run thesis-eval translate `
+uv run thesis-eval-gpu translate `
   --prompts "$PROMPTS" `
   --target-language ara `
   --target-language bul `
@@ -268,7 +374,7 @@ uv run thesis-eval translate `
 Arabic:
 
 ```powershell
-uv run thesis-eval translate `
+uv run thesis-eval-gpu translate `
   --prompts "$PROMPTS" `
   --target-language ara `
   --engine nllb `
@@ -280,7 +386,7 @@ uv run thesis-eval translate `
 Bulgarian:
 
 ```powershell
-uv run thesis-eval translate `
+uv run thesis-eval-gpu translate `
   --prompts "$PROMPTS" `
   --target-language bul `
   --engine nllb `
@@ -292,7 +398,7 @@ uv run thesis-eval translate `
 Danish:
 
 ```powershell
-uv run thesis-eval translate `
+uv run thesis-eval-gpu translate `
   --prompts "$PROMPTS" `
   --target-language dan `
   --engine nllb `
@@ -304,7 +410,7 @@ uv run thesis-eval translate `
 English baseline:
 
 ```powershell
-uv run thesis-eval translate `
+uv run thesis-eval-gpu translate `
   --prompts "$PROMPTS" `
   --target-language eng `
   --engine nllb `
@@ -316,7 +422,7 @@ uv run thesis-eval translate `
 Finnish:
 
 ```powershell
-uv run thesis-eval translate `
+uv run thesis-eval-gpu translate `
   --prompts "$PROMPTS" `
   --target-language fin `
   --engine nllb `
@@ -328,7 +434,7 @@ uv run thesis-eval translate `
 Italian:
 
 ```powershell
-uv run thesis-eval translate `
+uv run thesis-eval-gpu translate `
   --prompts "$PROMPTS" `
   --target-language ita `
   --engine nllb `
@@ -340,7 +446,7 @@ uv run thesis-eval translate `
 Norwegian:
 
 ```powershell
-uv run thesis-eval translate `
+uv run thesis-eval-gpu translate `
   --prompts "$PROMPTS" `
   --target-language nor `
   --engine nllb `
@@ -352,7 +458,7 @@ uv run thesis-eval translate `
 Portuguese:
 
 ```powershell
-uv run thesis-eval translate `
+uv run thesis-eval-gpu translate `
   --prompts "$PROMPTS" `
   --target-language por `
   --engine nllb `
@@ -364,7 +470,7 @@ uv run thesis-eval translate `
 Russian:
 
 ```powershell
-uv run thesis-eval translate `
+uv run thesis-eval-gpu translate `
   --prompts "$PROMPTS" `
   --target-language rus `
   --engine nllb `
@@ -376,7 +482,7 @@ uv run thesis-eval translate `
 Spanish:
 
 ```powershell
-uv run thesis-eval translate `
+uv run thesis-eval-gpu translate `
   --prompts "$PROMPTS" `
   --target-language spa `
   --engine nllb `
@@ -388,7 +494,7 @@ uv run thesis-eval translate `
 Swahili:
 
 ```powershell
-uv run thesis-eval translate `
+uv run thesis-eval-gpu translate `
   --prompts "$PROMPTS" `
   --target-language swa `
   --engine nllb `
@@ -400,7 +506,7 @@ uv run thesis-eval translate `
 Swedish:
 
 ```powershell
-uv run thesis-eval translate `
+uv run thesis-eval-gpu translate `
   --prompts "$PROMPTS" `
   --target-language swe `
   --engine nllb `
@@ -412,7 +518,7 @@ uv run thesis-eval translate `
 Ukrainian:
 
 ```powershell
-uv run thesis-eval translate `
+uv run thesis-eval-gpu translate `
   --prompts "$PROMPTS" `
   --target-language ukr `
   --engine nllb `
@@ -450,14 +556,14 @@ Round-trip diagnostics back-translate prompts for inspection. BLASER assigns ref
 Arabic:
 
 ```powershell
-uv run thesis-eval prompt-roundtrip `
+uv run thesis-eval-gpu prompt-roundtrip `
   --translations outputs/translations/ara.raw.jsonl `
   --engine nllb `
   --checkpoint "$NLLB" `
   --device "$DEVICE" `
   --output outputs/translations/ara.roundtrip.jsonl
 
-uv run thesis-eval translation-qc `
+uv run thesis-eval-gpu translation-qc `
   --translations outputs/translations/ara.roundtrip.jsonl `
   --scorer blaser `
   --device "$DEVICE" `
@@ -533,7 +639,7 @@ New-Item -ItemType Directory -Force outputs/generations | Out-Null
 Start with one model and one language:
 
 ```powershell
-uv run thesis-eval generate-targets `
+uv run thesis-eval-gpu generate-targets `
   --translations outputs/translations/ara.audit.jsonl `
   --model sagui_7b `
   --backend vllm `
@@ -588,7 +694,7 @@ Scoring back-translates non-English model outputs to English with NLLB-200, then
 ```powershell
 New-Item -ItemType Directory -Force outputs/scored | Out-Null
 
-uv run thesis-eval score-strongreject `
+uv run thesis-eval-gpu score-strongreject `
   --generations outputs/generations/sagui_7b_ara.jsonl `
   --evaluator strongreject_rubric `
   --backtranslate-engine nllb `
