@@ -213,13 +213,22 @@ def cmd_translate(args: argparse.Namespace) -> None:
     if not args.output and not args.output_dir:
         raise ValueError("translate requires --output for one language or --output-dir for one/more languages.")
 
+    pending: list[tuple[str, Path]] = []
+    for target_language in target_languages:
+        output_path = _translation_output_path(args, target_language)
+        if _skip_existing(output_path, args.force, f"translate -> {target_language}"):
+            continue
+        pending.append((target_language, output_path))
+    if not pending:
+        info("translate: all target outputs already exist; nothing to do.")
+        return
+
     translator = None
-    if args.engine == "nllb" and any(language != "eng" for language in target_languages):
+    if args.engine == "nllb" and any(language != "eng" for language, _ in pending):
         translator = NllbTranslator(checkpoint=args.checkpoint, device=args.device, dtype=args.dtype)
 
     written: dict[str, str] = {}
-    for target_language in target_languages:
-        output_path = _translation_output_path(args, target_language)
+    for target_language, output_path in pending:
         with step(f"translate file {args.prompts} -> {target_language}"):
             logs = run_translation(
                 prompts,
@@ -246,16 +255,23 @@ def _translation_output_path(args: argparse.Namespace, target_language: str) -> 
     return output_dir / filename
 
 
+def _skip_existing(output_path: Path, force: bool, what: str) -> bool:
+    """Resume helper: True if output already exists non-empty and force is False."""
+    if force:
+        return False
+    if output_path.exists() and output_path.stat().st_size > 0:
+        info(f"skip {what}: {output_path} already exists (use --force to overwrite)")
+        return True
+    return False
+
+
 def cmd_translation_qc(args: argparse.Namespace) -> None:
     translation_paths = [Path(path) for path in args.translations]
     if not args.output and not args.output_dir:
         raise ValueError("translation-qc requires --output or --output-dir.")
-    groups: list[tuple[Path, list[dict[str, object]]]] = []
-    logs: list[dict[str, object]] = []
-    for translation_path in translation_paths:
-        group_logs = load_translation_logs(translation_path)
-        groups.append((translation_path, group_logs))
-        logs.extend(group_logs)
+    if len(translation_paths) > 1 and args.output:
+        raise ValueError("Use --output-dir for multi-file QC; --output is only for a single input file.")
+
     pass_threshold = args.pass_threshold
     fail_threshold = args.fail_threshold
     if pass_threshold is None:
@@ -263,35 +279,49 @@ def cmd_translation_qc(args: argparse.Namespace) -> None:
     if fail_threshold is None:
         fail_threshold = 3.0 if args.scorer == "blaser" else 0.55
     info(f"QC scorer={args.scorer} pass_threshold={pass_threshold} fail_threshold={fail_threshold}")
-    with step(f"translation QC for {len(logs)} records"):
-        qc_logs = apply_translation_qc(
-            logs,
-            pass_threshold=pass_threshold,
-            fail_threshold=fail_threshold,
-            scorer=args.scorer,
-            device=args.device,
-        )
-    if args.output_dir:
-        written: dict[str, str] = {}
-        cursor = 0
-        for input_path, group_logs in groups:
-            qc_slice = qc_logs[cursor : cursor + len(group_logs)]
-            cursor += len(group_logs)
+
+    pending: list[tuple[Path, Path, list[dict[str, object]]]] = []
+    for translation_path in translation_paths:
+        group_logs = load_translation_logs(translation_path)
+        if args.output_dir:
             output_path = _language_output_path(
                 args.output_dir,
                 args.output_template,
-                _single_target_language(qc_slice),
-                input_path,
+                _single_target_language(group_logs),
+                translation_path,
                 model=None,
             )
-            write_jsonl(output_path, qc_slice)
-            written[str(output_path)] = str(len(qc_slice))
-            print(f"Wrote {len(qc_slice)} QC records to {output_path}")
-        if len(written) > 1:
-            print(json.dumps(written, ensure_ascii=False, indent=2, sort_keys=True))
-    else:
-        write_jsonl(Path(args.output), qc_logs)
-        print(f"Wrote {len(qc_logs)} QC records to {args.output}")
+        else:
+            output_path = Path(args.output)
+        if _skip_existing(output_path, args.force, f"QC {translation_path.name}"):
+            continue
+        pending.append((translation_path, output_path, group_logs))
+    if not pending:
+        info("translation-qc: all outputs already exist; nothing to do.")
+        return
+
+    blaser_scorer = None
+    if args.scorer == "blaser":
+        from thesis_eval.translation.blaser import BlaserScorer
+
+        blaser_scorer = BlaserScorer(device=args.device)
+
+    written: dict[str, str] = {}
+    for translation_path, output_path, group_logs in pending:
+        with step(f"translation QC {translation_path.name} ({len(group_logs)} records)"):
+            qc_logs = apply_translation_qc(
+                group_logs,
+                pass_threshold=pass_threshold,
+                fail_threshold=fail_threshold,
+                scorer=args.scorer,
+                device=args.device,
+                blaser_scorer=blaser_scorer,
+            )
+        write_jsonl(output_path, qc_logs)
+        written[str(output_path)] = str(len(qc_logs))
+        print(f"Wrote {len(qc_logs)} QC records to {output_path}")
+    if len(written) > 1:
+        print(json.dumps(written, ensure_ascii=False, indent=2, sort_keys=True))
 
 
 def cmd_prompt_roundtrip(args: argparse.Namespace) -> None:
@@ -301,18 +331,34 @@ def cmd_prompt_roundtrip(args: argparse.Namespace) -> None:
     if len(translation_paths) > 1 and args.output:
         raise ValueError("Use --output-dir for multi-file round-trip; --output is only for a single input file.")
 
-    groups: list[tuple[Path, list[dict[str, object]]]] = []
+    pending: list[tuple[Path, Path, list[dict[str, object]]]] = []
     for translation_path in translation_paths:
-        groups.append((translation_path, load_translation_logs(translation_path)))
+        group_logs = load_translation_logs(translation_path)
+        if args.output_dir:
+            output_path = _language_output_path(
+                args.output_dir,
+                args.output_template,
+                _single_target_language(group_logs),
+                translation_path,
+                model=None,
+            )
+        else:
+            output_path = Path(args.output)
+        if _skip_existing(output_path, args.force, f"round-trip {translation_path.name}"):
+            continue
+        pending.append((translation_path, output_path, group_logs))
+    if not pending:
+        info("prompt-roundtrip: all outputs already exist; nothing to do.")
+        return
 
     translator = None
     if args.engine == "nllb" and any(
-        str(log["target_language"]) != "eng" for _, group_logs in groups for log in group_logs
+        str(log["target_language"]) != "eng" for _, _, group_logs in pending for log in group_logs
     ):
         translator = NllbTranslator(checkpoint=args.checkpoint, device=args.device, dtype=args.dtype)
 
     written: dict[str, str] = {}
-    for input_path, group_logs in groups:
+    for input_path, output_path, group_logs in pending:
         with step(f"prompt round-trip {input_path}"):
             updated = attach_prompt_roundtrip(
                 group_logs,
@@ -324,16 +370,6 @@ def cmd_prompt_roundtrip(args: argparse.Namespace) -> None:
                 fail_threshold=args.fail_threshold,
                 translator=translator,
             )
-        if args.output_dir:
-            output_path = _language_output_path(
-                args.output_dir,
-                args.output_template,
-                _single_target_language(updated),
-                input_path,
-                model=None,
-            )
-        else:
-            output_path = Path(args.output)
         write_jsonl(output_path, updated)
         written[str(output_path)] = str(len(updated))
         print(f"Wrote {len(updated)} round-trip records to {output_path}")
@@ -360,13 +396,28 @@ def cmd_generate_targets(args: argparse.Namespace) -> None:
     dtype = args.dtype or (profile.dtype if profile else "auto")
     model_ref = _resolve_model_ref(args.model, args.model_path)
     translation_paths = [Path(path) for path in args.translations]
-    groups: list[tuple[Path, list[dict[str, Any]]]] = []
+    groups: list[tuple[Path, Path, list[dict[str, Any]]]] = []
     rows: list[dict[str, Any]] = []
     for translation_path in translation_paths:
         translations = load_translation_logs(translation_path)
         group_rows = build_generation_rows(translations, model=args.model, aligned_language=cfg.aligned_language[args.model], benchmark=args.benchmark)
-        groups.append((translation_path, group_rows))
+        if args.output_dir:
+            output_path = _language_output_path(
+                args.output_dir,
+                args.output_template,
+                _single_attack_language(group_rows),
+                translation_path,
+                model=args.model,
+            )
+        else:
+            output_path = Path(args.output)
+        if _skip_existing(output_path, args.force, f"generate {args.model} <- {translation_path.name}"):
+            continue
+        groups.append((translation_path, output_path, group_rows))
         rows.extend(group_rows)
+    if not groups:
+        info("generate-targets: all outputs already exist; nothing to do.")
+        return
     info(f"Generating {len(rows)} target responses with backend={backend} model={args.model} model_ref={model_ref}")
     if args.mock_output:
         outputs = [args.mock_output for _ in rows]
@@ -394,16 +445,9 @@ def cmd_generate_targets(args: argparse.Namespace) -> None:
     if args.output_dir:
         written: dict[str, str] = {}
         cursor = 0
-        for input_path, group_rows in groups:
+        for input_path, output_path, group_rows in groups:
             enriched_slice = enriched[cursor : cursor + len(group_rows)]
             cursor += len(group_rows)
-            output_path = _language_output_path(
-                args.output_dir,
-                args.output_template,
-                _single_attack_language(enriched_slice),
-                input_path,
-                model=args.model,
-            )
             write_jsonl(output_path, enriched_slice)
             written[str(output_path)] = str(len(enriched_slice))
             print(f"Wrote {len(enriched_slice)} target generations to {output_path}")
@@ -520,17 +564,51 @@ def cmd_model_status(args: argparse.Namespace) -> None:
 
 
 def cmd_score_strongreject(args: argparse.Namespace) -> None:
-    rows = read_jsonl(Path(args.generations))
-    scored = score_generation_rows(
-        rows,
-        evaluator=args.evaluator,
-        backtranslate_engine=args.backtranslate_engine,
-        checkpoint=args.checkpoint,
-        device=args.device,
-        dtype=args.dtype,
-    )
-    write_jsonl(Path(args.output), scored)
-    print(f"Wrote {len(scored)} StrongREJECT-scored rows to {args.output}")
+    generation_paths = [Path(path) for path in args.generations]
+    if not args.output and not args.output_dir:
+        raise ValueError("score-strongreject requires --output or --output-dir.")
+    if len(generation_paths) > 1 and args.output:
+        raise ValueError("Use --output-dir for multi-file scoring; --output is only for a single input file.")
+
+    pending: list[tuple[Path, Path, list[dict[str, Any]]]] = []
+    for generation_path in generation_paths:
+        group_rows = read_jsonl(generation_path)
+        if args.output_dir:
+            output_dir = ensure_dir(Path(args.output_dir))
+            filename = str(args.output_template).format(stem=generation_path.stem)
+            output_path = output_dir / filename
+        else:
+            output_path = Path(args.output)
+        if _skip_existing(output_path, args.force, f"score {generation_path.name}"):
+            continue
+        pending.append((generation_path, output_path, group_rows))
+    if not pending:
+        info("score-strongreject: all outputs already exist; nothing to do.")
+        return
+
+    translator = None
+    if args.backtranslate_engine == "nllb" and any(
+        str(row.get("attack_language")) != "eng" for _, _, group_rows in pending for row in group_rows
+    ):
+        translator = NllbTranslator(checkpoint=args.checkpoint, device=args.device, dtype=args.dtype)
+
+    written: dict[str, str] = {}
+    for generation_path, output_path, group_rows in pending:
+        with step(f"score {generation_path.name} ({len(group_rows)} rows)"):
+            scored = score_generation_rows(
+                group_rows,
+                evaluator=args.evaluator,
+                backtranslate_engine=args.backtranslate_engine,
+                checkpoint=args.checkpoint,
+                device=args.device,
+                dtype=args.dtype,
+                translator=translator,
+            )
+        write_jsonl(output_path, scored)
+        written[str(output_path)] = str(len(scored))
+        print(f"Wrote {len(scored)} StrongREJECT-scored rows to {output_path}")
+    if len(written) > 1:
+        print(json.dumps(written, ensure_ascii=False, indent=2, sort_keys=True))
 
 
 def cmd_compute_spec(args: argparse.Namespace) -> None:
@@ -717,6 +795,7 @@ def build_parser() -> argparse.ArgumentParser:
     translate.add_argument("--device", choices=["auto", "cpu", "mps", "cuda"], default="auto")
     translate.add_argument("--dtype", choices=["auto", "float16", "bfloat16", "float32"], default="auto")
     translate.add_argument("--stream", action="store_true", help="Print each prompt and its translation as it is produced.")
+    translate.add_argument("--force", action="store_true", help="Overwrite outputs that already exist.")
     translate.set_defaults(func=cmd_translate)
 
     qc = sub.add_parser("translation-qc")
@@ -728,6 +807,7 @@ def build_parser() -> argparse.ArgumentParser:
     qc.add_argument("--pass-threshold", type=float)
     qc.add_argument("--fail-threshold", type=float)
     qc.add_argument("--device")
+    qc.add_argument("--force", action="store_true", help="Overwrite outputs that already exist.")
     qc.set_defaults(func=cmd_translation_qc)
 
     roundtrip = sub.add_parser("prompt-roundtrip")
@@ -741,6 +821,7 @@ def build_parser() -> argparse.ArgumentParser:
     roundtrip.add_argument("--dtype", choices=["auto", "float16", "bfloat16", "float32"], default="auto")
     roundtrip.add_argument("--pass-threshold", type=float, default=0.60)
     roundtrip.add_argument("--fail-threshold", type=float, default=0.35)
+    roundtrip.add_argument("--force", action="store_true", help="Overwrite outputs that already exist.")
     roundtrip.set_defaults(func=cmd_prompt_roundtrip)
 
     sonar = sub.add_parser("prewarm-sonar")
@@ -766,6 +847,7 @@ def build_parser() -> argparse.ArgumentParser:
     gen.add_argument("--stream", action="store_true")
     gen.add_argument("--skip-tokenizer-metrics", action="store_true")
     gen.add_argument("--distance-csv", default=str(DATA_DIR / "uriel_plus" / "distance_matrix.csv"))
+    gen.add_argument("--force", action="store_true", help="Overwrite outputs that already exist.")
     gen.set_defaults(func=cmd_generate_targets)
 
     token_metrics = sub.add_parser("attach-tokenizer-metrics")
@@ -790,13 +872,16 @@ def build_parser() -> argparse.ArgumentParser:
     model_status.set_defaults(func=cmd_model_status)
 
     sr_score = sub.add_parser("score-strongreject")
-    sr_score.add_argument("--generations", required=True)
-    sr_score.add_argument("--output", required=True)
+    sr_score.add_argument("--generations", action="append", required=True)
+    sr_score.add_argument("--output")
+    sr_score.add_argument("--output-dir")
+    sr_score.add_argument("--output-template", default="{stem}.strongreject.jsonl")
     sr_score.add_argument("--evaluator", default="strongreject_rubric")
     sr_score.add_argument("--backtranslate-engine", choices=["placeholder", "nllb"], default="placeholder")
     sr_score.add_argument("--checkpoint", default="facebook/nllb-200-distilled-600M")
     sr_score.add_argument("--device", choices=["auto", "cpu", "mps", "cuda"], default="auto")
     sr_score.add_argument("--dtype", choices=["auto", "float16", "bfloat16", "float32"], default="auto")
+    sr_score.add_argument("--force", action="store_true", help="Overwrite outputs that already exist.")
     sr_score.set_defaults(func=cmd_score_strongreject)
 
     spec = sub.add_parser("compute-spec")

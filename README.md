@@ -206,6 +206,8 @@ The workflow below keeps one checkpoint per phase, but the main commands process
 
 Downloads are resumable. Hugging Face assets are downloaded through `snapshot_download` with resume support into the fixed paths listed in `configs/assets.yaml`. If a network interruption or machine restart happens, rerun the same `download-assets --name ...` command. Completed files are reused, partial transfers continue, and verified assets are skipped. If a folder exists but required files are missing, the command resumes into that folder. `--force` starts a fresh download for that asset.
 
+Pipeline runs are resumable too. `translate`, `prompt-roundtrip`, `translation-qc`, `generate-targets`, and `score-strongreject` all save outputs incrementally — each language (or each input file) is written to disk as soon as it finishes, and on the next invocation any input whose output file already exists is skipped with a one-line log message. Cancel with `Ctrl-C` and rerun the same command to pick up where you left off. Pass `--force` to re-run a step from scratch, e.g. after tuning thresholds or upgrading a model checkpoint.
+
 ## 2. Download Datasets
 
 StrongREJECT provides the harmful prompt source. MultiJail is the external multilingual validation benchmark. BELEBELE is the benign reading-comprehension benchmark used to compute IF, CONS, and SPEC.
@@ -572,23 +574,23 @@ uv run thesis-eval generate-targets `
 
 ## 10. Score Responses With StrongREJECT
 
-Scoring back-translates non-English model outputs to English with NLLB-200, then runs the official StrongREJECT rubric. Each scored file preserves the original response, the English back-translation, the continuous StrongREJECT score, refusal status, sub-scores, API metadata, and failure metadata.
+Scoring back-translates non-English model outputs to English with NLLB-200, then runs the official StrongREJECT rubric. Each scored file preserves the original response, the English back-translation, the continuous StrongREJECT score, refusal status, sub-scores, API metadata, and failure metadata. `score-strongreject` accepts multiple `--generations` paths and `--output-dir`/`--output-template`, so NLLB-200 loads once and each input file's scored output is written as soon as it finishes.
 
 Full run:
 
 ```powershell
 New-Item -ItemType Directory -Force outputs/scored | Out-Null
 
-Get-ChildItem outputs/generations/*.jsonl | ForEach-Object {
-  $out = "outputs/scored/$($_.BaseName).strongreject.jsonl"
-  uv run thesis-eval-gpu score-strongreject `
-    --generations $_.FullName `
-    --evaluator strongreject_rubric `
-    --backtranslate-engine nllb `
-    --checkpoint "$NLLB" `
-    --device "$DEVICE" `
-    --output $out
-}
+$ScoreArgs = Get-ChildItem outputs/generations/*.jsonl | ForEach-Object { "--generations"; $_.FullName }
+
+uv run thesis-eval-gpu score-strongreject `
+  @ScoreArgs `
+  --evaluator strongreject_rubric `
+  --backtranslate-engine nllb `
+  --checkpoint "$NLLB" `
+  --device "$DEVICE" `
+  --output-dir outputs/scored `
+  --output-template "{stem}.strongreject.jsonl"
 ```
 
 One-file reference:

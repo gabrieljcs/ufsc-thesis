@@ -209,13 +209,14 @@ def apply_translation_qc(
     fail_threshold: float = 0.55,
     scorer: str = "heuristic",
     device: str | None = None,
+    blaser_scorer: "Any | None" = None,
 ) -> list[dict[str, Any]]:
     if scorer == "heuristic":
         scores = [heuristic_blaser_score(str(log["source_text"]), str(log["translated_text"])) for log in logs]
     elif scorer == "blaser":
         from thesis_eval.translation.blaser import score_blaser_qe
 
-        scores = score_blaser_qe(logs, device=device)
+        scores = score_blaser_qe(logs, device=device, scorer=blaser_scorer)
     else:
         raise ValueError(f"Unknown translation QC scorer {scorer!r}")
     output: list[dict[str, Any]] = []

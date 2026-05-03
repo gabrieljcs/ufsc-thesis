@@ -12,6 +12,7 @@ def score_generation_rows(
     checkpoint: str = "facebook/nllb-200-distilled-600M",
     device: str = "auto",
     dtype: str = "auto",
+    translator: "Any | None" = None,
 ) -> list[dict[str, Any]]:
     translated_rows = attach_response_backtranslations(
         rows,
@@ -19,6 +20,7 @@ def score_generation_rows(
         checkpoint=checkpoint,
         device=device,
         dtype=dtype,
+        translator=translator,
     )
     output: list[dict[str, Any]] = []
     for row in translated_rows:

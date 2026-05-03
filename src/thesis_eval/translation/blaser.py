@@ -64,10 +64,15 @@ class BlaserScorer:
         return [float(score) for score in scores.detach().cpu().reshape(-1)]
 
 
-def score_blaser_qe(logs: list[dict[str, object]], device: str | None = None) -> list[float]:
+def score_blaser_qe(
+    logs: list[dict[str, object]],
+    device: str | None = None,
+    scorer: BlaserScorer | None = None,
+) -> list[float]:
     if not logs:
         return []
-    scorer = BlaserScorer(device=device)
+    if scorer is None:
+        scorer = BlaserScorer(device=device)
     scores: list[float] = []
     by_language: dict[str, list[dict[str, object]]] = {}
     for log in logs:

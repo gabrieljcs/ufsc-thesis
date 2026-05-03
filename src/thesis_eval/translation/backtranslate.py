@@ -63,12 +63,13 @@ def attach_response_backtranslations(
     checkpoint: str = "facebook/nllb-200-distilled-600M",
     device: str = "auto",
     dtype: str = "auto",
+    translator: NllbTranslator | None = None,
 ) -> list[dict[str, Any]]:
-    translator = None
-    if engine == "nllb" and any(str(row.get("attack_language")) != "eng" for row in rows):
-        translator = NllbTranslator(checkpoint=checkpoint, device=device, dtype=dtype)
-    elif engine != "placeholder":
-        raise ValueError(f"Unknown response back-translation engine {engine!r}")
+    if translator is None:
+        if engine == "nllb" and any(str(row.get("attack_language")) != "eng" for row in rows):
+            translator = NllbTranslator(checkpoint=checkpoint, device=device, dtype=dtype)
+        elif engine != "placeholder":
+            raise ValueError(f"Unknown response back-translation engine {engine!r}")
 
     output: list[dict[str, Any]] = []
     for row in rows:
