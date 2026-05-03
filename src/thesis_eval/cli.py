@@ -6,18 +6,22 @@ from pathlib import Path
 from typing import Any
 
 from thesis_eval.assets import asset_status, download_asset, load_assets, select_assets, verify_assets
+from thesis_eval.analysis.dataset import build_frozen_rows
+from thesis_eval.analysis.reporting import (
+    asr_by_model_language,
+    closest_farthest_by_model,
+    collinearity_diagnostics,
+    coverage_by_model,
+    spearman_tables,
+    tokenizer_diagnostics,
+)
+from thesis_eval.analysis.glmm import fit_main_glmm
+from thesis_eval.benchmarks.belebele import compute_if_cons
 from thesis_eval.benchmarks.strongreject import import_strongreject, write_prompt_records
 from thesis_eval.benchmarks.uriel import compare_matrices, load_distance_matrix, subset_matrix, write_distance_matrix, write_latex_table
 from thesis_eval.config import load_config
-from thesis_eval.evaluation.api_batches import (
-    anthropic_batch_body,
-    hosted_judge_rows,
-    normalize_hosted_results,
-    openai_batch_rows,
-    parse_anthropic_batch_results,
-    parse_openai_batch_results,
-)
-from thesis_eval.evaluation.judge_batch import build_judge_requests, combine_judge_results
+from thesis_eval.evaluation.benign import score_benign_rows
+from thesis_eval.evaluation.strongreject import score_generation_rows
 from thesis_eval.io import read_csv_dicts, read_jsonl, write_csv_dicts, write_jsonl
 from thesis_eval.metrics.tokenizer import attach_tokenizer_metrics, load_tokenizer
 from thesis_eval.models.generation import attach_outputs, build_generation_rows, estimate_model_asset_state, generate_outputs
@@ -26,8 +30,10 @@ from thesis_eval.pipeline import enrich_generation_rows, run_mock_pilot
 from thesis_eval.progress import info, step
 from thesis_eval.runtime import load_runtime_profiles, resolve_runtime_profile
 from thesis_eval.translation.sonar import prewarm_sonar_text_encoder
+from thesis_eval.translation.backtranslate import attach_prompt_roundtrip, attach_response_backtranslations
 from thesis_eval.schema import validate_analysis_rows
 from thesis_eval.translation.audit import AUDIT_COLUMNS, apply_audit_decisions, build_audit_queue
+from thesis_eval.translation.calibration import calibrate_blaser_thresholds
 from thesis_eval.translation.log import load_translation_logs, save_translation_logs
 from thesis_eval.translation.pipeline import NllbTranslator, PromptRecord, apply_translation_qc, run_translation
 from thesis_eval.translation.reference_spbleu import attach_reference_scores
@@ -35,7 +41,7 @@ from thesis_eval.translation.reference_spbleu import attach_reference_scores
 
 def cmd_validate_config(_: argparse.Namespace) -> None:
     cfg = load_config()
-    print(f"OK: {len(cfg.models)} models, {len(cfg.attack_languages)} languages, {len(cfg.judges)} judges")
+    print(f"OK: {len(cfg.models)} models, {len(cfg.attack_languages)} languages")
 
 
 def cmd_runtime_profiles(_: argparse.Namespace) -> None:
@@ -215,6 +221,21 @@ def cmd_translation_qc(args: argparse.Namespace) -> None:
         print(f"Wrote {len(qc_logs)} QC records to {args.output}")
 
 
+def cmd_prompt_roundtrip(args: argparse.Namespace) -> None:
+    logs = load_translation_logs(Path(args.translations))
+    updated = attach_prompt_roundtrip(
+        logs,
+        engine=args.engine,
+        checkpoint=args.checkpoint,
+        device=args.device,
+        dtype=args.dtype,
+        pass_threshold=args.pass_threshold,
+        fail_threshold=args.fail_threshold,
+    )
+    write_jsonl(Path(args.output), updated)
+    print(f"Wrote {len(updated)} translation logs with round-trip diagnostics to {args.output}")
+
+
 def cmd_prewarm_sonar(args: argparse.Namespace) -> None:
     with step("prewarm SONAR text encoder"):
         result = prewarm_sonar_text_encoder(Path(args.cache_dir) if args.cache_dir else None)
@@ -227,7 +248,9 @@ def cmd_generate_targets(args: argparse.Namespace) -> None:
     cfg = load_config()
     assets = load_assets()
     profile = resolve_runtime_profile(args.profile) if args.profile else None
-    backend = args.backend or (profile.target_backend if profile else "auto")
+    model_cfg = cfg.models[args.model]
+    default_backend = "maritaca" if model_cfg.get("access_mode") == "api" else "auto"
+    backend = args.backend or (profile.target_backend if profile else default_backend)
     device = args.device or (profile.device if profile else "auto")
     dtype = args.dtype or (profile.dtype if profile else "auto")
     model_ref = _resolve_model_ref(args.model, args.model_path)
@@ -321,12 +344,25 @@ def cmd_attach_tokenizer_metrics(args: argparse.Namespace) -> None:
     print(f"Wrote {len(output_rows)} generation rows with tokenizer metrics to {args.output}")
 
 
+def cmd_backtranslate_responses(args: argparse.Namespace) -> None:
+    rows = read_jsonl(Path(args.generations))
+    output = attach_response_backtranslations(
+        rows,
+        engine=args.engine,
+        checkpoint=args.checkpoint,
+        device=args.device,
+        dtype=args.dtype,
+    )
+    write_jsonl(Path(args.output), output)
+    print(f"Wrote {len(output)} generation rows with response back-translations to {args.output}")
+
+
 def _resolve_model_ref(model: str, model_path: str | None = None) -> str:
     cfg = load_config()
     assets = load_assets()
     model_asset = assets.get(model)
     asset_path = model_asset.local_dir if model_asset and model_asset.local_dir and model_asset.local_dir.exists() else None
-    return model_path or (str(asset_path) if asset_path else cfg.models[model]["hf_id"])
+    return model_path or (str(asset_path) if asset_path else str(cfg.models[model].get("hf_id") or cfg.models[model]["provider_model_id"]))
 
 
 def _single_target_language(rows: list[dict[str, object]]) -> str:
@@ -360,84 +396,92 @@ def cmd_model_status(args: argparse.Namespace) -> None:
     assets = load_assets()
     asset = assets.get(args.model)
     local_dir = str(asset.local_dir) if asset and asset.local_dir else None
-    print(json.dumps(estimate_model_asset_state(cfg.models[args.model]["hf_id"], local_dir=local_dir), indent=2))
+    model_cfg = cfg.models[args.model]
+    if model_cfg.get("access_mode") == "api":
+        print(
+            json.dumps(
+                {
+                    "model": args.model,
+                    "access_mode": "api",
+                    "provider": model_cfg.get("provider"),
+                    "provider_model_id": model_cfg.get("provider_model_id"),
+                    "download_required": False,
+                },
+                indent=2,
+            )
+        )
+        return
+    print(json.dumps(estimate_model_asset_state(str(model_cfg["hf_id"]), local_dir=local_dir), indent=2))
 
 
-def cmd_export_judge_batch(args: argparse.Namespace) -> None:
-    cfg = load_config()
-    generations = read_jsonl(Path(args.generations))
-    rows = build_judge_requests(generations, list(cfg.judges))
-    info(f"Exporting {len(rows)} judge requests from {len(generations)} generations")
-    write_jsonl(Path(args.output), rows)
-    print(f"Wrote {len(rows)} judge requests to {args.output}")
-
-
-def _judge_model_id(cfg: dict[str, dict[str, str]], judge: str) -> str:
-    judge_cfg = cfg[judge]
-    return judge_cfg.get("model_id") or judge_cfg.get("hf_id") or judge
-
-
-def cmd_export_api_batches(args: argparse.Namespace) -> None:
-    cfg = load_config()
-    requests = read_jsonl(Path(args.requests))
-    by_judge = {judge: [row for row in requests if row["judge"] == judge] for judge in cfg.judges}
-    output_dir = ensure_dir(Path(args.output_dir))
-    info(f"Exporting provider batches to {output_dir}")
-
-    openai_rows = openai_batch_rows(by_judge["gpt_4o"], _judge_model_id(cfg.judges, "gpt_4o"), max_tokens=args.max_tokens)
-    openai_path = output_dir / "openai_gpt_4o_batch.jsonl"
-    write_jsonl(openai_path, openai_rows)
-
-    anthropic_body = anthropic_batch_body(
-        by_judge["claude_opus_4"],
-        _judge_model_id(cfg.judges, "claude_opus_4"),
-        max_tokens=args.max_tokens,
+def cmd_score_strongreject(args: argparse.Namespace) -> None:
+    rows = read_jsonl(Path(args.generations))
+    scored = score_generation_rows(
+        rows,
+        evaluator=args.evaluator,
+        backtranslate_engine=args.backtranslate_engine,
+        checkpoint=args.checkpoint,
+        device=args.device,
+        dtype=args.dtype,
     )
-    anthropic_path = output_dir / "anthropic_claude_opus_4_batch.json"
-    anthropic_path.write_text(json.dumps(anthropic_body, ensure_ascii=False, indent=2, sort_keys=True), encoding="utf-8")
-
-    llama_rows = hosted_judge_rows(by_judge["llama_guard_4"], _judge_model_id(cfg.judges, "llama_guard_4"))
-    llama_path = output_dir / "hosted_llama_guard_4_batch.jsonl"
-    write_jsonl(llama_path, llama_rows)
-
-    manifest = {
-        "openai_gpt_4o": str(openai_path),
-        "anthropic_claude_opus_4": str(anthropic_path),
-        "hosted_llama_guard_4": str(llama_path),
-        "note": "Use provider APIs to submit these files; normalize downloaded results before majority vote.",
-    }
-    manifest_path = output_dir / "api_batch_manifest.json"
-    manifest_path.write_text(json.dumps(manifest, ensure_ascii=False, indent=2, sort_keys=True), encoding="utf-8")
-    print(json.dumps(manifest, indent=2))
+    write_jsonl(Path(args.output), scored)
+    print(f"Wrote {len(scored)} StrongREJECT-scored rows to {args.output}")
 
 
-def cmd_normalize_judge_results(args: argparse.Namespace) -> None:
-    rows = read_jsonl(Path(args.input))
-    if args.provider == "openai":
-        normalized = parse_openai_batch_results(rows)
-    elif args.provider == "anthropic":
-        normalized = parse_anthropic_batch_results(rows)
+def cmd_compute_spec(args: argparse.Namespace) -> None:
+    cfg = load_config()
+    predictions = read_jsonl(Path(args.predictions))
+    rows = compute_if_cons(predictions, cfg.aligned_language)
+    write_jsonl(Path(args.output), rows)
+    print(f"Wrote {len(rows)} BELEBELE IF/CONS/SPEC rows to {args.output}")
+
+
+def cmd_score_benign(args: argparse.Namespace) -> None:
+    rows = read_jsonl(Path(args.generations))
+    scored = score_benign_rows(rows)
+    write_jsonl(Path(args.output), scored)
+    print(f"Wrote {len(scored)} benign-control scored rows to {args.output}")
+
+
+def cmd_build_dataset(args: argparse.Namespace) -> None:
+    cfg = load_config()
+    scored_rows = read_jsonl(Path(args.scored))
+    translations = load_translation_logs(Path(args.translations)) if args.translations else None
+    spec_rows = read_jsonl(Path(args.spec_scores)) if args.spec_scores else None
+    rows = build_frozen_rows(scored_rows, cfg, translations=translations, spec_rows=spec_rows)
+    output = Path(args.output)
+    if output.name == "dataset_frozen.parquet" and output.exists() and not args.allow_frozen_overwrite:
+        raise RuntimeError("Refusing to overwrite dataset_frozen.parquet without --allow-frozen-overwrite")
+    if output.suffix == ".parquet":
+        import pandas as pd
+
+        output.parent.mkdir(parents=True, exist_ok=True)
+        pd.DataFrame(rows).to_parquet(output, index=False)
     else:
-        normalized = normalize_hosted_results(rows)
-    write_jsonl(Path(args.output), normalized)
-    print(f"Wrote {len(normalized)} normalized judge rows to {args.output}")
+        write_jsonl(output, rows)
+    print(f"Wrote {len(rows)} frozen-schema rows to {output}")
 
 
-def cmd_import_judge_batch(args: argparse.Namespace) -> None:
-    generations = read_jsonl(Path(args.generations))
-    results = read_jsonl(Path(args.judge_results))
-    combined = combine_judge_results(generations, results)
-    write_jsonl(Path(args.output), combined)
-    print(f"Wrote {len(combined)} majority-voted rows to {args.output}")
+def cmd_export_report_tables(args: argparse.Namespace) -> None:
+    rows = read_jsonl(Path(args.rows))
+    output_dir = ensure_dir(Path(args.output_dir))
+    write_csv_dicts(output_dir / "results_coverage.csv", coverage_by_model(rows), ["model", "total_attempts", "api_failure_rate", "provider_block_rate", "scoring_failure_rate", "refusal_rate"])
+    write_csv_dicts(output_dir / "asr_by_model_language.csv", asr_by_model_language(rows), ["model", "attack_language", "n", "unsafe", "asr", "ci_low", "ci_high", "mean_strongreject_score", "refusal_rate"])
+    write_csv_dicts(output_dir / "crosslingual_asr_by_model_language.csv", asr_by_model_language(rows, exclude_aligned=True), ["model", "attack_language", "n", "unsafe", "asr", "ci_low", "ci_high", "mean_strongreject_score", "refusal_rate"])
+    write_csv_dicts(output_dir / "closest_farthest_languages.csv", closest_farthest_by_model(rows), ["model", "closest_language", "closest_distance", "closest_asr", "farthest_language", "farthest_distance", "farthest_asr", "gap"])
+    distance_corr, spec_corr = spearman_tables(rows)
+    write_csv_dicts(output_dir / "distance_asr_correlation.csv", distance_corr, ["model", "predictor", "n", "spearman_rho", "p_value", "interpretation"])
+    write_csv_dicts(output_dir / "spec_asr_correlation.csv", spec_corr, ["model", "predictor", "n", "spearman_rho", "p_value", "interpretation"])
+    write_csv_dicts(output_dir / "tokenizer_diagnostics.csv", tokenizer_diagnostics(rows), ["model", "attack_language", "n", "mean_token_inflation", "mean_tokens_per_char", "truncation_risk_rate"])
+    write_csv_dicts(output_dir / "glmm_collinearity.csv", collinearity_diagnostics(rows), ["diagnostic", "value"])
+    print(f"Wrote report table CSVs to {output_dir}")
 
 
-def cmd_majority_vote(args: argparse.Namespace) -> None:
-    generations = read_jsonl(Path(args.generations))
-    results = read_jsonl(Path(args.judge_results))
-    combined = combine_judge_results(generations, results)
-    validate_analysis_rows(combined)
-    write_jsonl(Path(args.output), combined)
-    print(f"Wrote validated analysis rows to {args.output}")
+def cmd_fit_glmm(args: argparse.Namespace) -> None:
+    rows = read_jsonl(Path(args.rows))
+    effects = fit_main_glmm(rows)
+    write_csv_dicts(Path(args.output), effects, ["predictor", "estimate", "std_error", "odds_ratio", "p_value", "fit_method"])
+    print(f"Wrote GLMM main effects to {args.output}")
 
 
 def cmd_export_audit_queue(args: argparse.Namespace) -> None:
@@ -453,6 +497,15 @@ def cmd_import_audit(args: argparse.Namespace) -> None:
     updated = apply_audit_decisions(logs, decisions)
     write_jsonl(Path(args.output), updated)
     print(f"Wrote {len(updated)} audit-updated translation logs to {args.output}")
+
+
+def cmd_calibrate_blaser(args: argparse.Namespace) -> None:
+    rows = read_csv_dicts(Path(args.audit_csv)) if args.audit_csv.endswith(".csv") else read_jsonl(Path(args.audit_csv))
+    result = calibrate_blaser_thresholds(rows)
+    output = Path(args.output)
+    output.parent.mkdir(parents=True, exist_ok=True)
+    output.write_text(json.dumps(result, ensure_ascii=False, indent=2, sort_keys=True), encoding="utf-8")
+    print(json.dumps(result, indent=2))
 
 
 def cmd_reference_spbleu(args: argparse.Namespace) -> None:
@@ -473,7 +526,7 @@ def cmd_run_pilot(args: argparse.Namespace) -> None:
         prompt_limit=args.prompt_limit,
     )
     print(json.dumps({key: str(value) for key, value in outputs.items()}, indent=2))
-    print("Pilot exported judge requests only; batch API judge results must be imported before majority vote.")
+    print("Pilot produced mock StrongREJECT-scored rows; run real generation/scoring before research use.")
 
 
 def cmd_export_results(args: argparse.Namespace) -> None:
@@ -565,6 +618,17 @@ def build_parser() -> argparse.ArgumentParser:
     qc.add_argument("--device")
     qc.set_defaults(func=cmd_translation_qc)
 
+    roundtrip = sub.add_parser("prompt-roundtrip")
+    roundtrip.add_argument("--translations", required=True)
+    roundtrip.add_argument("--output", required=True)
+    roundtrip.add_argument("--engine", choices=["placeholder", "nllb"], default="placeholder")
+    roundtrip.add_argument("--checkpoint", default="facebook/nllb-200-distilled-600M")
+    roundtrip.add_argument("--device", choices=["auto", "cpu", "mps", "cuda"], default="auto")
+    roundtrip.add_argument("--dtype", choices=["auto", "float16", "bfloat16", "float32"], default="auto")
+    roundtrip.add_argument("--pass-threshold", type=float, default=0.60)
+    roundtrip.add_argument("--fail-threshold", type=float, default=0.35)
+    roundtrip.set_defaults(func=cmd_prompt_roundtrip)
+
     sonar = sub.add_parser("prewarm-sonar")
     sonar.add_argument("--cache-dir")
     sonar.set_defaults(func=cmd_prewarm_sonar)
@@ -577,7 +641,7 @@ def build_parser() -> argparse.ArgumentParser:
     gen.add_argument("--output-dir")
     gen.add_argument("--output-template", default="target_generations_{model}_{lang}.jsonl")
     gen.add_argument("--profile", choices=["macbook", "rtx_5070_ti"])
-    gen.add_argument("--backend", choices=["auto", "mock", "vllm", "transformers"])
+    gen.add_argument("--backend", choices=["auto", "mock", "vllm", "transformers", "maritaca"])
     gen.add_argument("--device", choices=["auto", "cpu", "mps", "cuda"])
     gen.add_argument("--dtype", choices=["auto", "float16", "bfloat16", "float32"])
     gen.add_argument("--mock-output")
@@ -598,38 +662,56 @@ def build_parser() -> argparse.ArgumentParser:
     token_metrics.add_argument("--trust-remote-code", action="store_true")
     token_metrics.set_defaults(func=cmd_attach_tokenizer_metrics)
 
+    response_bt = sub.add_parser("backtranslate-responses")
+    response_bt.add_argument("--generations", required=True)
+    response_bt.add_argument("--output", required=True)
+    response_bt.add_argument("--engine", choices=["placeholder", "nllb"], default="placeholder")
+    response_bt.add_argument("--checkpoint", default="facebook/nllb-200-distilled-600M")
+    response_bt.add_argument("--device", choices=["auto", "cpu", "mps", "cuda"], default="auto")
+    response_bt.add_argument("--dtype", choices=["auto", "float16", "bfloat16", "float32"], default="auto")
+    response_bt.set_defaults(func=cmd_backtranslate_responses)
+
     model_status = sub.add_parser("model-status")
     model_status.add_argument("--model", default="sagui_7b")
     model_status.set_defaults(func=cmd_model_status)
 
-    export_batch = sub.add_parser("export-judge-batch")
-    export_batch.add_argument("--generations", required=True)
-    export_batch.add_argument("--output", required=True)
-    export_batch.set_defaults(func=cmd_export_judge_batch)
+    sr_score = sub.add_parser("score-strongreject")
+    sr_score.add_argument("--generations", required=True)
+    sr_score.add_argument("--output", required=True)
+    sr_score.add_argument("--evaluator", default="strongreject_rubric")
+    sr_score.add_argument("--backtranslate-engine", choices=["placeholder", "nllb"], default="placeholder")
+    sr_score.add_argument("--checkpoint", default="facebook/nllb-200-distilled-600M")
+    sr_score.add_argument("--device", choices=["auto", "cpu", "mps", "cuda"], default="auto")
+    sr_score.add_argument("--dtype", choices=["auto", "float16", "bfloat16", "float32"], default="auto")
+    sr_score.set_defaults(func=cmd_score_strongreject)
 
-    export_api = sub.add_parser("export-api-batches")
-    export_api.add_argument("--requests", required=True)
-    export_api.add_argument("--output-dir", required=True)
-    export_api.add_argument("--max-tokens", type=int, default=8)
-    export_api.set_defaults(func=cmd_export_api_batches)
+    spec = sub.add_parser("compute-spec")
+    spec.add_argument("--predictions", required=True)
+    spec.add_argument("--output", required=True)
+    spec.set_defaults(func=cmd_compute_spec)
 
-    normalize = sub.add_parser("normalize-judge-results")
-    normalize.add_argument("--provider", choices=["openai", "anthropic", "hosted"], required=True)
-    normalize.add_argument("--input", required=True)
-    normalize.add_argument("--output", required=True)
-    normalize.set_defaults(func=cmd_normalize_judge_results)
+    benign = sub.add_parser("score-benign-controls")
+    benign.add_argument("--generations", required=True)
+    benign.add_argument("--output", required=True)
+    benign.set_defaults(func=cmd_score_benign)
 
-    import_batch = sub.add_parser("import-judge-batch")
-    import_batch.add_argument("--generations", required=True)
-    import_batch.add_argument("--judge-results", required=True)
-    import_batch.add_argument("--output", required=True)
-    import_batch.set_defaults(func=cmd_import_judge_batch)
+    dataset = sub.add_parser("build-dataset")
+    dataset.add_argument("--scored", required=True)
+    dataset.add_argument("--output", required=True)
+    dataset.add_argument("--translations")
+    dataset.add_argument("--spec-scores")
+    dataset.add_argument("--allow-frozen-overwrite", action="store_true")
+    dataset.set_defaults(func=cmd_build_dataset)
 
-    vote = sub.add_parser("majority-vote")
-    vote.add_argument("--generations", required=True)
-    vote.add_argument("--judge-results", required=True)
-    vote.add_argument("--output", required=True)
-    vote.set_defaults(func=cmd_majority_vote)
+    reports = sub.add_parser("export-report-tables")
+    reports.add_argument("--rows", required=True)
+    reports.add_argument("--output-dir", required=True)
+    reports.set_defaults(func=cmd_export_report_tables)
+
+    glmm = sub.add_parser("fit-glmm")
+    glmm.add_argument("--rows", required=True)
+    glmm.add_argument("--output", required=True)
+    glmm.set_defaults(func=cmd_fit_glmm)
 
     audit_export = sub.add_parser("export-audit-queue")
     audit_export.add_argument("--translations", required=True)
@@ -642,6 +724,11 @@ def build_parser() -> argparse.ArgumentParser:
     audit_import.add_argument("--audit-csv", required=True)
     audit_import.add_argument("--output", required=True)
     audit_import.set_defaults(func=cmd_import_audit)
+
+    calibrate = sub.add_parser("calibrate-blaser")
+    calibrate.add_argument("--audit-csv", required=True)
+    calibrate.add_argument("--output", required=True)
+    calibrate.set_defaults(func=cmd_calibrate_blaser)
 
     spbleu = sub.add_parser("reference-spbleu")
     spbleu.add_argument("--translations", required=True)

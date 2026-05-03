@@ -128,6 +128,9 @@ def download_asset(asset: AssetSpec, dry_run: bool = False, force: bool = False)
             write_prompt_records(asset.pilot_output, records[: asset.pilot_size])
         return {**asset_status(asset), "action": "downloaded", "records": len(records)}
 
+    if asset.kind == "api_model":
+        return {**asset_status(asset), "action": "api_model_no_download"}
+
     if asset.kind in {"hf_model", "hf_dataset"}:
         if asset.repo_id is None or asset.local_dir is None:
             raise ValueError(f"{asset.name} requires repo_id and local_dir")
@@ -144,13 +147,16 @@ def download_asset(asset: AssetSpec, dry_run: bool = False, force: bool = False)
 def verify_asset(asset: AssetSpec, deep: bool = False) -> dict[str, Any]:
     status = asset_status(asset)
     checks: list[dict[str, Any]] = []
-    checks.append(_check_exists(status["path"]))
+    if asset.kind != "api_model":
+        checks.append(_check_exists(status["path"]))
     for path in asset.required_files:
         checks.append(_check_required_file(path))
     for paths in asset.required_any_files:
         checks.append(_check_required_any_file(paths))
     if asset.kind == "strongreject" and asset.output:
         checks.extend(_verify_strongreject(asset))
+    elif asset.kind == "api_model":
+        checks.append({"name": "api model configured", "ok": bool(asset.repo_id), "model_id": asset.repo_id})
     elif asset.kind == "hf_model" and asset.local_dir:
         checks.extend(_verify_hf_snapshot(asset.local_dir, expect_config=True))
     elif asset.kind == "hf_dataset" and asset.local_dir:

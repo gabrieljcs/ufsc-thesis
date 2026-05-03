@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import os
 import sys
 from pathlib import Path
 from typing import Any
@@ -23,6 +24,13 @@ def build_generation_rows(translations: list[dict[str, Any]], model: str, aligne
                 "prompt_text": translation["translated_text"],
                 "source_prompt_text": translation["source_text"],
                 "model_output": "",
+                "model_output_backtranslated": None,
+                "generation_completed": False,
+                "api_http_status": None,
+                "api_failure": False,
+                "api_failure_reason": None,
+                "provider_block": False,
+                "provider_block_reason": None,
                 "benchmark": benchmark,
             }
         )
@@ -39,7 +47,7 @@ def generate_outputs(
     dtype: str = "auto",
     trust_remote_code: bool = False,
     stream: bool = False,
-) -> list[str]:
+) -> list[Any]:
     if backend == "mock":
         return ["[mock target response: replace with local model output before research use.]" for _ in prompts]
     if backend == "vllm":
@@ -55,6 +63,8 @@ def generate_outputs(
             trust_remote_code=trust_remote_code,
             stream=stream,
         )
+    if backend == "maritaca":
+        return generate_with_maritaca(prompts, model_ref, max_tokens=max_tokens, temperature=temperature)
     if backend == "auto":
         if _cuda_available():
             try:
@@ -72,6 +82,80 @@ def generate_outputs(
             stream=stream,
         )
     raise ValueError(f"Unknown generation backend {backend!r}")
+
+
+def generate_with_maritaca(
+    prompts: list[str],
+    model_ref: str = "sabia-3",
+    max_tokens: int = 512,
+    temperature: float = 0.0,
+) -> list[dict[str, Any]]:
+    api_key = os.environ.get("MARITACA_API_KEY")
+    if not api_key:
+        raise RuntimeError("MARITACA_API_KEY is required for the Maritaca/Sabiá API backend.")
+    try:
+        import requests
+    except ImportError as exc:
+        raise RuntimeError("Maritaca API generation requires requests.") from exc
+
+    endpoint = os.environ.get("MARITACA_API_URL", "https://chat.maritaca.ai/api/chat/completions")
+    rows: list[dict[str, Any]] = []
+    headers = {"Authorization": f"Key {api_key}", "Content-Type": "application/json"}
+    for index, prompt in enumerate(prompts, start=1):
+        payload = {
+            "model": model_ref,
+            "messages": [{"role": "user", "content": prompt}],
+            "max_tokens": max_tokens,
+            "temperature": temperature,
+        }
+        try:
+            with step(f"maritaca generate prompt {index}/{len(prompts)}"):
+                response = requests.post(endpoint, headers=headers, json=payload, timeout=120)
+            text = ""
+            provider_block = response.status_code in {400, 403, 422}
+            failure_reason = None
+            if response.ok:
+                body = response.json()
+                choices = body.get("choices", [])
+                if choices:
+                    text = str(choices[0].get("message", {}).get("content", ""))
+                rows.append(
+                    {
+                        "text": text,
+                        "generation_completed": True,
+                        "api_http_status": response.status_code,
+                        "api_failure": False,
+                        "api_failure_reason": None,
+                        "provider_block": False,
+                        "provider_block_reason": None,
+                    }
+                )
+            else:
+                failure_reason = response.text[:500]
+                rows.append(
+                    {
+                        "text": "",
+                        "generation_completed": False,
+                        "api_http_status": response.status_code,
+                        "api_failure": not provider_block,
+                        "api_failure_reason": failure_reason if not provider_block else None,
+                        "provider_block": provider_block,
+                        "provider_block_reason": failure_reason if provider_block else None,
+                    }
+                )
+        except Exception as exc:
+            rows.append(
+                {
+                    "text": "",
+                    "generation_completed": False,
+                    "api_http_status": None,
+                    "api_failure": True,
+                    "api_failure_reason": str(exc),
+                    "provider_block": False,
+                    "provider_block_reason": None,
+                }
+            )
+    return rows
 
 
 def estimate_model_asset_state(hf_id: str, local_dir: str | None = None) -> dict[str, object]:
@@ -283,12 +367,26 @@ def _read_json(path: Path) -> dict[str, Any]:
         return {}
 
 
-def attach_outputs(rows: list[dict[str, Any]], outputs: list[str]) -> list[dict[str, Any]]:
+def attach_outputs(rows: list[dict[str, Any]], outputs: list[Any]) -> list[dict[str, Any]]:
     if len(rows) != len(outputs):
         raise ValueError("Generation row count and output count differ")
     enriched: list[dict[str, Any]] = []
     for row, output in zip(rows, outputs, strict=True):
         new_row = dict(row)
-        new_row["model_output"] = output
+        if isinstance(output, dict):
+            new_row["model_output"] = output.get("text", "")
+            for key in (
+                "generation_completed",
+                "api_http_status",
+                "api_failure",
+                "api_failure_reason",
+                "provider_block",
+                "provider_block_reason",
+            ):
+                if key in output:
+                    new_row[key] = output[key]
+        else:
+            new_row["model_output"] = output
+            new_row["generation_completed"] = True
         enriched.append(new_row)
     return enriched

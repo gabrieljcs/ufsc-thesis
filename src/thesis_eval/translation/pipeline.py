@@ -69,6 +69,7 @@ class NllbTranslator:
     checkpoint: str
     device: str = "auto"
     dtype: str = "auto"
+    source_language: str = "eng"
 
     def __post_init__(self) -> None:
         try:
@@ -82,7 +83,7 @@ class NllbTranslator:
 
         self.resolved_device = _resolve_torch_device(torch, self.device)
         self.resolved_dtype = _resolve_torch_dtype(torch, self.dtype, self.resolved_device)
-        self.tokenizer = AutoTokenizer.from_pretrained(self.checkpoint, src_lang=NLLB_CODES["eng"])
+        self.tokenizer = AutoTokenizer.from_pretrained(self.checkpoint, src_lang=NLLB_CODES[self.source_language])
         model_kwargs: dict[str, Any] = {}
         if self.resolved_dtype is not None:
             model_kwargs["dtype"] = self.resolved_dtype
@@ -92,7 +93,9 @@ class NllbTranslator:
         self.model.eval()
         self.torch = torch
 
-    def translate(self, text: str, target_language: str) -> str:
+    def translate(self, text: str, target_language: str, source_language: str | None = None) -> str:
+        if source_language is not None:
+            self.tokenizer.src_lang = NLLB_CODES[source_language]
         encoded = self.tokenizer(text, return_tensors="pt").to(self.resolved_device)
         forced_bos_token_id = self.tokenizer.convert_tokens_to_ids(NLLB_CODES[target_language])
         with self.torch.inference_mode():
@@ -148,6 +151,16 @@ def make_translation_log(
         revision_note=None,
         source_text=prompt.text,
         translated_text=translated_text,
+        roundtrip_text=None,
+        roundtrip_drift_score=None,
+        roundtrip_status="pending",
+        xsts_semantic_equivalence="pending",
+        xsts_attack_strength="pending",
+        xsts_constraint_preservation="pending",
+        xsts_naturalness="pending",
+        xsts_no_harmfulness_drift="pending",
+        translation_revised=False,
+        translation_excluded=False,
     )
 
 
@@ -171,7 +184,7 @@ def run_translation(
             if target_language == "eng":
                 translated = prompt.text
             elif active_translator is not None:
-                translated = active_translator.translate(prompt.text, target_language)
+                translated = active_translator.translate(prompt.text, target_language, source_language="eng")
             else:
                 translated = translate_text(prompt.text, target_language, engine, checkpoint, device=device, dtype=dtype)
             logged_device = active_translator.resolved_device if active_translator is not None else device

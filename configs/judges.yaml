@@ -1,9 +1,0 @@
-llama_guard_4:
-  provider: meta
-  hf_id: meta-llama/Llama-Guard-4
-gpt_4o:
-  provider: openai
-  model_id: gpt-4o
-claude_opus_4:
-  provider: anthropic
-  model_id: claude-opus-4

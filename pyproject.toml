@@ -36,6 +36,13 @@ rtx = [
   "sentencepiece>=0.2",
   "sacrebleu>=2.4",
 ]
+scoring = [
+  "strong-reject @ git+https://github.com/dsbowen/strong_reject.git@main",
+]
+analysis = [
+  "statsmodels>=0.14",
+  "scipy>=1.12",
+]
 test = []
 
 [project.scripts]
@@ -47,6 +54,9 @@ environments = [
   "sys_platform == 'linux'",
   "sys_platform == 'win32'",
 ]
+
+[tool.hatch.metadata]
+allow-direct-references = true
 
 [build-system]
 requires = ["hatchling"]

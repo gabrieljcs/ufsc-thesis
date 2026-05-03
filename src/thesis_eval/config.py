@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from pathlib import Path
+from typing import Any
 
 from thesis_eval.paths import CONFIG_DIR, read_yaml
 
@@ -10,14 +11,12 @@ from thesis_eval.paths import CONFIG_DIR, read_yaml
 class ConfigBundle:
     attack_languages: list[str]
     aligned_language: dict[str, str]
-    models: dict[str, dict[str, str]]
-    judges: dict[str, dict[str, str]]
+    models: dict[str, dict[str, Any]]
 
 
 def load_config(config_dir: Path = CONFIG_DIR) -> ConfigBundle:
     languages = read_yaml(config_dir / "languages.yaml")
     models = read_yaml(config_dir / "models.yaml")
-    judges = read_yaml(config_dir / "judges.yaml")
 
     attack_languages = list(languages.get("attack_languages", []))
     aligned_language = dict(languages.get("aligned_language", {}))
@@ -35,12 +34,16 @@ def load_config(config_dir: Path = CONFIG_DIR) -> ConfigBundle:
             raise ValueError(f"{model_name} aligned_language mismatch")
         if model_lang not in attack_languages:
             raise ValueError(f"{model_name} aligned language {model_lang} missing from inventory")
-    for judge_name in ("llama_guard_4", "gpt_4o", "claude_opus_4"):
-        if judge_name not in judges:
-            raise ValueError(f"Missing required judge config: {judge_name}")
+        access_mode = model_cfg.get("access_mode")
+        if access_mode not in {"open_weight", "api"}:
+            raise ValueError(f"{model_name} access_mode must be open_weight or api")
+        pole = model_cfg.get("alignment_pole")
+        if pole not in {"weak", "strong"}:
+            raise ValueError(f"{model_name} alignment_pole must be weak or strong")
+        if not model_cfg.get("provider_model_id"):
+            raise ValueError(f"{model_name} must define provider_model_id")
     return ConfigBundle(
         attack_languages=attack_languages,
         aligned_language=aligned_language,
         models=models,
-        judges=judges,
     )

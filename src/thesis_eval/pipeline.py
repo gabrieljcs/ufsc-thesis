@@ -6,7 +6,7 @@ from typing import Any
 from thesis_eval.benchmarks.uriel import load_distance_matrix
 from thesis_eval.benchmarks.strongreject import load_prompt_records
 from thesis_eval.config import load_config
-from thesis_eval.evaluation.judge_batch import build_judge_requests
+from thesis_eval.evaluation.strongreject import score_generation_rows
 from thesis_eval.io import write_jsonl
 from thesis_eval.models.generation import attach_outputs, build_generation_rows
 from thesis_eval.paths import DATA_DIR, OUTPUT_DIR, ensure_dir
@@ -94,13 +94,13 @@ def run_mock_pilot(output_dir: Path = OUTPUT_DIR / "pilot", prompts_path: Path |
     generations_path = output_dir / "target_generations.jsonl"
     write_jsonl(generations_path, generations)
 
-    judge_requests = build_judge_requests(generations, ["llama_guard_4", "gpt_4o", "claude_opus_4"])
-    judge_requests_path = output_dir / "judge_requests.jsonl"
-    write_jsonl(judge_requests_path, judge_requests)
+    scored = score_generation_rows(generations, evaluator="mock")
+    scored_path = output_dir / "strongreject_scores.jsonl"
+    write_jsonl(scored_path, scored)
 
     return {
         "translations": translations_path,
         "translations_qc": qc_path,
         "generations": generations_path,
-        "judge_requests": judge_requests_path,
+        "strongreject_scores": scored_path,
     }

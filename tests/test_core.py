@@ -10,15 +10,9 @@ from thesis_eval.benchmarks.strongreject import import_strongreject, load_prompt
 from thesis_eval.benchmarks.uriel import load_distance_matrix, subset_matrix, write_distance_matrix
 from thesis_eval.cli import main
 from thesis_eval.config import load_config
-from thesis_eval.evaluation.api_batches import (
-    anthropic_batch_body,
-    hosted_judge_rows,
-    openai_batch_rows,
-    parse_anthropic_batch_results,
-    parse_openai_batch_results,
-)
-from thesis_eval.evaluation.judge_batch import build_judge_requests, combine_judge_results
-from thesis_eval.evaluation.majority_vote import majority_vote, normalize_raw_label
+from thesis_eval.analysis.dataset import build_frozen_rows
+from thesis_eval.benchmarks.belebele import compute_if_cons, parse_choice
+from thesis_eval.evaluation.strongreject import score_generation_rows
 from thesis_eval.io import write_jsonl
 from thesis_eval.metrics.asr import summarize_labels
 from thesis_eval.metrics.spec import add_spec_scores, z_scores
@@ -27,6 +21,7 @@ from thesis_eval.models.generation import estimate_model_asset_state, generate_o
 from thesis_eval.runtime import load_runtime_profiles
 from thesis_eval.schema import validate_analysis_rows, validate_translation_log
 from thesis_eval.translation.audit import apply_audit_decisions, build_audit_queue
+from thesis_eval.translation.calibration import calibrate_blaser_thresholds
 from thesis_eval.translation.log import TranslationLog
 from thesis_eval.translation.pipeline import PromptRecord, apply_translation_qc, run_translation
 
@@ -34,9 +29,10 @@ from thesis_eval.translation.pipeline import PromptRecord, apply_translation_qc,
 class ConfigTests(unittest.TestCase):
     def test_load_config(self) -> None:
         cfg = load_config()
+        self.assertEqual(len(cfg.models), 8)
         self.assertEqual(len(cfg.attack_languages), 13)
         self.assertEqual(cfg.aligned_language["sagui_7b"], "por")
-        self.assertIn("gpt_4o", cfg.judges)
+        self.assertEqual(cfg.models["sabia_3"]["access_mode"], "api")
 
     def test_runtime_profiles(self) -> None:
         profiles = load_runtime_profiles()
@@ -48,24 +44,11 @@ class ConfigTests(unittest.TestCase):
         self.assertIn("strongreject", assets)
         self.assertIn("nllb_200", assets)
         self.assertIn("sagui_7b", assets)
+        self.assertIn("sabia_3", assets)
         self.assertEqual(select_assets(groups=["translation"])[0].group, "translation")
         self.assertEqual({asset.name for asset in select_assets(groups=["jailbreaks"])}, {"strongreject", "multijail"})
         status = asset_status(assets["nllb_200"])
         self.assertEqual(status["name"], "nllb_200")
-
-
-class MajorityVoteTests(unittest.TestCase):
-    def test_majority_vote_and_disagreement(self) -> None:
-        label, disagreement = majority_vote(["safe", "unsafe", "safe"])
-        self.assertEqual(label, "safe")
-        self.assertTrue(disagreement)
-
-    def test_requires_three_judges(self) -> None:
-        with self.assertRaises(ValueError):
-            majority_vote(["safe", "safe"])
-
-    def test_normalize_raw_label(self) -> None:
-        self.assertEqual(normalize_raw_label("unsafe\nbecause..."), "unsafe")
 
 
 class MetricsTests(unittest.TestCase):
@@ -132,6 +115,140 @@ class GenerationTests(unittest.TestCase):
             result = estimate_model_asset_state("fixture/model", local_dir=str(path))
             self.assertTrue(result["has_chat_template"])
             self.assertEqual(result["model_type"], "llama")
+
+
+class StrongRejectScoringTests(unittest.TestCase):
+    def test_mock_strongreject_scoring_preserves_subscores(self) -> None:
+        rows = [
+            {
+                "model": "sagui_7b",
+                "aligned_language": "por",
+                "attack_language": "eng",
+                "prompt_id": "p1",
+                "run_id": "r1",
+                "prompt_text": "prompt",
+                "source_prompt_text": "source prompt",
+                "model_output": "unsafe harmful answer",
+                "model_output_backtranslated": None,
+                "generation_completed": True,
+                "api_http_status": None,
+                "api_failure": False,
+                "api_failure_reason": None,
+                "provider_block": False,
+                "provider_block_reason": None,
+                "benchmark": "strongreject",
+                "distance": 0.0,
+                "if_score": None,
+                "cons_score": None,
+                "spec_score": None,
+                "input_tokens": None,
+                "tokens_per_char": None,
+                "token_inflation": None,
+                "excluded": False,
+                "exclusion_reason": None,
+            }
+        ]
+        scored = score_generation_rows(rows, evaluator="mock")
+        self.assertEqual(scored[0]["unsafe_binary"], 1)
+        self.assertEqual(scored[0]["strongreject_score"], 1.0)
+        self.assertEqual(scored[0]["specificity_score"], 5.0)
+        self.assertFalse(scored[0]["scoring_failed"])
+
+    def test_scoring_failure_does_not_become_safe(self) -> None:
+        row = {
+            "model": "sabia_3",
+            "aligned_language": "por",
+            "attack_language": "ara",
+            "prompt_id": "p1",
+            "run_id": "r1",
+            "prompt_text": "prompt",
+            "source_prompt_text": "source prompt",
+            "model_output": "",
+            "generation_completed": False,
+            "api_failure": True,
+            "api_failure_reason": "timeout",
+            "provider_block": False,
+            "provider_block_reason": None,
+            "benchmark": "strongreject",
+        }
+        scored = score_generation_rows([row], evaluator="mock")
+        self.assertIsNone(scored[0]["unsafe_binary"])
+        self.assertTrue(scored[0]["scoring_failed"])
+        self.assertTrue(scored[0]["excluded"])
+
+
+class DatasetBuilderTests(unittest.TestCase):
+    def test_build_frozen_rows_from_scored_generation(self) -> None:
+        cfg = load_config()
+        scored = score_generation_rows(
+            [
+                {
+                    "model": "sagui_7b",
+                    "aligned_language": "por",
+                    "attack_language": "por",
+                    "prompt_id": "p1",
+                    "run_id": "r1",
+                    "prompt_text": "prompt",
+                    "source_prompt_text": "source",
+                    "model_output": "safe refusal",
+                    "model_output_backtranslated": None,
+                    "generation_completed": True,
+                    "api_http_status": None,
+                    "api_failure": False,
+                    "api_failure_reason": None,
+                    "provider_block": False,
+                    "provider_block_reason": None,
+                    "benchmark": "strongreject",
+                    "distance": 0.0,
+                    "input_tokens": 10,
+                    "tokens_per_char": 1.0,
+                    "token_inflation": 1.0,
+                    "excluded": False,
+                    "exclusion_reason": None,
+                }
+            ],
+            evaluator="mock",
+        )
+        translations = [
+            TranslationLog(
+                prompt_id="p1",
+                source_language="eng",
+                target_language="por",
+                harmful_goal="goal",
+                expected_output_form="other",
+                fixed_constraints="none",
+                allowed_adaptation="fluency",
+                translator_config={"engine": "placeholder"},
+                blaser_qe_score=None,
+                blaser_status="pending",
+                human_audit_status="not_audited",
+                reference_subset_score=None,
+                harm_preservation="pending",
+                revision_note=None,
+                source_text="source",
+                translated_text="prompt",
+            ).to_dict()
+        ]
+        rows = build_frozen_rows(scored, cfg, translations=translations)
+        validate_analysis_rows(rows)
+        self.assertEqual(rows[0]["model_alignment_pole"], "weak")
+        self.assertEqual(rows[0]["translation_blaser_status"], "pending")
+
+
+class BelebeleTests(unittest.TestCase):
+    def test_parse_choice_and_compute_spec(self) -> None:
+        self.assertEqual(parse_choice("Answer: B"), "B")
+        predictions = [
+            {"model": "sagui_7b", "language": "por", "item_id": "i1", "prediction": "A", "gold": "A"},
+            {"model": "sagui_7b", "language": "ara", "item_id": "i1", "prediction": "B", "gold": "A"},
+            {"model": "sagui_7b", "language": "por", "item_id": "i2", "prediction": "C", "gold": "C"},
+            {"model": "sagui_7b", "language": "ara", "item_id": "i2", "prediction": "C", "gold": "C"},
+        ]
+        rows = compute_if_cons(predictions, {"sagui_7b": "por"})
+        by_lang = {row["attack_language"]: row for row in rows}
+        self.assertEqual(by_lang["por"]["if_score"], 1.0)
+        self.assertEqual(by_lang["ara"]["cons_score"], 0.5)
+        self.assertIn("spec_score", by_lang["ara"])
 
 
 class UrielTests(unittest.TestCase):
@@ -352,85 +469,6 @@ class TranslationTests(unittest.TestCase):
         ).to_dict()
 
 
-class JudgeBatchTests(unittest.TestCase):
-    def test_batch_round_trip_and_vote(self) -> None:
-        generation = {
-            "model": "sagui_7b",
-            "aligned_language": "por",
-            "attack_language": "ara",
-            "prompt_id": "p1",
-            "run_id": "r1",
-            "prompt_text": "prompt",
-            "model_output": "response",
-            "benchmark": "strongreject",
-            "distance": 0.5,
-            "if_score": None,
-            "cons_score": None,
-            "spec_score": None,
-            "input_tokens": None,
-            "tokens_per_char": None,
-            "token_inflation": None,
-            "excluded": False,
-            "exclusion_reason": None,
-        }
-        requests = build_judge_requests([generation], ["llama_guard_4", "gpt_4o", "claude_opus_4"])
-        self.assertEqual(len(requests), 3)
-        self.assertIn("api_messages", requests[0])
-        results = [
-            {"request_id": req["request_id"], "run_id": "r1", "judge": req["judge"], "raw_response": "safe"}
-            for req in requests
-        ]
-        rows = combine_judge_results([generation], results)
-        self.assertEqual(rows[0]["majority_label"], "safe")
-        validate_analysis_rows(rows)
-
-    def test_missing_judge_fails(self) -> None:
-        generation = {"run_id": "r1", "prompt_text": "p", "model_output": "r"}
-        with self.assertRaises(ValueError):
-            combine_judge_results([generation], [])
-
-
-class ApiBatchTests(unittest.TestCase):
-    def test_provider_batch_shapes_and_result_parsing(self) -> None:
-        request = {
-            "request_id": "r1::gpt_4o",
-            "judge": "gpt_4o",
-            "run_id": "r1",
-            "prompt_id": "p1",
-            "attack_language": "ara",
-            "api_messages": [{"role": "system", "content": "sys"}, {"role": "user", "content": "user"}],
-        }
-        openai = openai_batch_rows([request], "gpt-4o")
-        self.assertEqual(openai[0]["url"], "/v1/chat/completions")
-        parsed_openai = parse_openai_batch_results(
-            [
-                {
-                    "custom_id": "r1::gpt_4o",
-                    "response": {"body": {"choices": [{"message": {"content": "safe"}}]}},
-                    "error": None,
-                }
-            ]
-        )
-        self.assertEqual(parsed_openai[0]["label"], "safe")
-
-        anthropic = anthropic_batch_body([{**request, "request_id": "r1::claude_opus_4", "judge": "claude_opus_4"}], "claude-opus-4")
-        self.assertIn("requests", anthropic)
-        parsed_anthropic = parse_anthropic_batch_results(
-            [
-                {
-                    "custom_id": "r1::claude_opus_4",
-                    "result": {
-                        "type": "succeeded",
-                        "message": {"content": [{"type": "text", "text": "unsafe"}]},
-                    },
-                }
-            ]
-        )
-        self.assertEqual(parsed_anthropic[0]["label"], "unsafe")
-        hosted = hosted_judge_rows([{**request, "request_id": "r1::llama_guard_4", "judge": "llama_guard_4"}], "hosted-lg")
-        self.assertEqual(hosted[0]["custom_id"], "r1::llama_guard_4")
-
-
 class AuditTests(unittest.TestCase):
     def test_audit_queue_and_import(self) -> None:
         log = TranslationLog(
@@ -466,6 +504,16 @@ class AuditTests(unittest.TestCase):
         )
         self.assertEqual(updated[0]["human_audit_status"], "audited_pass")
         self.assertEqual(updated[0]["harm_preservation"], "preserved")
+
+    def test_blaser_calibration(self) -> None:
+        result = calibrate_blaser_thresholds(
+            [
+                {"blaser_qe_score": "4.2", "audit_decision": "pass"},
+                {"blaser_qe_score": "3.1", "audit_decision": "revise"},
+            ]
+        )
+        self.assertEqual(result["audited_pass"], 1)
+        self.assertLessEqual(result["fail_threshold"], result["pass_threshold"])
 
 
 if __name__ == "__main__":

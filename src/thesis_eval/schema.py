@@ -2,22 +2,36 @@ from __future__ import annotations
 
 from collections.abc import Iterable, Mapping
 
-
-LABELS = {"safe", "unsafe", "invalid"}
-
 ANALYSIS_COLUMNS = [
     "model",
+    "model_display_name",
+    "model_pair_language",
+    "model_alignment_pole",
+    "model_access_mode",
+    "provider_model_id",
+    "provider_model_version",
     "aligned_language",
     "attack_language",
     "prompt_id",
     "run_id",
-    "judge_llama",
-    "judge_gpt4o",
-    "judge_claude",
-    "majority_label",
+    "benchmark",
+    "prompt_text",
+    "source_prompt_text",
+    "model_output",
+    "model_output_backtranslated",
+    "generation_completed",
+    "api_http_status",
+    "api_failure",
+    "api_failure_reason",
+    "provider_block",
+    "provider_block_reason",
+    "strongreject_score",
     "unsafe_binary",
-    "invalid_binary",
-    "judge_disagreement",
+    "refusal_binary",
+    "specificity_score",
+    "convincingness_score",
+    "scoring_failed",
+    "scoring_failure_reason",
     "distance",
     "if_score",
     "cons_score",
@@ -25,7 +39,21 @@ ANALYSIS_COLUMNS = [
     "input_tokens",
     "tokens_per_char",
     "token_inflation",
-    "benchmark",
+    "context_usage_ratio",
+    "truncation_risk",
+    "benign_control_id",
+    "benign_relevance",
+    "benign_completeness",
+    "benign_coherence",
+    "benign_task_completion",
+    "translation_blaser_qe_score",
+    "translation_blaser_status",
+    "roundtrip_drift_score",
+    "roundtrip_status",
+    "human_audit_status",
+    "harm_preservation",
+    "translation_revised",
+    "translation_excluded",
     "excluded",
     "exclusion_reason",
 ]
@@ -47,14 +75,17 @@ TRANSLATION_LOG_FIELDS = [
     "revision_note",
     "source_text",
     "translated_text",
+    "roundtrip_text",
+    "roundtrip_drift_score",
+    "roundtrip_status",
+    "xsts_semantic_equivalence",
+    "xsts_attack_strength",
+    "xsts_constraint_preservation",
+    "xsts_naturalness",
+    "xsts_no_harmfulness_drift",
+    "translation_revised",
+    "translation_excluded",
 ]
-
-
-def validate_label(label: str) -> str:
-    normalized = label.strip().lower()
-    if normalized not in LABELS:
-        raise ValueError(f"Unknown label {label!r}; expected one of {sorted(LABELS)}")
-    return normalized
 
 
 def validate_analysis_rows(rows: Iterable[Mapping[str, object]]) -> None:
@@ -63,9 +94,9 @@ def validate_analysis_rows(rows: Iterable[Mapping[str, object]]) -> None:
         missing = required.difference(row)
         if missing:
             raise ValueError(f"Row {index} missing columns: {sorted(missing)}")
-        for key in ("judge_llama", "judge_gpt4o", "judge_claude", "majority_label"):
-            if row[key] is not None:
-                validate_label(str(row[key]))
+        score = row.get("strongreject_score")
+        if score is not None and float(score) < 0:
+            raise ValueError(f"Row {index} has negative strongreject_score")
 
 
 def validate_translation_log(record: Mapping[str, object]) -> None:
@@ -80,3 +111,5 @@ def validate_translation_log(record: Mapping[str, object]) -> None:
         raise ValueError("human_audit_status has an unexpected value")
     if record["harm_preservation"] not in {"preserved", "attenuated", "amplified", "pending"}:
         raise ValueError("harm_preservation has an unexpected value")
+    if record["roundtrip_status"] not in {"pass", "flag", "fail", "pending"}:
+        raise ValueError("roundtrip_status must be pass, flag, fail, or pending")

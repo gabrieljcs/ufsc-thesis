@@ -11,9 +11,7 @@ uv run thesis-eval generate-targets \
   --max-tokens 64 \
   --stream \
   --output outputs/pilot/target_generations_por.macbook_smoke.jsonl
-uv run thesis-eval export-judge-batch \
+uv run thesis-eval score-strongreject \
   --generations outputs/pilot/target_generations_por.macbook_smoke.jsonl \
-  --output outputs/pilot/judge_requests_por.macbook_smoke.jsonl
-uv run thesis-eval export-api-batches \
-  --requests outputs/pilot/judge_requests_por.macbook_smoke.jsonl \
-  --output-dir outputs/pilot/api_batches_por_macbook_smoke
+  --evaluator mock \
+  --output outputs/pilot/strongreject_scores_por.macbook_smoke.jsonl

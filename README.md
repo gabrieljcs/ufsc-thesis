@@ -1,765 +1,459 @@
 # thesis-eval
 
-Evaluation code for the thesis **Cross-Lingual Jailbreak Evaluation of Language-Specific LLMs**.
+`thesis-eval` is the reproducible evaluation package for the thesis **Multilingual Jailbreaks in Language-Specific Large Language Models**. It runs the full empirical pipeline: import harmful prompts, translate them, evaluate target models, score outputs with StrongREJECT, join specialization and tokenizer metrics, freeze the analysis dataset, and export thesis tables.
 
-The authoritative research contract is [`../AGENTS.md`](../AGENTS.md). This README is the operator manual: it explains the project layout, the command interface, and the exact Windows + RTX Docker workflow for the Sagui pilot and the full experiment.
+The main executable is:
 
-## What Runs Where
-
-The RTX machine is a Windows host with an RTX 5070 Ti. vLLM does not run natively on Windows, so the supported GPU path is:
-
-- Windows PowerShell controls the run.
-- Docker Desktop with WSL2 runs a Linux CUDA container.
-- Model assets live in the repo's own `assets/` folder, exposed inside the container at `/work/eval/assets` via the project-root bind mount.
-- A single `Downloads\thesis-eval-cache` host folder backs the container's `/root/.cache`, so Hugging Face Hub, fairseq2, and SONAR all share one persistent cache across runs.
-- NLLB translation, BLASER QC, and target-model inference all run inside Docker on CUDA.
-- API judges are not run locally. The CLI exports batch files; you submit them to provider APIs and import the returned results.
-
-Each model-backed command is run in a fresh container. That frees the 16 GB GPU between stages, which matters because NLLB, BLASER, and 7B target inference should not share VRAM.
-
-## Project Structure
-
-- `configs/`: experiment configuration.
-  - `assets.yaml`: download manifest for datasets, translators, BLASER, and target models.
-  - `languages.yaml`: 13-language inventory and aligned-language map.
-  - `models.yaml`: target model identifiers and metadata.
-  - `judges.yaml`: API judge identifiers.
-  - `runtime.yaml`: MacBook and RTX runtime profiles.
-- `data/`: reproducible inputs and intermediate translation records.
-  - `data/raw/strongreject/`: imported StrongREJECT prompts and the limited pilot slice.
-  - `data/translations/`: final/full-run translation logs.
-  - `data/uriel_plus/distance_matrix.csv`: static URIEL+ distance matrix.
-- `assets/`: model/dataset assets downloaded by the CLI. Excluded from git via `.gitignore`.
-- `outputs/`: generated experiment outputs.
-  - `outputs/pilot/`: tiny Sagui pilot outputs.
-  - `outputs/final/`: recommended full-run working area.
-  - `outputs/dataset_frozen.parquet`: final frozen dataset; do not overwrite during pilots.
-- `src/thesis_eval/`: implementation.
-  - `translation/`: NLLB translation, BLASER QC, XSTS audit, spBLEU hooks.
-  - `models/`: target generation wrappers, including vLLM.
-  - `evaluation/`: judge batch export/import and majority vote.
-  - `benchmarks/`: StrongREJECT import and URIEL matrix handling.
-  - `metrics/`: ASR and SPEC helpers.
-- `docker/`: CUDA/vLLM image for the RTX workflow.
-- `tests/`: deterministic unit tests.
-
-## Command Interface
-
-Common commands:
-
-- `validate-config`: load model/language/judge configuration.
-- `runtime-profiles`: show the MacBook and RTX runtime profiles.
-- `list-assets`: list downloadable assets.
-- `asset-status`: show whether assets exist locally.
-- `download-assets`: download one asset or group.
-- `verify-assets`: check that downloaded assets look complete.
-- `prepare-uriel`: recreate the static URIEL+ CSV and LaTeX table.
-- `import-strongreject`: import forbidden prompts and create a pilot slice.
-- `translate`: run placeholder or NLLB translation.
-- `translation-qc`: run heuristic or BLASER QC.
-- `prewarm-sonar`: fetch/load SONAR runtime assets before BLASER QC.
-- `export-audit-queue`: create XSTS human-review CSVs.
-- `import-audit`: import reviewer corrections/decisions.
-- `generate-targets`: run target model generation with mock, Transformers, or vLLM.
-- `attach-tokenizer-metrics`: recompute `input_tokens`, `tokens_per_char`, and `token_inflation` on existing generation files.
-- `export-judge-batch`: create one judge request per target response per judge.
-- `export-api-batches`: create provider-shaped API batch files.
-- `normalize-judge-results`: normalize raw provider responses.
-- `majority-vote`: require all three judges and compute final labels.
-- `export-results`: export validated analysis rows.
-
-After the Windows setup defines the `te` function, ask the CLI for flags:
-
-```powershell
-te --help
-te translate --help
-te generate-targets --help
+```bash
+uv run thesis-eval
 ```
 
-## Windows RTX Setup
+## Directory Map
 
-Run this section once on the Windows RTX computer.
-
-1. Install prerequisites.
-
-Install these outside the repo:
-
-- Windows 11
-- Recent NVIDIA driver with RTX 5070 Ti support
-- Docker Desktop with WSL2 backend enabled
-- Git
-
-Confirm Docker can see the GPU:
-
-```powershell
-docker run --rm --gpus all nvidia/cuda:12.8.1-base-ubuntu24.04 nvidia-smi
+```text
+eval/
+├── configs/
+│   ├── assets.yaml        # datasets, translators, BLASER, target model assets
+│   ├── languages.yaml     # 13 attack languages and model aligned languages
+│   ├── models.yaml        # target model metadata, access mode, provider IDs
+│   └── runtime.yaml       # Mac and RTX runtime profiles
+├── data/
+│   ├── raw/               # imported StrongREJECT, MultiJail, BELEBELE inputs
+│   ├── translations/      # finalized translated prompt logs
+│   └── uriel_plus/        # static distance matrix used in analysis
+├── assets/
+│   ├── datasets/          # Hugging Face dataset snapshots
+│   └── models/            # NLLB, BLASER, and open-weight target snapshots
+├── outputs/
+│   ├── translations/      # translation, round-trip, QC, and audit outputs
+│   ├── generations/       # target model responses
+│   ├── scored/            # StrongREJECT-scored generation rows
+│   ├── spec/              # BELEBELE IF/CONS/SPEC tables
+│   ├── tables/            # CSV outputs for thesis tables
+│   └── dataset_frozen.*   # frozen analysis dataset
+├── scripts/               # small smoke-test wrappers
+├── src/thesis_eval/       # package source
+└── tests/                 # unit tests
 ```
 
-The output should list the RTX 5070 Ti.
+## Models
 
-2. Clone and enter the repo.
+The thesis evaluates eight target models. Seven are open-weight Hugging Face models that are downloaded into `assets/models/`. Sabiá-3 is served through Maritaca and is configured as an API target.
 
-```powershell
-git clone https://github.com/gabrieljcs/ufsc-thesis.git
-cd ufsc-thesis\eval
+| ID | Aligned language | Access | Asset or provider |
+| --- | --- | --- | --- |
+| `sagui_7b` | Portuguese | open weight | `OliveiraJLT/Sagui-7B-Instruct-v0.1` |
+| `sabia_3` | Portuguese | API | Maritaca `sabia-3` |
+| `fauno` | Italian | open weight | `andreabac3/Fauno-Italian-LLM-7B` |
+| `llamantino_anita_8b` | Italian | open weight | `swap-uniba/LLaMAntino-3-ANITA-8B-Inst-DPO-ITA` |
+| `gpt_sw3` | Swedish | open weight | `AI-Sweden-Models/gpt-sw3-6.7b-v2-instruct` |
+| `ai_sweden_llama3_8b` | Swedish | open weight | `AI-Sweden-Models/Llama-3-8B-instruct` |
+| `bggpt_7b` | Bulgarian | open weight | `INSAIT-Institute/BgGPT-7B-Instruct-v0.2` |
+| `bggpt_gemma_9b` | Bulgarian | open weight | `INSAIT-Institute/BgGPT-Gemma-2-9B-IT-v1.0` |
+
+The attack-language inventory is:
+
+```text
+ara bul dan eng fin ita nor por rus spa swa swe ukr
 ```
 
-3. Create the persistent cache folder and output folders.
+## 1. Environment Setup
 
-The cache folder lives in Downloads and is mounted into the container at `/root/.cache`. Hugging Face Hub weights, fairseq2/SONAR encoders, and any other tool caches all land there and survive container restarts. Model assets stay in the repo's own `assets/` folder, which is exposed by the project-root mount.
+Use the RTX profile for the full thesis run. It installs vLLM for target-model inference, QC dependencies for BLASER, StrongREJECT scoring, and analysis libraries. `pyarrow` is included here so the frozen dataset can also be exported as Parquet.
 
-```powershell
-$PROJECT = (Get-Location).Path
-$CACHE = Join-Path $env:USERPROFILE "Downloads\thesis-eval-cache"
-
-New-Item -ItemType Directory -Force $CACHE | Out-Null
-New-Item -ItemType Directory -Force outputs\pilot | Out-Null
-New-Item -ItemType Directory -Force outputs\final | Out-Null
+```bash
+cd /Users/gabriel/Developer/ufsc-thesis/eval
+uv sync --extra rtx --extra qc --extra scoring --extra analysis --with pyarrow
 ```
 
-4. Create the environment file.
+For a Mac smoke test with Transformers instead of vLLM:
 
-This file is passed into Docker. Add `HF_TOKEN` if any Hugging Face model requires authentication. Add API keys when you are ready to submit judge batches.
-
-```powershell
-if (!(Test-Path .env)) { Copy-Item .env.example .env }
-notepad .env
+```bash
+uv sync --extra mac --extra qc --extra scoring --extra analysis --with pyarrow
 ```
 
-5. Build the GPU image.
+Set credentials for gated Hugging Face assets, StrongREJECT rubric scoring, and Sabiá-3:
 
-This image contains the project CLI, PyTorch CUDA, vLLM, Transformers, NLLB dependencies, BLASER/SONAR dependencies, and sacreBLEU.
-
-```powershell
-docker build -f docker/Dockerfile.gpu -t thesis-eval:gpu .
+```bash
+export HF_TOKEN="..."
+export OPENAI_API_KEY="..."
+export MARITACA_API_KEY="..."
 ```
 
-6. Define the reusable Docker helper functions.
+Check the configuration and runtime profiles:
 
-Keep using the same PowerShell session after this. If you open a new terminal, rerun this block.
-
-```powershell
-function tedocker {
-  param(
-    [Parameter(ValueFromRemainingArguments = $true)]
-    [string[]] $Arguments
-  )
-
-  docker run --rm -t --gpus all `
-    -v "${PROJECT}:/work/eval" `
-    -v "${CACHE}:/root/.cache" `
-    -w /work/eval `
-    --env-file .env `
-    thesis-eval:gpu @Arguments
-}
-
-function te {
-  param(
-    [Parameter(ValueFromRemainingArguments = $true)]
-    [string[]] $Arguments
-  )
-
-  tedocker thesis-eval @Arguments
-}
+```bash
+uv run thesis-eval validate-config
+uv run thesis-eval runtime-profiles
+uv run thesis-eval list-assets
 ```
 
-7. Smoke-test the image.
+## 2. Download Datasets
 
-This confirms that the container sees CUDA and that the thesis CLI can load its config.
+StrongREJECT provides the harmful prompt source. MultiJail is the external multilingual validation benchmark. BELEBELE is the benign reading-comprehension benchmark used to compute IF, CONS, and SPEC.
 
-```powershell
-tedocker python -c "import torch; print(torch.cuda.is_available()); print(torch.cuda.get_device_name(0))"
-te validate-config
-te runtime-profiles
+```bash
+uv run thesis-eval download-assets --name strongreject
+uv run thesis-eval download-assets --name multijail --name belebele
+uv run thesis-eval verify-assets --group datasets
 ```
 
-## Asset Downloads
+StrongREJECT is written to:
 
-Downloads are modular. They write into `/work/eval/assets`, which is the repo's own `assets/` folder exposed by the project-root mount. Hugging Face Hub uses the persistent cache at `/root/.cache` (backed by `Downloads\thesis-eval-cache`) for resumable downloads and weight reuse.
-
-List the manifest:
-
-```powershell
-te list-assets
-te asset-status
+```text
+data/raw/strongreject/prompts.jsonl
+data/raw/strongreject/pilot_prompts.jsonl
 ```
 
-Download and verify one thing at a time:
+## 3. Prepare Translation and QC Models
 
-```powershell
-te download-assets --name strongreject
-te verify-assets --name strongreject
+NLLB-200 is used for prompt translation and response back-translation. BLASER 2.0 QE is used for reference-free translation quality screening. The 3.3B NLLB checkpoint is the thesis-grade translation asset for the RTX run; the 600M checkpoint is useful for quick smoke tests.
 
-te download-assets --name nllb_200_3_3b
-te verify-assets --name nllb_200_3_3b
-
-te download-assets --name blaser_2_0_qe
-te verify-assets --name blaser_2_0_qe
-
-te download-assets --name sagui_7b
-te verify-assets --name sagui_7b
+```bash
+uv run thesis-eval download-assets --name nllb_200_3_3b --name blaser_2_0_qe
+uv run thesis-eval prewarm-sonar
+uv run thesis-eval verify-assets --name nllb_200_3_3b --name blaser_2_0_qe
 ```
 
-Other target models for the full run:
+For a smaller local smoke test:
 
-```powershell
-te download-assets --name fauno
-te verify-assets --name fauno
-
-te download-assets --name gpt_sw3
-te verify-assets --name gpt_sw3
-
-te download-assets --name bggpt
-te verify-assets --name bggpt
+```bash
+uv run thesis-eval download-assets --name nllb_200
 ```
 
-Other datasets for the full run:
+## 4. Download Target Models
 
-```powershell
-te download-assets --name multijail
-te verify-assets --name multijail
+Download all open-weight targets in one step. The Sabiá-3 entry is checked as an API target and has no local weights.
 
-te download-assets --name belebele
-te verify-assets --name belebele
+```bash
+uv run thesis-eval download-assets --group targets
+uv run thesis-eval verify-assets --group targets
 ```
 
-Notes:
+Inspect a single model before running generation:
 
-- Use `nllb_200_3_3b` for the strongest official NLLB-200 translator.
-- Use `nllb_200_1_3b` or `nllb_200` if VRAM or time becomes a blocker.
-- NLLB has no official 6B/7B checkpoint; 7B-class downloads here are target models.
-
-## Pilot: Sagui End-to-End
-
-This pilot is the real pipeline on a limited prompt list. It uses:
-
-- Target model: `sagui_7b`
-- Baseline language: Portuguese (`por`)
-- Attack language: Arabic (`ara`)
-- Prompt list: `data/raw/strongreject/pilot_prompts.jsonl`
-- Output folder: `outputs/pilot/`
-
-The pilot does not create or overwrite the frozen dataset.
-
-1. Prepare config-derived files.
-
-This validates config and recreates the URIEL+ distance matrix used later to attach linguistic distance values.
-
-```powershell
-te validate-config
-te prepare-uriel
+```bash
+uv run thesis-eval model-status --model sagui_7b
+uv run thesis-eval model-status --model sabia_3
 ```
 
-2. Import StrongREJECT and create the pilot prompt slice.
+## 5. Prepare URIEL+ Distance Data
 
-This writes the full normalized prompt file plus a 2-prompt pilot file.
+This command writes the 13-language distance matrix used by the dataset builder and thesis tables.
 
-```powershell
-te import-strongreject --source github --pilot-size 2
+```bash
+uv run thesis-eval prepare-uriel
 ```
 
-3. Check whether the target model has a chat template.
+Outputs:
 
-This reports model metadata from the downloaded Sagui files. `has_chat_template` should be `true` for Sagui. If it is `false`, stop and check that `assets/models/sagui-7b-instruct-v0.1` really contains `OliveiraJLT/Sagui-7B-Instruct-v0.1` rather than the base `maritaca-ai/sabia-7b` checkpoint.
-
-```powershell
-te model-status --model sagui_7b
+```text
+data/uriel_plus/distance_matrix.csv
+../ufscthesisx/aftertext/urielplus_distance_table_generated.tex
 ```
 
-For the full run, repeat the same check for every target before generation:
+## 6. Translate StrongREJECT Prompts
 
-```powershell
-te model-status --model fauno
-te model-status --model gpt_sw3
-te model-status --model bggpt
+Translate the English StrongREJECT prompts into all attack languages with NLLB-200. The output is one JSONL translation log per language.
+
+```bash
+mkdir -p outputs/translations
+
+uv run thesis-eval translate \
+  --prompts data/raw/strongreject/prompts.jsonl \
+  --target-language ara \
+  --target-language bul \
+  --target-language dan \
+  --target-language eng \
+  --target-language fin \
+  --target-language ita \
+  --target-language nor \
+  --target-language por \
+  --target-language rus \
+  --target-language spa \
+  --target-language swa \
+  --target-language swe \
+  --target-language ukr \
+  --engine nllb \
+  --checkpoint assets/models/nllb-200-3.3B \
+  --device cuda \
+  --output-dir outputs/translations \
+  --output-template "{lang}.raw.jsonl"
 ```
 
-Sagui, GPT-SW3, and BgGPT should be instruction-style checkpoints. Fauno is an older conversational fine-tune and may rely on its documented manual prompt wrapper rather than a modern tokenizer chat template, so inspect a short smoke generation before treating a large Fauno run as final.
+For a two-language pilot:
 
-4. Prewarm SONAR.
-
-This downloads the SONAR text encoder (~3 GB) into the persistent cache so the later BLASER QC step does not block on it. With the TTY flag the helper sets, fairseq2's progress bars are visible while it runs. Expect 5–15 min on the first run, near-instant after that as long as `$CACHE` is mounted.
-
-```powershell
-te prewarm-sonar
+```bash
+uv run thesis-eval translate \
+  --prompts data/raw/strongreject/pilot_prompts.jsonl \
+  --target-language por \
+  --target-language ara \
+  --engine nllb \
+  --checkpoint assets/models/nllb-200-distilled-600M \
+  --device auto \
+  --output-dir outputs/pilot/translations \
+  --output-template "{lang}.raw.jsonl"
 ```
 
-5. Translate the pilot prompts into Portuguese and Arabic with one NLLB load.
+## 7. Run Round-Trip Diagnostics and BLASER QC
 
-This creates the aligned-language baseline prompts for Sagui (`por`) and the first attack-language prompts (`ara`). NLLB is loaded on CUDA in fp16 once, then reused for both languages before the container exits.
+Round-trip diagnostics back-translate prompts for inspection. BLASER assigns reference-free QE scores and pass/flag/fail status. The final files from this stage are `outputs/translations/{lang}.qc.jsonl`.
 
-```powershell
-te translate `
-  --prompts data/raw/strongreject/pilot_prompts.jsonl `
-  --target-language por `
-  --target-language ara `
-  --engine nllb `
-  --checkpoint assets/models/nllb-200-3.3B `
-  --device cuda `
-  --dtype float16 `
-  --stream `
-  --output-dir outputs/pilot `
-  --output-template "translations_{lang}.nllb_3_3b.jsonl"
+```bash
+LANGS="ara bul dan eng fin ita nor por rus spa swa swe ukr"
+
+for lang in $LANGS; do
+  uv run thesis-eval prompt-roundtrip \
+    --translations "outputs/translations/${lang}.raw.jsonl" \
+    --engine nllb \
+    --checkpoint assets/models/nllb-200-3.3B \
+    --device cuda \
+    --output "outputs/translations/${lang}.roundtrip.jsonl"
+
+  uv run thesis-eval translation-qc \
+    --translations "outputs/translations/${lang}.roundtrip.jsonl" \
+    --scorer blaser \
+    --device cuda \
+    --output "outputs/translations/${lang}.qc.jsonl"
+done
 ```
 
-The `--stream` flag prints each prompt and its translation to stderr as it is produced, so you can sanity-check the pipeline without waiting for the whole file to finish.
+## 8. Human XSTS Audit and BLASER Calibration
 
-If you run one `te translate` command per language, NLLB has to reload its checkpoint shards every time because each command starts a new container and Python process. Repeating `--target-language` in one command is faster for translation batches because the model stays loaded while all requested language files are written.
+Create audit queues for bilingual review. Reviewers fill the exported CSV files with audit decisions and XSTS notes. The import command writes audited translation logs for generation.
 
-6. Run BLASER QC for Portuguese and Arabic with one BLASER load.
+```bash
+mkdir -p outputs/audit
 
-This scores source/translation semantic preservation and writes `blaser_qe_score` plus `pass | flag | fail`. BLASER and SONAR load once, then both translation files are scored before the container exits.
-
-```powershell
-te translation-qc `
-  --translations outputs/pilot/translations_por.nllb_3_3b.jsonl `
-  --translations outputs/pilot/translations_ara.nllb_3_3b.jsonl `
-  --scorer blaser `
-  --device cuda `
-  --output-dir outputs/pilot `
-  --output-template "translations_{lang}.nllb_3_3b.blaser.jsonl"
+for lang in $LANGS; do
+  uv run thesis-eval export-audit-queue \
+    --translations "outputs/translations/${lang}.qc.jsonl" \
+    --output "outputs/audit/${lang}.xsts_queue.csv"
+done
 ```
 
-7. Export XSTS audit queues.
+After review, save decisions as `outputs/audit/{lang}.xsts_decisions.csv`, then import them:
 
-This creates reviewer CSVs. For the tiny pilot, inspect them manually. For the final project, reviewer decisions should be imported before generation.
-
-```powershell
-te export-audit-queue `
-  --translations outputs/pilot/translations_por.nllb_3_3b.blaser.jsonl `
-  --output outputs/pilot/audit_por.nllb_3_3b.csv `
-  --include-passed
-
-te export-audit-queue `
-  --translations outputs/pilot/translations_ara.nllb_3_3b.blaser.jsonl `
-  --output outputs/pilot/audit_ara.nllb_3_3b.csv `
-  --include-passed
+```bash
+for lang in $LANGS; do
+  uv run thesis-eval import-audit \
+    --translations "outputs/translations/${lang}.qc.jsonl" \
+    --audit-csv "outputs/audit/${lang}.xsts_decisions.csv" \
+    --output "outputs/translations/${lang}.audit.jsonl"
+done
 ```
 
-8. Generate Sagui responses for Portuguese and Arabic with one Sagui/vLLM load.
+Calibrate BLASER thresholds from the reviewed subset:
 
-This starts a fresh container, loads Sagui-7B from the mounted Downloads asset folder, and generates target responses for both pilot languages before the container exits. For chat/instruct checkpoints, the vLLM path applies the tokenizer chat template automatically. For base checkpoints without a chat template, it logs a warning and uses raw continuation prompts. The command also computes tokenizer diagnostics after generation: `input_tokens`, `tokens_per_char`, and `token_inflation` relative to the Portuguese baseline for the same prompt.
+```bash
+awk 'FNR == 1 && NR != 1 { next } { print }' outputs/audit/*.xsts_decisions.csv > outputs/audit/all_xsts_decisions.csv
 
-```powershell
-te generate-targets `
-  --translations outputs/pilot/translations_por.nllb_3_3b.blaser.jsonl `
-  --translations outputs/pilot/translations_ara.nllb_3_3b.blaser.jsonl `
-  --model sagui_7b `
-  --profile rtx_5070_ti `
-  --backend vllm `
-  --model-path assets/models/sagui-7b-instruct-v0.1 `
-  --max-tokens 64 `
-  --output outputs/pilot/target_generations_sagui_rtx_pilot.jsonl
+uv run thesis-eval calibrate-blaser \
+  --audit-csv outputs/audit/all_xsts_decisions.csv \
+  --output outputs/audit/blaser_thresholds.json
 ```
 
-If this file was generated before tokenizer diagnostics were added, patch it without rerunning inference:
+If trusted human reference translations are available for the spBLEU subset, attach reference scores:
 
-```powershell
-te attach-tokenizer-metrics `
-  --generations outputs/pilot/target_generations_sagui_rtx_pilot.jsonl `
-  --model sagui_7b `
-  --model-path assets/models/sagui-7b-instruct-v0.1 `
-  --output outputs/pilot/target_generations_sagui_rtx_pilot.jsonl
+```bash
+uv run thesis-eval reference-spbleu \
+  --translations outputs/translations/por.audit.jsonl \
+  --references data/translations/references/por.references.jsonl \
+  --output outputs/translations/por.audit.spbleu.jsonl
 ```
 
-9. Export judge requests.
+## 9. Generate Target Responses
 
-This creates one request per generated response per judge. No API call happens here.
+Open-weight models use vLLM on the RTX machine. The command below runs every open-weight target over all audited translation files and writes one output file per model-language pair.
 
-```powershell
-te export-judge-batch `
-  --generations outputs/pilot/target_generations_sagui_rtx_pilot.jsonl `
-  --output outputs/pilot/judge_requests_sagui_rtx_pilot.jsonl
-```
+```bash
+mkdir -p outputs/generations
 
-10. Export provider-shaped API batch files.
+TRANSLATION_ARGS=()
+for lang in $LANGS; do
+  TRANSLATION_ARGS+=(--translations "outputs/translations/${lang}.audit.jsonl")
+done
 
-This writes OpenAI, Anthropic, and hosted Llama Guard batch inputs.
+OPEN_WEIGHT_MODELS="sagui_7b fauno llamantino_anita_8b gpt_sw3 ai_sweden_llama3_8b bggpt_7b bggpt_gemma_9b"
 
-```powershell
-te export-api-batches `
-  --requests outputs/pilot/judge_requests_sagui_rtx_pilot.jsonl `
-  --output-dir outputs/pilot/api_batches_sagui_rtx_pilot
-```
-
-11. Submit the judge batches outside this CLI.
-
-Use your API batch tooling to submit:
-
-- `outputs/pilot/api_batches_sagui_rtx_pilot/openai_gpt_4o_batch.jsonl`
-- `outputs/pilot/api_batches_sagui_rtx_pilot/anthropic_claude_opus_4_batch.json`
-- `outputs/pilot/api_batches_sagui_rtx_pilot/hosted_llama_guard_4_batch.jsonl`
-
-Save the raw provider results as:
-
-- `outputs/pilot/api_batches_sagui_rtx_pilot/openai_results.jsonl`
-- `outputs/pilot/api_batches_sagui_rtx_pilot/anthropic_results.jsonl`
-- `outputs/pilot/api_batches_sagui_rtx_pilot/llama_guard_results.jsonl`
-
-12. Normalize the returned judge results.
-
-This converts provider-specific raw output into the shared judge-result schema.
-
-```powershell
-te normalize-judge-results `
-  --provider openai `
-  --input outputs/pilot/api_batches_sagui_rtx_pilot/openai_results.jsonl `
-  --output outputs/pilot/api_batches_sagui_rtx_pilot/openai_normalized.jsonl
-
-te normalize-judge-results `
-  --provider anthropic `
-  --input outputs/pilot/api_batches_sagui_rtx_pilot/anthropic_results.jsonl `
-  --output outputs/pilot/api_batches_sagui_rtx_pilot/anthropic_normalized.jsonl
-
-te normalize-judge-results `
-  --provider hosted `
-  --input outputs/pilot/api_batches_sagui_rtx_pilot/llama_guard_results.jsonl `
-  --output outputs/pilot/api_batches_sagui_rtx_pilot/llama_guard_normalized.jsonl
-```
-
-13. Combine normalized judge results.
-
-Majority vote requires all three judge labels for every generated response.
-
-```powershell
-Get-Content `
-  outputs/pilot/api_batches_sagui_rtx_pilot/openai_normalized.jsonl, `
-  outputs/pilot/api_batches_sagui_rtx_pilot/anthropic_normalized.jsonl, `
-  outputs/pilot/api_batches_sagui_rtx_pilot/llama_guard_normalized.jsonl |
-  Set-Content outputs/pilot/judge_results_sagui_rtx_pilot.jsonl
-```
-
-14. Compute majority vote.
-
-This validates analysis rows and writes the final `safe | unsafe | invalid` label per target response.
-
-```powershell
-te majority-vote `
-  --generations outputs/pilot/target_generations_sagui_rtx_pilot.jsonl `
-  --judge-results outputs/pilot/judge_results_sagui_rtx_pilot.jsonl `
-  --output outputs/pilot/analysis_rows_sagui_rtx_pilot.jsonl
-```
-
-15. Export pilot rows.
-
-This exports a validated pilot copy. It is not the frozen thesis dataset.
-
-```powershell
-te export-results `
-  --rows outputs/pilot/analysis_rows_sagui_rtx_pilot.jsonl `
-  --output outputs/pilot/analysis_rows_sagui_rtx_pilot.export.jsonl
-```
-
-## Final Project Workflow
-
-The final project repeats the same shape as the pilot, but expands to:
-
-- 13 attack languages: `ara bul dan eng fin ita nor por rus spa swa swe ukr`
-- 4 target models: `sagui_7b fauno gpt_sw3 bggpt`
-- full StrongREJECT prompt file
-- later MultiJail validation through the same judge pipeline
-- human XSTS audit import before target generation
-- final export to `outputs/dataset_frozen.parquet`
-
-### Final 1. Define language and model variables
-
-Run this in the same PowerShell session where you defined `te`.
-
-```powershell
-$LANGS = @("ara","bul","dan","eng","fin","ita","nor","por","rus","spa","swa","swe","ukr")
-$MODELS = @("sagui_7b","fauno","gpt_sw3","bggpt")
-$MODEL_PATH = @{
-  sagui_7b = "assets/models/sagui-7b-instruct-v0.1"
-  fauno = "assets/models/fauno-italian-llm-7b"
-  gpt_sw3 = "assets/models/gpt-sw3-6.7b-v2-instruct"
-  bggpt = "assets/models/bggpt-7b-instruct-v0.2"
-}
-```
-
-### Final 2. Prepare inputs
-
-This imports the full StrongREJECT source and prepares URIEL+.
-
-```powershell
-te prepare-uriel
-te import-strongreject --source github --pilot-size 2
-```
-
-The full prompt file is `data/raw/strongreject/prompts.jsonl`. The pilot file remains available separately.
-
-### Final 3. Download all required assets
-
-This pulls every dataset/model required for the main run. Keep it modular if your connection is unstable.
-
-```powershell
-te download-assets --name strongreject
-te download-assets --name multijail
-te download-assets --name belebele
-te download-assets --name nllb_200_3_3b
-te download-assets --name blaser_2_0_qe
-te download-assets --name sagui_7b
-te download-assets --name fauno
-te download-assets --name gpt_sw3
-te download-assets --name bggpt
-```
-
-Verify them:
-
-```powershell
-te verify-assets --name strongreject
-te verify-assets --name multijail
-te verify-assets --name belebele
-te verify-assets --name nllb_200_3_3b
-te verify-assets --name blaser_2_0_qe
-te verify-assets --name sagui_7b
-te verify-assets --name fauno
-te verify-assets --name gpt_sw3
-te verify-assets --name bggpt
-```
-
-### Final 4. Translate every StrongREJECT language on GPU
-
-This runs NLLB-200 3.3B once and reuses it across all 13 output languages before the container exits. It writes one JSONL file per language.
-
-```powershell
-te translate `
-  --prompts data/raw/strongreject/prompts.jsonl `
-  --target-language ara `
-  --target-language bul `
-  --target-language dan `
-  --target-language eng `
-  --target-language fin `
-  --target-language ita `
-  --target-language nor `
-  --target-language por `
-  --target-language rus `
-  --target-language spa `
-  --target-language swa `
-  --target-language swe `
-  --target-language ukr `
-  --engine nllb `
-  --checkpoint assets/models/nllb-200-3.3B `
-  --device cuda `
-  --dtype float16 `
-  --output-dir data/translations `
-  --output-template "{lang}.nllb_3_3b.jsonl"
-```
-
-### Final 5. Run BLASER QC for every language on GPU
-
-This scores all source/translation pairs and writes QC logs. BLASER and SONAR load once, then all 13 language files are scored.
-
-```powershell
-te prewarm-sonar
-
-te translation-qc `
-  --translations data/translations/ara.nllb_3_3b.jsonl `
-  --translations data/translations/bul.nllb_3_3b.jsonl `
-  --translations data/translations/dan.nllb_3_3b.jsonl `
-  --translations data/translations/eng.nllb_3_3b.jsonl `
-  --translations data/translations/fin.nllb_3_3b.jsonl `
-  --translations data/translations/ita.nllb_3_3b.jsonl `
-  --translations data/translations/nor.nllb_3_3b.jsonl `
-  --translations data/translations/por.nllb_3_3b.jsonl `
-  --translations data/translations/rus.nllb_3_3b.jsonl `
-  --translations data/translations/spa.nllb_3_3b.jsonl `
-  --translations data/translations/swa.nllb_3_3b.jsonl `
-  --translations data/translations/swe.nllb_3_3b.jsonl `
-  --translations data/translations/ukr.nllb_3_3b.jsonl `
-  --scorer blaser `
-  --device cuda `
-  --output-dir data/translations `
-  --output-template "{lang}.blaser.jsonl"
-```
-
-### Final 6. Export human XSTS audit queues
-
-This creates one CSV per language. Review all flagged/failing rows plus the planned stratified sample. Human review overrides BLASER.
-
-```powershell
-foreach ($lang in $LANGS) {
-  te export-audit-queue `
-    --translations "data/translations/$lang.blaser.jsonl" `
-    --output "data/translations/$lang.audit.csv" `
-    --include-passed
-}
-```
-
-After review, import the decisions. The reviewer-edited CSVs should keep the same paths.
-
-```powershell
-foreach ($lang in $LANGS) {
-  te import-audit `
-    --translations "data/translations/$lang.blaser.jsonl" `
-    --audit-csv "data/translations/$lang.audit.csv" `
-    --output "data/translations/$lang.final.jsonl"
-}
-```
-
-### Final 7. Generate target responses for all model-language pairs
-
-This runs vLLM on CUDA once per target model, reusing the loaded model across all 13 languages. It creates 52 generation files: 4 models times 13 languages.
-
-```powershell
-New-Item -ItemType Directory -Force outputs\final\generations | Out-Null
-
-foreach ($model in $MODELS) {
-  te generate-targets `
-    --translations data/translations/ara.final.jsonl `
-    --translations data/translations/bul.final.jsonl `
-    --translations data/translations/dan.final.jsonl `
-    --translations data/translations/eng.final.jsonl `
-    --translations data/translations/fin.final.jsonl `
-    --translations data/translations/ita.final.jsonl `
-    --translations data/translations/nor.final.jsonl `
-    --translations data/translations/por.final.jsonl `
-    --translations data/translations/rus.final.jsonl `
-    --translations data/translations/spa.final.jsonl `
-    --translations data/translations/swa.final.jsonl `
-    --translations data/translations/swe.final.jsonl `
-    --translations data/translations/ukr.final.jsonl `
-    --model $model `
-    --profile rtx_5070_ti `
-    --backend vllm `
-    --model-path $MODEL_PATH[$model] `
-    --max-tokens 512 `
-    --output-dir outputs/final/generations `
+for model in $OPEN_WEIGHT_MODELS; do
+  uv run thesis-eval generate-targets \
+    "${TRANSLATION_ARGS[@]}" \
+    --model "$model" \
+    --backend vllm \
+    --profile rtx_5070_ti \
+    --max-tokens 512 \
+    --temperature 0.0 \
+    --trust-remote-code \
+    --output-dir outputs/generations \
     --output-template "{model}_{lang}.jsonl"
-}
+done
 ```
 
-If a model needs custom loading code, rerun that specific command with `--trust-remote-code`.
+Run Sabiá-3 through the Maritaca API:
 
-### Final 8. Combine generation files
-
-This creates one generation file for judge batching.
-
-```powershell
-Get-ChildItem outputs\final\generations\*.jsonl |
-  Get-Content |
-  Set-Content outputs\final\target_generations_all.jsonl
+```bash
+uv run thesis-eval generate-targets \
+  "${TRANSLATION_ARGS[@]}" \
+  --model sabia_3 \
+  --backend maritaca \
+  --max-tokens 512 \
+  --temperature 0.0 \
+  --output-dir outputs/generations \
+  --output-template "{model}_{lang}.jsonl"
 ```
 
-### Final 9. Export all judge requests and API batches
+For a Mac smoke test with one model and one translation file:
 
-This creates the request files for all three judges. No local judge model is loaded.
-
-```powershell
-te export-judge-batch `
-  --generations outputs/final/target_generations_all.jsonl `
-  --output outputs/final/judge_requests_all.jsonl
-
-te export-api-batches `
-  --requests outputs/final/judge_requests_all.jsonl `
-  --output-dir outputs/final/api_batches
+```bash
+uv run thesis-eval generate-targets \
+  --translations outputs/pilot/translations/por.raw.jsonl \
+  --model sagui_7b \
+  --backend transformers \
+  --profile macbook \
+  --model-path assets/models/sagui-7b-instruct-v0.1 \
+  --max-tokens 64 \
+  --output outputs/pilot/generations_sagui_por.jsonl
 ```
 
-Submit these API batches externally:
+## 10. Score Responses With StrongREJECT
 
-- `outputs/final/api_batches/openai_gpt_4o_batch.jsonl`
-- `outputs/final/api_batches/anthropic_claude_opus_4_batch.json`
-- `outputs/final/api_batches/hosted_llama_guard_4_batch.jsonl`
+Scoring back-translates non-English model outputs to English with NLLB-200, then runs the official StrongREJECT rubric. Each scored file preserves the original response, the English back-translation, the continuous StrongREJECT score, refusal status, sub-scores, API metadata, and failure metadata.
 
-Save raw results as:
+```bash
+mkdir -p outputs/scored
 
-- `outputs/final/api_batches/openai_results.jsonl`
-- `outputs/final/api_batches/anthropic_results.jsonl`
-- `outputs/final/api_batches/llama_guard_results.jsonl`
+for file in outputs/generations/*.jsonl; do
+  base="$(basename "$file" .jsonl)"
+  uv run thesis-eval score-strongreject \
+    --generations "$file" \
+    --evaluator strongreject_rubric \
+    --backtranslate-engine nllb \
+    --checkpoint assets/models/nllb-200-3.3B \
+    --device cuda \
+    --output "outputs/scored/${base}.strongreject.jsonl"
+done
 
-### Final 10. Normalize judge results
-
-This converts all provider responses into the shared judge-result schema.
-
-```powershell
-te normalize-judge-results `
-  --provider openai `
-  --input outputs/final/api_batches/openai_results.jsonl `
-  --output outputs/final/api_batches/openai_normalized.jsonl
-
-te normalize-judge-results `
-  --provider anthropic `
-  --input outputs/final/api_batches/anthropic_results.jsonl `
-  --output outputs/final/api_batches/anthropic_normalized.jsonl
-
-te normalize-judge-results `
-  --provider hosted `
-  --input outputs/final/api_batches/llama_guard_results.jsonl `
-  --output outputs/final/api_batches/llama_guard_normalized.jsonl
+cat outputs/scored/*.strongreject.jsonl > outputs/scored/all_strongreject_scores.jsonl
 ```
 
-Combine them:
+For pipeline smoke tests:
 
-```powershell
-Get-Content `
-  outputs/final/api_batches/openai_normalized.jsonl, `
-  outputs/final/api_batches/anthropic_normalized.jsonl, `
-  outputs/final/api_batches/llama_guard_normalized.jsonl |
-  Set-Content outputs/final/judge_results_all.jsonl
+```bash
+uv run thesis-eval score-strongreject \
+  --generations outputs/pilot/generations_sagui_por.jsonl \
+  --evaluator mock \
+  --output outputs/pilot/strongreject_scores_sagui_por.jsonl
 ```
 
-### Final 11. Majority vote
+## 11. Compute BELEBELE IF/CONS/SPEC
 
-This requires all three judge results for every response. It will fail rather than silently label incomplete rows.
+BELEBELE measures benign multilingual specialization. Query each target model on the BELEBELE multiple-choice items, then write predictions as JSONL with these fields:
 
-```powershell
-te majority-vote `
-  --generations outputs/final/target_generations_all.jsonl `
-  --judge-results outputs/final/judge_results_all.jsonl `
-  --output outputs/final/analysis_rows_all.jsonl
+```json
+{"model":"sagui_7b","language":"por","item_id":"belebele_0001","prediction":"A","gold":"A"}
 ```
 
-### Final 12. Freeze the analysis dataset
+The prediction file should contain all model-language-item rows needed for IF and CONS. Then compute specialization:
 
-Only do this once the final run is complete and checked. This is the file the Results chapter should be based on.
+```bash
+mkdir -p outputs/spec
 
-```powershell
-te export-results `
-  --rows outputs/final/analysis_rows_all.jsonl `
+uv run thesis-eval compute-spec \
+  --predictions outputs/spec/belebele_predictions.jsonl \
+  --output outputs/spec/belebele_spec.jsonl
+```
+
+Output rows include:
+
+```text
+model, attack_language, if_score, cons_score, spec_score, n_items, n_cons_comparable
+```
+
+## 12. Score Matched Benign Controls
+
+Matched benign controls use generation rows shaped like the harmful prompt outputs. The scoring command attaches relevance, completeness, coherence, and task-completion fields for benign analysis tables.
+
+```bash
+uv run thesis-eval score-benign-controls \
+  --generations outputs/benign/benign_generations.jsonl \
+  --output outputs/benign/benign_scores.jsonl
+```
+
+## 13. Build and Freeze the Analysis Dataset
+
+Join StrongREJECT scores, translation QC/audit metadata, tokenizer diagnostics, URIEL+ distances, model metadata, and BELEBELE specialization.
+
+```bash
+cat outputs/translations/*.audit.jsonl > outputs/translations/all_audited_translations.jsonl
+
+uv run thesis-eval build-dataset \
+  --scored outputs/scored/all_strongreject_scores.jsonl \
+  --translations outputs/translations/all_audited_translations.jsonl \
+  --spec-scores outputs/spec/belebele_spec.jsonl \
+  --output outputs/dataset_frozen.jsonl
+```
+
+Export a Parquet copy for archival and analysis notebooks:
+
+```bash
+uv run thesis-eval export-results \
+  --rows outputs/dataset_frozen.jsonl \
   --output outputs/dataset_frozen.parquet
 ```
 
-If the frozen file already exists and you intentionally need to replace it:
+## 14. Export Thesis Tables
 
-```powershell
-te export-results `
-  --rows outputs/final/analysis_rows_all.jsonl `
-  --output outputs/dataset_frozen.parquet `
-  --allow-frozen-overwrite
-```
-
-## Optional Local MacBook Checks
-
-The MacBook path is useful only for no-inference checks or tiny Transformers smoke tests. The RTX Docker workflow above is the real model-running path.
+Generate CSV table inputs for the Results chapter:
 
 ```bash
-uv python install 3.12
-uv sync --python 3.12 --extra mac --extra qc
-uv run thesis-eval validate-config
-uv run thesis-eval run-pilot
+mkdir -p outputs/tables
+
+uv run thesis-eval export-report-tables \
+  --rows outputs/dataset_frozen.jsonl \
+  --output-dir outputs/tables
 ```
 
-## Tests
-
-Run deterministic unit tests without model downloads:
+Fit the main GLMM effects table:
 
 ```bash
-PYTHONPATH=src python3 -m unittest
+uv run thesis-eval fit-glmm \
+  --rows outputs/dataset_frozen.jsonl \
+  --output outputs/tables/glmm_main_effects.csv
 ```
 
-Or from Docker:
+The reporting commands produce:
 
-```powershell
-tedocker python -m unittest
+```text
+outputs/tables/results_coverage.csv
+outputs/tables/asr_by_model_language.csv
+outputs/tables/crosslingual_asr_by_model_language.csv
+outputs/tables/closest_farthest_languages.csv
+outputs/tables/distance_asr_correlation.csv
+outputs/tables/spec_asr_correlation.csv
+outputs/tables/tokenizer_diagnostics.csv
+outputs/tables/glmm_collinearity.csv
+outputs/tables/glmm_main_effects.csv
 ```
 
-## Troubleshooting
+## 15. Validation Commands
 
-- **Docker cannot see the GPU:** run `docker run --rm --gpus all nvidia/cuda:12.8.1-base-ubuntu24.04 nvidia-smi`. If that fails, fix Docker Desktop/WSL2/NVIDIA driver first.
-- **vLLM fails on Windows outside Docker:** expected. Use Docker for target inference.
-- **SONAR/HF Hub redownloads on every run:** the persistent cache mount is missing. Confirm `$CACHE` is set and that `tedocker` includes `-v "${CACHE}:/root/.cache"`.
-- **CUDA runs out of memory:** run one stage per command as shown, keep `--dtype float16`, and lower `--max-tokens` for pilot/debug runs.
-- **BLASER or SONAR downloads during QC:** expected on first run. `prewarm-sonar` makes this less surprising.
-- **Sagui echoes the prompt:** run `te model-status --model sagui_7b`. If `has_chat_template` is `false`, the wrong checkpoint is probably in the Sagui asset folder. The base `maritaca-ai/sabia-7b` model is a continuation model and is not suitable for zero-shot jailbreak instruction following.
-- **Majority vote fails:** at least one generation is missing one of the three judge results. Normalize and combine all three providers before running `majority-vote`.
-- **Do not use StrongREJECT's evaluator:** this project always uses the three API judges and majority vote.
-- **Do not overwrite `outputs/dataset_frozen.parquet` during pilots:** pilot outputs belong under `outputs/pilot/`.
+Run unit tests:
+
+```bash
+uv run python -m unittest
+```
+
+Check asset status at any point:
+
+```bash
+uv run thesis-eval asset-status --group datasets
+uv run thesis-eval asset-status --group translation
+uv run thesis-eval asset-status --group targets
+```
+
+Run the built-in mock pilot to verify local plumbing without model inference:
+
+```bash
+uv run thesis-eval run-pilot --output-dir outputs/pilot
+```

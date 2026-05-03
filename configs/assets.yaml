@@ -117,6 +117,12 @@ assets:
     local_dir: assets/models/sagui-7b-instruct-v0.1
     required_files: [assets/models/sagui-7b-instruct-v0.1/config.json]
     description: "Portuguese-aligned instruction-tuned target model fine-tuned from Sabiá-7B."
+  sabia_3:
+    kind: api_model
+    group: targets
+    groups: [targets, api_targets]
+    repo_id: sabia-3
+    description: "Portuguese-aligned Sabiá-3 target model served by the Maritaca API."
   fauno:
     kind: hf_model
     group: targets
@@ -125,6 +131,14 @@ assets:
     local_dir: assets/models/fauno-italian-llm-7b
     required_files: [assets/models/fauno-italian-llm-7b/config.json]
     description: "Italian-aligned target model."
+  llamantino_anita_8b:
+    kind: hf_model
+    group: targets
+    groups: [targets]
+    repo_id: swap-uniba/LLaMAntino-3-ANITA-8B-Inst-DPO-ITA
+    local_dir: assets/models/llamantino-3-anita-8b-inst-dpo-ita
+    required_files: [assets/models/llamantino-3-anita-8b-inst-dpo-ita/config.json]
+    description: "Italian strong-pole instruction-tuned target model."
   gpt_sw3:
     kind: hf_model
     group: targets
@@ -133,7 +147,15 @@ assets:
     local_dir: assets/models/gpt-sw3-6.7b-v2-instruct
     required_files: [assets/models/gpt-sw3-6.7b-v2-instruct/config.json]
     description: "Swedish-aligned target model."
-  bggpt:
+  ai_sweden_llama3_8b:
+    kind: hf_model
+    group: targets
+    groups: [targets]
+    repo_id: AI-Sweden-Models/Llama-3-8B-instruct
+    local_dir: assets/models/ai-sweden-llama-3-8b-instruct
+    required_files: [assets/models/ai-sweden-llama-3-8b-instruct/config.json]
+    description: "Swedish strong-pole instruction-tuned target model."
+  bggpt_7b:
     kind: hf_model
     group: targets
     groups: [targets]
@@ -141,3 +163,11 @@ assets:
     local_dir: assets/models/bggpt-7b-instruct-v0.2
     required_files: [assets/models/bggpt-7b-instruct-v0.2/config.json]
     description: "Bulgarian-aligned target model."
+  bggpt_gemma_9b:
+    kind: hf_model
+    group: targets
+    groups: [targets]
+    repo_id: INSAIT-Institute/BgGPT-Gemma-2-9B-IT-v1.0
+    local_dir: assets/models/bggpt-gemma-2-9b-it-v1.0
+    required_files: [assets/models/bggpt-gemma-2-9b-it-v1.0/config.json]
+    description: "Bulgarian strong-pole instruction-tuned target model."

@@ -26,6 +26,16 @@ class TranslationLog:
     revision_note: str | None
     source_text: str
     translated_text: str
+    roundtrip_text: str | None = None
+    roundtrip_drift_score: float | None = None
+    roundtrip_status: str = "pending"
+    xsts_semantic_equivalence: str = "pending"
+    xsts_attack_strength: str = "pending"
+    xsts_constraint_preservation: str = "pending"
+    xsts_naturalness: str = "pending"
+    xsts_no_harmfulness_drift: str = "pending"
+    translation_revised: bool = False
+    translation_excluded: bool = False
 
     def to_dict(self) -> dict[str, Any]:
         record = asdict(self)
