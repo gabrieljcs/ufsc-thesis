@@ -4,7 +4,7 @@
 
 The main executable is:
 
-```bash
+```powershell
 uv run thesis-eval
 ```
 
@@ -61,34 +61,34 @@ ara bul dan eng fin ita nor por rus spa swa swe ukr
 
 Use the RTX profile for the full thesis run. It installs vLLM for target-model inference, QC dependencies for BLASER, StrongREJECT scoring, and analysis libraries. `pyarrow` is included here so the frozen dataset can also be exported as Parquet.
 
-```bash
-cd /Users/gabriel/Developer/ufsc-thesis/eval
+```powershell
+Set-Location "/Users/gabriel/Developer/ufsc-thesis/eval"
 uv sync --extra rtx --extra qc --extra scoring --extra analysis
 ```
 
 For a Mac smoke test with Transformers instead of vLLM:
 
-```bash
+```powershell
 uv sync --extra mac --extra qc --extra scoring --extra analysis
 ```
 
 Prepare the standalone URIEL+ script environment used by `prepare-uriel`:
 
-```bash
+```powershell
 uv sync --script scripts/compute_urielplus.py
 ```
 
 Set credentials for gated Hugging Face assets, StrongREJECT rubric scoring, and Sabiá-3:
 
-```bash
-export HF_TOKEN="..."
-export OPENAI_API_KEY="..."
-export MARITACA_API_KEY="..."
+```powershell
+$env:HF_TOKEN = "..."
+$env:OPENAI_API_KEY = "..."
+$env:MARITACA_API_KEY = "..."
 ```
 
 Check the configuration and runtime profiles:
 
-```bash
+```powershell
 uv run thesis-eval validate-config
 uv run thesis-eval runtime-profiles
 uv run thesis-eval list-assets
@@ -104,17 +104,17 @@ Downloads are resumable. Hugging Face assets are downloaded through `snapshot_do
 
 StrongREJECT provides the harmful prompt source. MultiJail is the external multilingual validation benchmark. BELEBELE is the benign reading-comprehension benchmark used to compute IF, CONS, and SPEC.
 
-```bash
+```powershell
 uv run thesis-eval download-assets --name strongreject
 uv run thesis-eval verify-assets --name strongreject
 ```
 
-```bash
+```powershell
 uv run thesis-eval download-assets --name multijail
 uv run thesis-eval verify-assets --name multijail
 ```
 
-```bash
+```powershell
 uv run thesis-eval download-assets --name belebele
 uv run thesis-eval verify-assets --name belebele
 ```
@@ -130,12 +130,12 @@ data/raw/strongreject/pilot_prompts.jsonl
 
 NLLB-200 is used for prompt translation and response back-translation. BLASER 2.0 QE is used for reference-free translation quality screening. The 3.3B NLLB checkpoint is the thesis-grade translation asset for the RTX run; the 600M checkpoint is useful for quick smoke tests.
 
-```bash
+```powershell
 uv run thesis-eval download-assets --name nllb_200_3_3b
 uv run thesis-eval verify-assets --name nllb_200_3_3b
 ```
 
-```bash
+```powershell
 uv run thesis-eval download-assets --name blaser_2_0_qe
 uv run thesis-eval prewarm-sonar
 uv run thesis-eval verify-assets --name blaser_2_0_qe
@@ -143,7 +143,7 @@ uv run thesis-eval verify-assets --name blaser_2_0_qe
 
 For a smaller local smoke test:
 
-```bash
+```powershell
 uv run thesis-eval download-assets --name nllb_200
 uv run thesis-eval verify-assets --name nllb_200
 ```
@@ -152,17 +152,17 @@ uv run thesis-eval verify-assets --name nllb_200
 
 Download each open-weight target separately. After each download, verify the asset and inspect model status. Sabiá-3 is an API target, so `model-status` checks the configured provider metadata instead of local weights.
 
-```bash
+```powershell
 uv run thesis-eval download-assets --name sagui_7b
 uv run thesis-eval verify-assets --name sagui_7b
 uv run thesis-eval model-status --model sagui_7b
 ```
 
-```bash
+```powershell
 uv run thesis-eval model-status --model sabia_3
 ```
 
-```bash
+```powershell
 uv run thesis-eval download-assets --name llamantino_2_ultrachat_7b
 uv run thesis-eval verify-assets --name llamantino_2_ultrachat_7b
 uv run thesis-eval model-status --model llamantino_2_ultrachat_7b
@@ -170,31 +170,31 @@ uv run thesis-eval model-status --model llamantino_2_ultrachat_7b
 
 The Italian weak pole is a merged LLaMAntino-2 checkpoint, so it follows the same full-checkpoint generation path as the other open-weight targets.
 
-```bash
+```powershell
 uv run thesis-eval download-assets --name llamantino_anita_8b
 uv run thesis-eval verify-assets --name llamantino_anita_8b
 uv run thesis-eval model-status --model llamantino_anita_8b
 ```
 
-```bash
+```powershell
 uv run thesis-eval download-assets --name gpt_sw3
 uv run thesis-eval verify-assets --name gpt_sw3
 uv run thesis-eval model-status --model gpt_sw3
 ```
 
-```bash
+```powershell
 uv run thesis-eval download-assets --name ai_sweden_llama3_8b
 uv run thesis-eval verify-assets --name ai_sweden_llama3_8b
 uv run thesis-eval model-status --model ai_sweden_llama3_8b
 ```
 
-```bash
+```powershell
 uv run thesis-eval download-assets --name bggpt_7b
 uv run thesis-eval verify-assets --name bggpt_7b
 uv run thesis-eval model-status --model bggpt_7b
 ```
 
-```bash
+```powershell
 uv run thesis-eval download-assets --name bggpt_gemma_9b
 uv run thesis-eval verify-assets --name bggpt_gemma_9b
 uv run thesis-eval model-status --model bggpt_gemma_9b
@@ -204,20 +204,20 @@ uv run thesis-eval model-status --model bggpt_gemma_9b
 
 This command recomputes the 13-language featural angular distance matrix with URIEL+, then writes the matrix used by the dataset builder and thesis tables. By default it uses the standalone `scripts/compute_urielplus.py` script environment, because URIEL+'s TensorFlow Addons dependency does not provide Python 3.12 wheels.
 
-```bash
+```powershell
 uv run thesis-eval prepare-uriel
 ```
 
 Use `--uriel-backend in-process` only if `urielplus` is installed in the active Python environment.
 
-```bash
-uv run thesis-eval prepare-uriel \
+```powershell
+uv run thesis-eval prepare-uriel `
   --uriel-backend in-process
 ```
 
 For a static/offline refresh from an existing matrix CSV instead of recomputing:
 
-```bash
+```powershell
 uv run thesis-eval prepare-uriel --from-csv
 ```
 
@@ -233,213 +233,213 @@ data/uriel_plus/urielplus_run_config.json
 
 Translate the English StrongREJECT prompts into one attack language at a time with NLLB-200. Each command writes one JSONL translation log, so progress can be checked language by language.
 
-```bash
-mkdir -p outputs/translations
-PROMPTS=data/raw/strongreject/prompts.jsonl
-NLLB=assets/models/nllb-200-3.3B
-DEVICE=cuda
+```powershell
+New-Item -ItemType Directory -Force outputs/translations | Out-Null
+$PROMPTS = "data/raw/strongreject/prompts.jsonl"
+$NLLB = "assets/models/nllb-200-3.3B"
+$DEVICE = "cuda"
 ```
 
 To translate the full 13-language inventory in one run:
 
-```bash
-uv run thesis-eval translate \
-  --prompts "$PROMPTS" \
-  --target-language ara \
-  --target-language bul \
-  --target-language dan \
-  --target-language eng \
-  --target-language fin \
-  --target-language ita \
-  --target-language nor \
-  --target-language por \
-  --target-language rus \
-  --target-language spa \
-  --target-language swa \
-  --target-language swe \
-  --target-language ukr \
-  --engine nllb \
-  --checkpoint "$NLLB" \
-  --device "$DEVICE" \
-  --output-dir outputs/translations \
+```powershell
+uv run thesis-eval translate `
+  --prompts "$PROMPTS" `
+  --target-language ara `
+  --target-language bul `
+  --target-language dan `
+  --target-language eng `
+  --target-language fin `
+  --target-language ita `
+  --target-language nor `
+  --target-language por `
+  --target-language rus `
+  --target-language spa `
+  --target-language swa `
+  --target-language swe `
+  --target-language ukr `
+  --engine nllb `
+  --checkpoint "$NLLB" `
+  --device "$DEVICE" `
+  --output-dir outputs/translations `
   --output-template "{lang}.raw.jsonl"
 ```
 
 Arabic:
 
-```bash
-uv run thesis-eval translate \
-  --prompts "$PROMPTS" \
-  --target-language ara \
-  --engine nllb \
-  --checkpoint "$NLLB" \
-  --device "$DEVICE" \
+```powershell
+uv run thesis-eval translate `
+  --prompts "$PROMPTS" `
+  --target-language ara `
+  --engine nllb `
+  --checkpoint "$NLLB" `
+  --device "$DEVICE" `
   --output outputs/translations/ara.raw.jsonl
 ```
 
 Bulgarian:
 
-```bash
-uv run thesis-eval translate \
-  --prompts "$PROMPTS" \
-  --target-language bul \
-  --engine nllb \
-  --checkpoint "$NLLB" \
-  --device "$DEVICE" \
+```powershell
+uv run thesis-eval translate `
+  --prompts "$PROMPTS" `
+  --target-language bul `
+  --engine nllb `
+  --checkpoint "$NLLB" `
+  --device "$DEVICE" `
   --output outputs/translations/bul.raw.jsonl
 ```
 
 Danish:
 
-```bash
-uv run thesis-eval translate \
-  --prompts "$PROMPTS" \
-  --target-language dan \
-  --engine nllb \
-  --checkpoint "$NLLB" \
-  --device "$DEVICE" \
+```powershell
+uv run thesis-eval translate `
+  --prompts "$PROMPTS" `
+  --target-language dan `
+  --engine nllb `
+  --checkpoint "$NLLB" `
+  --device "$DEVICE" `
   --output outputs/translations/dan.raw.jsonl
 ```
 
 English baseline:
 
-```bash
-uv run thesis-eval translate \
-  --prompts "$PROMPTS" \
-  --target-language eng \
-  --engine nllb \
-  --checkpoint "$NLLB" \
-  --device "$DEVICE" \
+```powershell
+uv run thesis-eval translate `
+  --prompts "$PROMPTS" `
+  --target-language eng `
+  --engine nllb `
+  --checkpoint "$NLLB" `
+  --device "$DEVICE" `
   --output outputs/translations/eng.raw.jsonl
 ```
 
 Finnish:
 
-```bash
-uv run thesis-eval translate \
-  --prompts "$PROMPTS" \
-  --target-language fin \
-  --engine nllb \
-  --checkpoint "$NLLB" \
-  --device "$DEVICE" \
+```powershell
+uv run thesis-eval translate `
+  --prompts "$PROMPTS" `
+  --target-language fin `
+  --engine nllb `
+  --checkpoint "$NLLB" `
+  --device "$DEVICE" `
   --output outputs/translations/fin.raw.jsonl
 ```
 
 Italian:
 
-```bash
-uv run thesis-eval translate \
-  --prompts "$PROMPTS" \
-  --target-language ita \
-  --engine nllb \
-  --checkpoint "$NLLB" \
-  --device "$DEVICE" \
+```powershell
+uv run thesis-eval translate `
+  --prompts "$PROMPTS" `
+  --target-language ita `
+  --engine nllb `
+  --checkpoint "$NLLB" `
+  --device "$DEVICE" `
   --output outputs/translations/ita.raw.jsonl
 ```
 
 Norwegian:
 
-```bash
-uv run thesis-eval translate \
-  --prompts "$PROMPTS" \
-  --target-language nor \
-  --engine nllb \
-  --checkpoint "$NLLB" \
-  --device "$DEVICE" \
+```powershell
+uv run thesis-eval translate `
+  --prompts "$PROMPTS" `
+  --target-language nor `
+  --engine nllb `
+  --checkpoint "$NLLB" `
+  --device "$DEVICE" `
   --output outputs/translations/nor.raw.jsonl
 ```
 
 Portuguese:
 
-```bash
-uv run thesis-eval translate \
-  --prompts "$PROMPTS" \
-  --target-language por \
-  --engine nllb \
-  --checkpoint "$NLLB" \
-  --device "$DEVICE" \
+```powershell
+uv run thesis-eval translate `
+  --prompts "$PROMPTS" `
+  --target-language por `
+  --engine nllb `
+  --checkpoint "$NLLB" `
+  --device "$DEVICE" `
   --output outputs/translations/por.raw.jsonl
 ```
 
 Russian:
 
-```bash
-uv run thesis-eval translate \
-  --prompts "$PROMPTS" \
-  --target-language rus \
-  --engine nllb \
-  --checkpoint "$NLLB" \
-  --device "$DEVICE" \
+```powershell
+uv run thesis-eval translate `
+  --prompts "$PROMPTS" `
+  --target-language rus `
+  --engine nllb `
+  --checkpoint "$NLLB" `
+  --device "$DEVICE" `
   --output outputs/translations/rus.raw.jsonl
 ```
 
 Spanish:
 
-```bash
-uv run thesis-eval translate \
-  --prompts "$PROMPTS" \
-  --target-language spa \
-  --engine nllb \
-  --checkpoint "$NLLB" \
-  --device "$DEVICE" \
+```powershell
+uv run thesis-eval translate `
+  --prompts "$PROMPTS" `
+  --target-language spa `
+  --engine nllb `
+  --checkpoint "$NLLB" `
+  --device "$DEVICE" `
   --output outputs/translations/spa.raw.jsonl
 ```
 
 Swahili:
 
-```bash
-uv run thesis-eval translate \
-  --prompts "$PROMPTS" \
-  --target-language swa \
-  --engine nllb \
-  --checkpoint "$NLLB" \
-  --device "$DEVICE" \
+```powershell
+uv run thesis-eval translate `
+  --prompts "$PROMPTS" `
+  --target-language swa `
+  --engine nllb `
+  --checkpoint "$NLLB" `
+  --device "$DEVICE" `
   --output outputs/translations/swa.raw.jsonl
 ```
 
 Swedish:
 
-```bash
-uv run thesis-eval translate \
-  --prompts "$PROMPTS" \
-  --target-language swe \
-  --engine nllb \
-  --checkpoint "$NLLB" \
-  --device "$DEVICE" \
+```powershell
+uv run thesis-eval translate `
+  --prompts "$PROMPTS" `
+  --target-language swe `
+  --engine nllb `
+  --checkpoint "$NLLB" `
+  --device "$DEVICE" `
   --output outputs/translations/swe.raw.jsonl
 ```
 
 Ukrainian:
 
-```bash
-uv run thesis-eval translate \
-  --prompts "$PROMPTS" \
-  --target-language ukr \
-  --engine nllb \
-  --checkpoint "$NLLB" \
-  --device "$DEVICE" \
+```powershell
+uv run thesis-eval translate `
+  --prompts "$PROMPTS" `
+  --target-language ukr `
+  --engine nllb `
+  --checkpoint "$NLLB" `
+  --device "$DEVICE" `
   --output outputs/translations/ukr.raw.jsonl
 ```
 
 For a two-language pilot:
 
-```bash
-uv run thesis-eval translate \
-  --prompts data/raw/strongreject/pilot_prompts.jsonl \
-  --target-language por \
-  --engine nllb \
-  --checkpoint assets/models/nllb-200-distilled-600M \
-  --device auto \
+```powershell
+uv run thesis-eval translate `
+  --prompts data/raw/strongreject/pilot_prompts.jsonl `
+  --target-language por `
+  --engine nllb `
+  --checkpoint assets/models/nllb-200-distilled-600M `
+  --device auto `
   --output outputs/pilot/translations/por.raw.jsonl
 ```
 
-```bash
-uv run thesis-eval translate \
-  --prompts data/raw/strongreject/pilot_prompts.jsonl \
-  --target-language ara \
-  --engine nllb \
-  --checkpoint assets/models/nllb-200-distilled-600M \
-  --device auto \
+```powershell
+uv run thesis-eval translate `
+  --prompts data/raw/strongreject/pilot_prompts.jsonl `
+  --target-language ara `
+  --engine nllb `
+  --checkpoint assets/models/nllb-200-distilled-600M `
+  --device auto `
   --output outputs/pilot/translations/ara.raw.jsonl
 ```
 
@@ -449,18 +449,18 @@ Round-trip diagnostics back-translate prompts for inspection. BLASER assigns ref
 
 Arabic:
 
-```bash
-uv run thesis-eval prompt-roundtrip \
-  --translations outputs/translations/ara.raw.jsonl \
-  --engine nllb \
-  --checkpoint "$NLLB" \
-  --device "$DEVICE" \
+```powershell
+uv run thesis-eval prompt-roundtrip `
+  --translations outputs/translations/ara.raw.jsonl `
+  --engine nllb `
+  --checkpoint "$NLLB" `
+  --device "$DEVICE" `
   --output outputs/translations/ara.roundtrip.jsonl
 
-uv run thesis-eval translation-qc \
-  --translations outputs/translations/ara.roundtrip.jsonl \
-  --scorer blaser \
-  --device "$DEVICE" \
+uv run thesis-eval translation-qc `
+  --translations outputs/translations/ara.roundtrip.jsonl `
+  --scorer blaser `
+  --device "$DEVICE" `
   --output outputs/translations/ara.qc.jsonl
 ```
 
@@ -474,11 +474,11 @@ bul dan eng fin ita nor por rus spa swa swe ukr
 
 Create audit queues for bilingual review. Reviewers fill the exported CSV files with audit decisions and XSTS notes. The import command writes audited translation logs for generation.
 
-```bash
-mkdir -p outputs/audit
+```powershell
+New-Item -ItemType Directory -Force outputs/audit | Out-Null
 
-uv run thesis-eval export-audit-queue \
-  --translations outputs/translations/ara.qc.jsonl \
+uv run thesis-eval export-audit-queue `
+  --translations outputs/translations/ara.qc.jsonl `
   --output outputs/audit/ara.xsts_queue.csv
 ```
 
@@ -486,10 +486,10 @@ Repeat for the remaining languages by replacing `ara` with each language code.
 
 After review, save decisions as `outputs/audit/{lang}.xsts_decisions.csv`, then import them:
 
-```bash
-uv run thesis-eval import-audit \
-  --translations outputs/translations/ara.qc.jsonl \
-  --audit-csv outputs/audit/ara.xsts_decisions.csv \
+```powershell
+uv run thesis-eval import-audit `
+  --translations outputs/translations/ara.qc.jsonl `
+  --audit-csv outputs/audit/ara.xsts_decisions.csv `
   --output outputs/translations/ara.audit.jsonl
 ```
 
@@ -497,20 +497,28 @@ Repeat for each reviewed language. The `.audit.jsonl` files are the prompt files
 
 Calibrate BLASER thresholds from the reviewed subset:
 
-```bash
-awk 'FNR == 1 && NR != 1 { next } { print }' outputs/audit/*.xsts_decisions.csv > outputs/audit/all_xsts_decisions.csv
+```powershell
+$first = $true
+Get-ChildItem outputs/audit/*.xsts_decisions.csv | ForEach-Object {
+  if ($first) {
+    Get-Content $_
+    $first = $false
+  } else {
+    Get-Content $_ | Select-Object -Skip 1
+  }
+} | Set-Content outputs/audit/all_xsts_decisions.csv
 
-uv run thesis-eval calibrate-blaser \
-  --audit-csv outputs/audit/all_xsts_decisions.csv \
+uv run thesis-eval calibrate-blaser `
+  --audit-csv outputs/audit/all_xsts_decisions.csv `
   --output outputs/audit/blaser_thresholds.json
 ```
 
 If trusted human reference translations are available for the spBLEU subset, attach reference scores:
 
-```bash
-uv run thesis-eval reference-spbleu \
-  --translations outputs/translations/por.audit.jsonl \
-  --references data/translations/references/por.references.jsonl \
+```powershell
+uv run thesis-eval reference-spbleu `
+  --translations outputs/translations/por.audit.jsonl `
+  --references data/translations/references/por.references.jsonl `
   --output outputs/translations/por.audit.spbleu.jsonl
 ```
 
@@ -518,21 +526,21 @@ uv run thesis-eval reference-spbleu \
 
 Open-weight models use vLLM on the RTX machine. Each command writes one output file for one model-language pair.
 
-```bash
-mkdir -p outputs/generations
+```powershell
+New-Item -ItemType Directory -Force outputs/generations | Out-Null
 ```
 
 Start with one model and one language:
 
-```bash
-uv run thesis-eval generate-targets \
-  --translations outputs/translations/ara.audit.jsonl \
-  --model sagui_7b \
-  --backend vllm \
-  --profile rtx_5070_ti \
-  --max-tokens 512 \
-  --temperature 0.0 \
-  --trust-remote-code \
+```powershell
+uv run thesis-eval generate-targets `
+  --translations outputs/translations/ara.audit.jsonl `
+  --model sagui_7b `
+  --backend vllm `
+  --profile rtx_5070_ti `
+  --max-tokens 512 `
+  --temperature 0.0 `
+  --trust-remote-code `
   --output outputs/generations/sagui_7b_ara.jsonl
 ```
 
@@ -550,26 +558,26 @@ bggpt_gemma_9b
 
 Sabiá-3 uses the Maritaca API:
 
-```bash
-uv run thesis-eval generate-targets \
-  --translations outputs/translations/ara.audit.jsonl \
-  --model sabia_3 \
-  --backend maritaca \
-  --max-tokens 512 \
-  --temperature 0.0 \
+```powershell
+uv run thesis-eval generate-targets `
+  --translations outputs/translations/ara.audit.jsonl `
+  --model sabia_3 `
+  --backend maritaca `
+  --max-tokens 512 `
+  --temperature 0.0 `
   --output outputs/generations/sabia_3_ara.jsonl
 ```
 
 For a Mac smoke test with one model and one translation file:
 
-```bash
-uv run thesis-eval generate-targets \
-  --translations outputs/pilot/translations/por.raw.jsonl \
-  --model sagui_7b \
-  --backend transformers \
-  --profile macbook \
-  --model-path assets/models/sagui-7b-instruct-v0.1 \
-  --max-tokens 64 \
+```powershell
+uv run thesis-eval generate-targets `
+  --translations outputs/pilot/translations/por.raw.jsonl `
+  --model sagui_7b `
+  --backend transformers `
+  --profile macbook `
+  --model-path assets/models/sagui-7b-instruct-v0.1 `
+  --max-tokens 64 `
   --output outputs/pilot/generations_sagui_por.jsonl
 ```
 
@@ -577,30 +585,30 @@ uv run thesis-eval generate-targets \
 
 Scoring back-translates non-English model outputs to English with NLLB-200, then runs the official StrongREJECT rubric. Each scored file preserves the original response, the English back-translation, the continuous StrongREJECT score, refusal status, sub-scores, API metadata, and failure metadata.
 
-```bash
-mkdir -p outputs/scored
+```powershell
+New-Item -ItemType Directory -Force outputs/scored | Out-Null
 
-uv run thesis-eval score-strongreject \
-  --generations outputs/generations/sagui_7b_ara.jsonl \
-  --evaluator strongreject_rubric \
-  --backtranslate-engine nllb \
-  --checkpoint "$NLLB" \
-  --device "$DEVICE" \
+uv run thesis-eval score-strongreject `
+  --generations outputs/generations/sagui_7b_ara.jsonl `
+  --evaluator strongreject_rubric `
+  --backtranslate-engine nllb `
+  --checkpoint "$NLLB" `
+  --device "$DEVICE" `
   --output outputs/scored/sagui_7b_ara.strongreject.jsonl
 ```
 
 Repeat for each file in `outputs/generations/`. After every generation file has a matching scored file, combine them:
 
-```bash
-cat outputs/scored/*.strongreject.jsonl > outputs/scored/all_strongreject_scores.jsonl
+```powershell
+Get-Content outputs/scored/*.strongreject.jsonl | Set-Content outputs/scored/all_strongreject_scores.jsonl
 ```
 
 For pipeline smoke tests:
 
-```bash
-uv run thesis-eval score-strongreject \
-  --generations outputs/pilot/generations_sagui_por.jsonl \
-  --evaluator mock \
+```powershell
+uv run thesis-eval score-strongreject `
+  --generations outputs/pilot/generations_sagui_por.jsonl `
+  --evaluator mock `
   --output outputs/pilot/strongreject_scores_sagui_por.jsonl
 ```
 
@@ -614,11 +622,11 @@ BELEBELE measures benign multilingual specialization. Query each target model on
 
 The prediction file should contain all model-language-item rows needed for IF and CONS. Then compute specialization:
 
-```bash
-mkdir -p outputs/spec
+```powershell
+New-Item -ItemType Directory -Force outputs/spec | Out-Null
 
-uv run thesis-eval compute-spec \
-  --predictions outputs/spec/belebele_predictions.jsonl \
+uv run thesis-eval compute-spec `
+  --predictions outputs/spec/belebele_predictions.jsonl `
   --output outputs/spec/belebele_spec.jsonl
 ```
 
@@ -632,9 +640,9 @@ model, attack_language, if_score, cons_score, spec_score, n_items, n_cons_compar
 
 Matched benign controls use generation rows shaped like the harmful prompt outputs. The scoring command attaches relevance, completeness, coherence, and task-completion fields for benign analysis tables.
 
-```bash
-uv run thesis-eval score-benign-controls \
-  --generations outputs/benign/benign_generations.jsonl \
+```powershell
+uv run thesis-eval score-benign-controls `
+  --generations outputs/benign/benign_generations.jsonl `
   --output outputs/benign/benign_scores.jsonl
 ```
 
@@ -642,21 +650,21 @@ uv run thesis-eval score-benign-controls \
 
 Join StrongREJECT scores, translation QC/audit metadata, tokenizer diagnostics, URIEL+ distances, model metadata, and BELEBELE specialization.
 
-```bash
-cat outputs/translations/*.audit.jsonl > outputs/translations/all_audited_translations.jsonl
+```powershell
+Get-Content outputs/translations/*.audit.jsonl | Set-Content outputs/translations/all_audited_translations.jsonl
 
-uv run thesis-eval build-dataset \
-  --scored outputs/scored/all_strongreject_scores.jsonl \
-  --translations outputs/translations/all_audited_translations.jsonl \
-  --spec-scores outputs/spec/belebele_spec.jsonl \
+uv run thesis-eval build-dataset `
+  --scored outputs/scored/all_strongreject_scores.jsonl `
+  --translations outputs/translations/all_audited_translations.jsonl `
+  --spec-scores outputs/spec/belebele_spec.jsonl `
   --output outputs/dataset_frozen.jsonl
 ```
 
 Export a Parquet copy for archival and analysis notebooks:
 
-```bash
-uv run thesis-eval export-results \
-  --rows outputs/dataset_frozen.jsonl \
+```powershell
+uv run thesis-eval export-results `
+  --rows outputs/dataset_frozen.jsonl `
   --output outputs/dataset_frozen.parquet
 ```
 
@@ -664,19 +672,19 @@ uv run thesis-eval export-results \
 
 Generate CSV table inputs for the Results chapter:
 
-```bash
-mkdir -p outputs/tables
+```powershell
+New-Item -ItemType Directory -Force outputs/tables | Out-Null
 
-uv run thesis-eval export-report-tables \
-  --rows outputs/dataset_frozen.jsonl \
+uv run thesis-eval export-report-tables `
+  --rows outputs/dataset_frozen.jsonl `
   --output-dir outputs/tables
 ```
 
 Fit the main GLMM effects table:
 
-```bash
-uv run thesis-eval fit-glmm \
-  --rows outputs/dataset_frozen.jsonl \
+```powershell
+uv run thesis-eval fit-glmm `
+  --rows outputs/dataset_frozen.jsonl `
   --output outputs/tables/glmm_main_effects.csv
 ```
 
@@ -700,13 +708,13 @@ outputs/tables/glmm_main_effects.csv
 
 Run unit tests:
 
-```bash
+```powershell
 uv run python -m unittest
 ```
 
 Check asset status at any point:
 
-```bash
+```powershell
 uv run thesis-eval asset-status --group datasets
 uv run thesis-eval asset-status --group translation
 uv run thesis-eval asset-status --group targets
@@ -714,6 +722,6 @@ uv run thesis-eval asset-status --group targets
 
 Run the built-in mock pilot to verify local plumbing without model inference:
 
-```bash
+```powershell
 uv run thesis-eval run-pilot --output-dir outputs/pilot
 ```
