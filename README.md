@@ -44,7 +44,7 @@ The thesis evaluates eight target models. Seven are open-weight Hugging Face mod
 | --- | --- | --- | --- |
 | `sagui_7b` | Portuguese | open weight | `OliveiraJLT/Sagui-7B-Instruct-v0.1` |
 | `sabia_3` | Portuguese | API | Maritaca `sabia-3` |
-| `fauno` | Italian | open weight | `andreabac3/Fauno-Italian-LLM-7B` |
+| `fauno` | Italian | LoRA adapter | `andreabac3/Fauno-Italian-LLM-7B` |
 | `llamantino_anita_8b` | Italian | open weight | `swap-uniba/LLaMAntino-3-ANITA-8B-Inst-DPO-ITA` |
 | `gpt_sw3` | Swedish | open weight | `AI-Sweden-Models/gpt-sw3-6.7b-v2-instruct` |
 | `ai_sweden_llama3_8b` | Swedish | open weight | `AI-Sweden-Models/Llama-3-8B-instruct` |
@@ -161,6 +161,8 @@ uv run thesis-eval download-assets --name fauno
 uv run thesis-eval verify-assets --name fauno
 uv run thesis-eval model-status --model fauno
 ```
+
+Fauno downloads as a PEFT/LoRA adapter (`adapter_config.json` and `adapter_model.bin`). Running it requires a compatible LLaMA/Baize base model plus LoRA-enabled inference. The current `generate-targets --backend vllm` command accepts a single model path, so Fauno needs a dedicated base-plus-adapter generation path before it can run in the same loop as the full checkpoints.
 
 ```bash
 uv run thesis-eval download-assets --name llamantino_anita_8b
@@ -489,17 +491,18 @@ uv run thesis-eval generate-targets \
   --output outputs/generations/sagui_7b_ara.jsonl
 ```
 
-Then continue one model-language cell at a time. Replace `ara` with each language code, and replace `sagui_7b` with each open-weight model:
+Then continue one model-language cell at a time. Replace `ara` with each language code, and replace `sagui_7b` with each full-checkpoint model:
 
 ```text
 sagui_7b
-fauno
 llamantino_anita_8b
 gpt_sw3
 ai_sweden_llama3_8b
 bggpt_7b
 bggpt_gemma_9b
 ```
+
+Fauno is handled separately after the base-plus-adapter path is configured.
 
 Sabiá-3 uses the Maritaca API:
 
