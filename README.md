@@ -63,13 +63,19 @@ Use the RTX profile for the full thesis run. It installs vLLM for target-model i
 
 ```bash
 cd /Users/gabriel/Developer/ufsc-thesis/eval
-uv sync --extra rtx --extra qc --extra scoring --extra analysis --with pyarrow
+uv sync --extra rtx --extra qc --extra scoring --extra analysis
 ```
 
 For a Mac smoke test with Transformers instead of vLLM:
 
 ```bash
-uv sync --extra mac --extra qc --extra scoring --extra analysis --with pyarrow
+uv sync --extra mac --extra qc --extra scoring --extra analysis
+```
+
+Prepare the standalone URIEL+ script environment used by `prepare-uriel`:
+
+```bash
+uv sync --script scripts/compute_urielplus.py
 ```
 
 Set credentials for gated Hugging Face assets, StrongREJECT rubric scoring, and Sabiá-3:
@@ -196,16 +202,30 @@ uv run thesis-eval model-status --model bggpt_gemma_9b
 
 ## 5. Prepare URIEL+ Distance Data
 
-This command writes the 13-language distance matrix used by the dataset builder and thesis tables.
+This command recomputes the 13-language featural angular distance matrix with URIEL+, then writes the matrix used by the dataset builder and thesis tables. By default it uses the standalone `scripts/compute_urielplus.py` script environment, because URIEL+'s TensorFlow Addons dependency does not provide Python 3.12 wheels.
 
 ```bash
 uv run thesis-eval prepare-uriel
+```
+
+Use `--uriel-backend in-process` only if `urielplus` is installed in the active Python environment.
+
+```bash
+uv run thesis-eval prepare-uriel \
+  --uriel-backend in-process
+```
+
+For a static/offline refresh from an existing matrix CSV instead of recomputing:
+
+```bash
+uv run thesis-eval prepare-uriel --from-csv
 ```
 
 Outputs:
 
 ```text
 data/uriel_plus/distance_matrix.csv
+data/uriel_plus/urielplus_run_config.json
 ../ufscthesisx/aftertext/urielplus_distance_table_generated.tex
 ```
 
@@ -218,6 +238,31 @@ mkdir -p outputs/translations
 PROMPTS=data/raw/strongreject/prompts.jsonl
 NLLB=assets/models/nllb-200-3.3B
 DEVICE=cuda
+```
+
+To translate the full 13-language inventory in one run:
+
+```bash
+uv run thesis-eval translate \
+  --prompts "$PROMPTS" \
+  --target-language ara \
+  --target-language bul \
+  --target-language dan \
+  --target-language eng \
+  --target-language fin \
+  --target-language ita \
+  --target-language nor \
+  --target-language por \
+  --target-language rus \
+  --target-language spa \
+  --target-language swa \
+  --target-language swe \
+  --target-language ukr \
+  --engine nllb \
+  --checkpoint "$NLLB" \
+  --device "$DEVICE" \
+  --output-dir outputs/translations \
+  --output-template "{lang}.raw.jsonl"
 ```
 
 Arabic:

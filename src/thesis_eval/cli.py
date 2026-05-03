@@ -20,7 +20,17 @@ from thesis_eval.analysis.reporting import (
 from thesis_eval.analysis.glmm import fit_main_glmm
 from thesis_eval.benchmarks.belebele import compute_if_cons
 from thesis_eval.benchmarks.strongreject import import_strongreject, write_prompt_records
-from thesis_eval.benchmarks.uriel import compare_matrices, load_distance_matrix, subset_matrix, write_distance_matrix, write_latex_table
+from thesis_eval.benchmarks.uriel import (
+    compare_matrices,
+    compute_urielplus_matrix,
+    compute_urielplus_matrix_external,
+    compute_urielplus_matrix_uv,
+    load_distance_matrix,
+    subset_matrix,
+    write_distance_matrix,
+    write_latex_table,
+    write_run_config,
+)
 from thesis_eval.config import load_config
 from thesis_eval.evaluation.benign import score_benign_rows
 from thesis_eval.evaluation.strongreject import score_generation_rows
@@ -78,14 +88,75 @@ def cmd_verify_assets(args: argparse.Namespace) -> None:
 
 def cmd_prepare_uriel(args: argparse.Namespace) -> None:
     cfg = load_config()
-    source = Path(args.source_csv)
-    matrix = subset_matrix(load_distance_matrix(source), cfg.attack_languages)
+    source = _resolve_uriel_source(Path(args.source_csv), required=args.from_csv)
+    if args.from_csv:
+        if source is None:
+            raise FileNotFoundError("A source CSV is required when --from-csv is set")
+        matrix = subset_matrix(load_distance_matrix(source), cfg.attack_languages)
+        metadata: dict[str, Any] = {"source": "csv", "source_csv": str(source)}
+        mode = "csv"
+    else:
+        if args.uriel_python:
+            uriel_python = Path(args.uriel_python).expanduser()
+            if not uriel_python.exists():
+                raise FileNotFoundError(f"--uriel-python does not exist: {uriel_python}")
+            matrix, metadata = compute_urielplus_matrix_external(
+                uriel_python,
+                cfg.attack_languages,
+                distance_type=args.distance_type,
+            )
+        elif args.uriel_backend == "in-process":
+            matrix, metadata = compute_urielplus_matrix(cfg.attack_languages, distance_type=args.distance_type)
+        else:
+            matrix, metadata = compute_urielplus_matrix_uv(
+                cfg.attack_languages,
+                distance_type=args.distance_type,
+            )
+        mode = "urielplus"
     output_csv = Path(args.output_csv)
     output_tex = Path(args.output_tex)
     write_distance_matrix(output_csv, matrix, cfg.attack_languages)
     write_latex_table(output_tex, matrix, cfg.attack_languages)
-    comparison = compare_matrices(matrix, load_distance_matrix(source))
-    print(json.dumps({"csv": str(output_csv), "latex": str(output_tex), **comparison}, indent=2))
+    if args.run_config_output:
+        write_run_config(Path(args.run_config_output), metadata)
+    comparison: dict[str, Any] = {}
+    if source is not None:
+        comparison = {
+            "comparison_source_csv": str(source),
+            **compare_matrices(matrix, load_distance_matrix(source)),
+        }
+    print(
+        json.dumps(
+            {
+                "mode": mode,
+                "distance_type": args.distance_type,
+                "csv": str(output_csv),
+                "latex": str(output_tex),
+                "run_config": args.run_config_output,
+                **comparison,
+            },
+            indent=2,
+        )
+    )
+
+
+def _resolve_uriel_source(source: Path, required: bool = False) -> Path | None:
+    if source.exists():
+        return source
+    candidates = [
+        THESIS_ROOT / "pictures" / source.name,
+        DATA_DIR / "uriel_plus" / source.name,
+    ]
+    for candidate in candidates:
+        if candidate.exists():
+            return candidate
+    if not required:
+        return None
+    searched = [str(source)] + [str(candidate) for candidate in candidates]
+    raise FileNotFoundError(
+        "URIEL+ CSV preparation expects an existing static distance-matrix CSV. "
+        f"Searched: {', '.join(searched)}"
+    )
 
 
 def cmd_import_strongreject(args: argparse.Namespace) -> None:
@@ -584,8 +655,13 @@ def build_parser() -> argparse.ArgumentParser:
 
     prepare = sub.add_parser("prepare-uriel")
     prepare.add_argument("--source-csv", default=str(THESIS_ROOT / "pictures" / "urielplus_distance_featural.csv"))
+    prepare.add_argument("--from-csv", action="store_true", help="Prepare from a static matrix CSV instead of recomputing with URIEL+.")
+    prepare.add_argument("--distance-type", default="featural")
+    prepare.add_argument("--uriel-backend", choices=["uv", "in-process"], default="uv")
+    prepare.add_argument("--uriel-python", help="Explicit Python executable from an environment with urielplus installed.")
     prepare.add_argument("--output-csv", default=str(DATA_DIR / "uriel_plus" / "distance_matrix.csv"))
     prepare.add_argument("--output-tex", default=str(THESIS_ROOT / "aftertext" / "urielplus_distance_table_generated.tex"))
+    prepare.add_argument("--run-config-output", default=str(DATA_DIR / "uriel_plus" / "urielplus_run_config.json"))
     prepare.set_defaults(func=cmd_prepare_uriel)
 
     strongreject = sub.add_parser("import-strongreject")

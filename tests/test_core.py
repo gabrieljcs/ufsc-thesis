@@ -7,7 +7,13 @@ from unittest.mock import patch
 
 from thesis_eval.assets import AssetSpec, asset_status, download_asset, load_assets, select_assets, verify_asset
 from thesis_eval.benchmarks.strongreject import import_strongreject, load_prompt_records, write_prompt_records
-from thesis_eval.benchmarks.uriel import load_distance_matrix, subset_matrix, write_distance_matrix
+from thesis_eval.benchmarks.uriel import (
+    compute_urielplus_matrix,
+    compute_urielplus_matrix_uv,
+    load_distance_matrix,
+    subset_matrix,
+    write_distance_matrix,
+)
 from thesis_eval.cli import main
 from thesis_eval.config import load_config
 from thesis_eval.analysis.dataset import build_frozen_rows
@@ -329,6 +335,41 @@ class BelebeleTests(unittest.TestCase):
 
 
 class UrielTests(unittest.TestCase):
+    def test_compute_urielplus_matrix_with_injected_client(self) -> None:
+        class FakeUriel:
+            def new_distance(self, distance_type: str, source: str, target: str) -> float:
+                self.last_distance_type = distance_type
+                return 0.25 if {source, target} == {"por", "eng"} else 0.5
+
+            def get_distance_metric(self) -> str:
+                return "angular"
+
+        matrix, metadata = compute_urielplus_matrix(["por", "eng"], uriel=FakeUriel())
+        self.assertEqual(matrix["por"]["eng"], 0.25)
+        self.assertEqual(matrix["eng"]["por"], 0.25)
+        self.assertEqual(metadata["distance_metric"], "angular")
+
+    def test_compute_urielplus_matrix_uv_uses_self_contained_backend(self) -> None:
+        completed = type(
+            "Completed",
+            (),
+            {
+                "returncode": 0,
+                "stdout": (
+                    '{"matrix":{"por":{"por":0.0,"eng":0.25},"eng":{"por":0.25,"eng":0.0}},'
+                    '"metadata":{"source":"urielplus"}}'
+                ),
+                "stderr": "",
+            },
+        )()
+        with patch("thesis_eval.benchmarks.uriel.subprocess.run", return_value=completed) as run:
+            matrix, metadata = compute_urielplus_matrix_uv(["por", "eng"])
+        command = run.call_args.args[0]
+        self.assertEqual(command[:4], ["uv", "run", "--quiet", "--script"])
+        self.assertTrue(command[4].endswith("scripts/compute_urielplus.py"))
+        self.assertEqual(matrix["por"]["eng"], 0.25)
+        self.assertEqual(metadata["execution_backend"], "uv")
+
     def test_matrix_round_trip_and_subset(self) -> None:
         matrix = {
             "por": {"por": 0.0, "ara": 0.5},
