@@ -202,7 +202,7 @@ That should print `OK: 8 models, 13 languages` after a brief container startup.
 
 ## Checkpointed Execution
 
-The workflow below is written one checkpoint at a time. Run one command, verify the output, then continue. This is especially useful for model downloads and generation runs that may take hours.
+The workflow below keeps one checkpoint per phase, but the main commands process the full 13-language inventory where the CLI supports it. Keep the one-language examples as smoke-test references or targeted reruns after a failed language.
 
 Downloads are resumable. Hugging Face assets are downloaded through `snapshot_download` with resume support into the fixed paths listed in `configs/assets.yaml`. If a network interruption or machine restart happens, rerun the same `download-assets --name ...` command. Completed files are reused, partial transfers continue, and verified assets are skipped. If a folder exists but required files are missing, the command resumes into that folder. `--force` starts a fresh download for that asset.
 
@@ -337,33 +337,23 @@ data/uriel_plus/urielplus_run_config.json
 
 ## 6. Translate StrongREJECT Prompts
 
-Translate the English StrongREJECT prompts into one attack language at a time with NLLB-200. Each command writes one JSONL translation log, so progress can be checked language by language.
+Translate the English StrongREJECT prompts into the full attack-language inventory with NLLB-200. Each language still receives its own JSONL output, so failed languages can be rerun individually.
 
 ```powershell
 New-Item -ItemType Directory -Force outputs/translations | Out-Null
 $PROMPTS = "data/raw/strongreject/prompts.jsonl"
 $NLLB = "assets/models/nllb-200-3.3B"
 $DEVICE = "cuda"
+$LANGUAGES = @("ara", "bul", "dan", "eng", "fin", "ita", "nor", "por", "rus", "spa", "swa", "swe", "ukr")
+$TranslationArgs = foreach ($lang in $LANGUAGES) { "--target-language"; $lang }
 ```
 
-To translate the full 13-language inventory in one run:
+Full run:
 
 ```powershell
 uv run thesis-eval-gpu translate `
   --prompts "$PROMPTS" `
-  --target-language ara `
-  --target-language bul `
-  --target-language dan `
-  --target-language eng `
-  --target-language fin `
-  --target-language ita `
-  --target-language nor `
-  --target-language por `
-  --target-language rus `
-  --target-language spa `
-  --target-language swa `
-  --target-language swe `
-  --target-language ukr `
+  @TranslationArgs `
   --engine nllb `
   --checkpoint "$NLLB" `
   --device "$DEVICE" `
@@ -371,7 +361,7 @@ uv run thesis-eval-gpu translate `
   --output-template "{lang}.raw.jsonl"
 ```
 
-Arabic:
+One-language reference:
 
 ```powershell
 uv run thesis-eval-gpu translate `
@@ -381,150 +371,6 @@ uv run thesis-eval-gpu translate `
   --checkpoint "$NLLB" `
   --device "$DEVICE" `
   --output outputs/translations/ara.raw.jsonl
-```
-
-Bulgarian:
-
-```powershell
-uv run thesis-eval-gpu translate `
-  --prompts "$PROMPTS" `
-  --target-language bul `
-  --engine nllb `
-  --checkpoint "$NLLB" `
-  --device "$DEVICE" `
-  --output outputs/translations/bul.raw.jsonl
-```
-
-Danish:
-
-```powershell
-uv run thesis-eval-gpu translate `
-  --prompts "$PROMPTS" `
-  --target-language dan `
-  --engine nllb `
-  --checkpoint "$NLLB" `
-  --device "$DEVICE" `
-  --output outputs/translations/dan.raw.jsonl
-```
-
-English baseline:
-
-```powershell
-uv run thesis-eval-gpu translate `
-  --prompts "$PROMPTS" `
-  --target-language eng `
-  --engine nllb `
-  --checkpoint "$NLLB" `
-  --device "$DEVICE" `
-  --output outputs/translations/eng.raw.jsonl
-```
-
-Finnish:
-
-```powershell
-uv run thesis-eval-gpu translate `
-  --prompts "$PROMPTS" `
-  --target-language fin `
-  --engine nllb `
-  --checkpoint "$NLLB" `
-  --device "$DEVICE" `
-  --output outputs/translations/fin.raw.jsonl
-```
-
-Italian:
-
-```powershell
-uv run thesis-eval-gpu translate `
-  --prompts "$PROMPTS" `
-  --target-language ita `
-  --engine nllb `
-  --checkpoint "$NLLB" `
-  --device "$DEVICE" `
-  --output outputs/translations/ita.raw.jsonl
-```
-
-Norwegian:
-
-```powershell
-uv run thesis-eval-gpu translate `
-  --prompts "$PROMPTS" `
-  --target-language nor `
-  --engine nllb `
-  --checkpoint "$NLLB" `
-  --device "$DEVICE" `
-  --output outputs/translations/nor.raw.jsonl
-```
-
-Portuguese:
-
-```powershell
-uv run thesis-eval-gpu translate `
-  --prompts "$PROMPTS" `
-  --target-language por `
-  --engine nllb `
-  --checkpoint "$NLLB" `
-  --device "$DEVICE" `
-  --output outputs/translations/por.raw.jsonl
-```
-
-Russian:
-
-```powershell
-uv run thesis-eval-gpu translate `
-  --prompts "$PROMPTS" `
-  --target-language rus `
-  --engine nllb `
-  --checkpoint "$NLLB" `
-  --device "$DEVICE" `
-  --output outputs/translations/rus.raw.jsonl
-```
-
-Spanish:
-
-```powershell
-uv run thesis-eval-gpu translate `
-  --prompts "$PROMPTS" `
-  --target-language spa `
-  --engine nllb `
-  --checkpoint "$NLLB" `
-  --device "$DEVICE" `
-  --output outputs/translations/spa.raw.jsonl
-```
-
-Swahili:
-
-```powershell
-uv run thesis-eval-gpu translate `
-  --prompts "$PROMPTS" `
-  --target-language swa `
-  --engine nllb `
-  --checkpoint "$NLLB" `
-  --device "$DEVICE" `
-  --output outputs/translations/swa.raw.jsonl
-```
-
-Swedish:
-
-```powershell
-uv run thesis-eval-gpu translate `
-  --prompts "$PROMPTS" `
-  --target-language swe `
-  --engine nllb `
-  --checkpoint "$NLLB" `
-  --device "$DEVICE" `
-  --output outputs/translations/swe.raw.jsonl
-```
-
-Ukrainian:
-
-```powershell
-uv run thesis-eval-gpu translate `
-  --prompts "$PROMPTS" `
-  --target-language ukr `
-  --engine nllb `
-  --checkpoint "$NLLB" `
-  --device "$DEVICE" `
-  --output outputs/translations/ukr.raw.jsonl
 ```
 
 For a two-language pilot:
@@ -551,9 +397,31 @@ uv run thesis-eval translate `
 
 ## 7. Run Round-Trip Diagnostics and BLASER QC
 
-Round-trip diagnostics back-translate prompts for inspection. BLASER assigns reference-free QE scores and pass/flag/fail status. Run these two commands for one language, check the resulting `.roundtrip.jsonl` and `.qc.jsonl`, then continue to the next language.
+Round-trip diagnostics back-translate prompts for inspection. BLASER assigns reference-free QE scores and pass/flag/fail status. These steps run over all language files produced in Step 6.
 
-Arabic:
+Full run:
+
+```powershell
+foreach ($lang in $LANGUAGES) {
+  uv run thesis-eval-gpu prompt-roundtrip `
+    --translations "outputs/translations/$lang.raw.jsonl" `
+    --engine nllb `
+    --checkpoint "$NLLB" `
+    --device "$DEVICE" `
+    --output "outputs/translations/$lang.roundtrip.jsonl"
+}
+
+$RoundtripArgs = foreach ($lang in $LANGUAGES) { "--translations"; "outputs/translations/$lang.roundtrip.jsonl" }
+
+uv run thesis-eval-gpu translation-qc `
+  @RoundtripArgs `
+  --scorer blaser `
+  --device "$DEVICE" `
+  --output-dir outputs/translations `
+  --output-template "{lang}.qc.jsonl"
+```
+
+One-language reference:
 
 ```powershell
 uv run thesis-eval-gpu prompt-roundtrip `
@@ -570,36 +438,34 @@ uv run thesis-eval-gpu translation-qc `
   --output outputs/translations/ara.qc.jsonl
 ```
 
-Repeat for the remaining languages by replacing `ara` with:
-
-```text
-bul dan eng fin ita nor por rus spa swa swe ukr
-```
-
 ## 8. Human XSTS Audit and BLASER Calibration
 
 Create audit queues for bilingual review. Reviewers fill the exported CSV files with audit decisions and XSTS notes. The import command writes audited translation logs for generation.
 
+Full audit queue export:
+
 ```powershell
 New-Item -ItemType Directory -Force outputs/audit | Out-Null
 
-uv run thesis-eval export-audit-queue `
-  --translations outputs/translations/ara.qc.jsonl `
-  --output outputs/audit/ara.xsts_queue.csv
+foreach ($lang in $LANGUAGES) {
+  uv run thesis-eval export-audit-queue `
+    --translations "outputs/translations/$lang.qc.jsonl" `
+    --output "outputs/audit/$lang.xsts_queue.csv"
+}
 ```
-
-Repeat for the remaining languages by replacing `ara` with each language code.
 
 After review, save decisions as `outputs/audit/{lang}.xsts_decisions.csv`, then import them:
 
 ```powershell
-uv run thesis-eval import-audit `
-  --translations outputs/translations/ara.qc.jsonl `
-  --audit-csv outputs/audit/ara.xsts_decisions.csv `
-  --output outputs/translations/ara.audit.jsonl
+foreach ($lang in $LANGUAGES) {
+  uv run thesis-eval import-audit `
+    --translations "outputs/translations/$lang.qc.jsonl" `
+    --audit-csv "outputs/audit/$lang.xsts_decisions.csv" `
+    --output "outputs/translations/$lang.audit.jsonl"
+}
 ```
 
-Repeat for each reviewed language. The `.audit.jsonl` files are the prompt files used for model generation.
+The `.audit.jsonl` files are the prompt files used for model generation.
 
 Calibrate BLASER thresholds from the reviewed subset:
 
@@ -630,13 +496,53 @@ uv run thesis-eval reference-spbleu `
 
 ## 9. Generate Target Responses
 
-Open-weight models use vLLM on the RTX machine. Each command writes one output file for one model-language pair.
+Open-weight models use vLLM on the RTX machine. The full run below writes one output file per model-language pair.
 
 ```powershell
 New-Item -ItemType Directory -Force outputs/generations | Out-Null
+$AuditArgs = foreach ($lang in $LANGUAGES) { "--translations"; "outputs/translations/$lang.audit.jsonl" }
+$OPEN_WEIGHT_MODELS = @(
+  "sagui_7b",
+  "llamantino_2_ultrachat_7b",
+  "llamantino_anita_8b",
+  "gpt_sw3",
+  "ai_sweden_llama3_8b",
+  "bggpt_7b",
+  "bggpt_gemma_9b"
+)
 ```
 
-Start with one model and one language:
+Full open-weight run:
+
+```powershell
+foreach ($model in $OPEN_WEIGHT_MODELS) {
+  uv run thesis-eval-gpu generate-targets `
+    @AuditArgs `
+    --model $model `
+    --backend vllm `
+    --profile rtx_5070_ti `
+    --max-tokens 512 `
+    --temperature 0.0 `
+    --trust-remote-code `
+    --output-dir outputs/generations `
+    --output-template "{model}_{lang}.jsonl"
+}
+```
+
+Sabiá-3 uses the Maritaca API. Run all languages in one batch:
+
+```powershell
+uv run thesis-eval generate-targets `
+  @AuditArgs `
+  --model sabia_3 `
+  --backend maritaca `
+  --max-tokens 512 `
+  --temperature 0.0 `
+  --output-dir outputs/generations `
+  --output-template "{model}_{lang}.jsonl"
+```
+
+One-language reference:
 
 ```powershell
 uv run thesis-eval-gpu generate-targets `
@@ -648,30 +554,6 @@ uv run thesis-eval-gpu generate-targets `
   --temperature 0.0 `
   --trust-remote-code `
   --output outputs/generations/sagui_7b_ara.jsonl
-```
-
-Then continue one model-language cell at a time. Replace `ara` with each language code, and replace `sagui_7b` with each full-checkpoint model:
-
-```text
-sagui_7b
-llamantino_2_ultrachat_7b
-llamantino_anita_8b
-gpt_sw3
-ai_sweden_llama3_8b
-bggpt_7b
-bggpt_gemma_9b
-```
-
-Sabiá-3 uses the Maritaca API:
-
-```powershell
-uv run thesis-eval generate-targets `
-  --translations outputs/translations/ara.audit.jsonl `
-  --model sabia_3 `
-  --backend maritaca `
-  --max-tokens 512 `
-  --temperature 0.0 `
-  --output outputs/generations/sabia_3_ara.jsonl
 ```
 
 For a Mac smoke test with one model and one translation file:
@@ -691,9 +573,26 @@ uv run thesis-eval generate-targets `
 
 Scoring back-translates non-English model outputs to English with NLLB-200, then runs the official StrongREJECT rubric. Each scored file preserves the original response, the English back-translation, the continuous StrongREJECT score, refusal status, sub-scores, API metadata, and failure metadata.
 
+Full run:
+
 ```powershell
 New-Item -ItemType Directory -Force outputs/scored | Out-Null
 
+Get-ChildItem outputs/generations/*.jsonl | ForEach-Object {
+  $out = "outputs/scored/$($_.BaseName).strongreject.jsonl"
+  uv run thesis-eval-gpu score-strongreject `
+    --generations $_.FullName `
+    --evaluator strongreject_rubric `
+    --backtranslate-engine nllb `
+    --checkpoint "$NLLB" `
+    --device "$DEVICE" `
+    --output $out
+}
+```
+
+One-file reference:
+
+```powershell
 uv run thesis-eval-gpu score-strongreject `
   --generations outputs/generations/sagui_7b_ara.jsonl `
   --evaluator strongreject_rubric `
@@ -703,7 +602,7 @@ uv run thesis-eval-gpu score-strongreject `
   --output outputs/scored/sagui_7b_ara.strongreject.jsonl
 ```
 
-Repeat for each file in `outputs/generations/`. After every generation file has a matching scored file, combine them:
+After every generation file has a matching scored file, combine them:
 
 ```powershell
 Get-Content outputs/scored/*.strongreject.jsonl | Set-Content outputs/scored/all_strongreject_scores.jsonl
