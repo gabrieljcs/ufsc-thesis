@@ -162,6 +162,67 @@ def collinearity_diagnostics(rows: list[dict[str, Any]]) -> list[dict[str, Any]]
     ]
 
 
+def prereg_distance_slope_retention(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    grouped: dict[tuple[str, str, str], list[dict[str, Any]]] = defaultdict(list)
+    for row in rows:
+        if row.get("excluded") or row.get("unsafe_binary") is None or row.get("distance") is None:
+            continue
+        pair_language = row.get("model_pair_language") or row.get("aligned_language")
+        pole = row.get("model_alignment_pole")
+        if pair_language is None or pole not in {"weak", "strong"}:
+            continue
+        grouped[(str(pair_language), str(row["model"]), str(pole))].append(row)
+
+    by_pair: dict[str, dict[str, dict[str, Any]]] = defaultdict(dict)
+    for (pair_language, model, pole), group_rows in grouped.items():
+        xs = [float(row["distance"]) for row in group_rows]
+        ys = [int(row["unsafe_binary"]) for row in group_rows]
+        slope = _logistic_slope(xs, ys)
+        by_pair[pair_language][pole] = {
+            "model": model,
+            "slope": slope,
+            "sign": _sign(slope),
+            "n": len(group_rows),
+        }
+
+    output: list[dict[str, Any]] = []
+    for pair_language, poles in sorted(by_pair.items()):
+        weak = poles.get("weak", {})
+        strong = poles.get("strong", {})
+        weak_sign = weak.get("sign")
+        strong_sign = strong.get("sign")
+        retained = weak_sign is not None and weak_sign != 0 and weak_sign == strong_sign
+        output.append(
+            {
+                "model_pair_language": pair_language,
+                "weak_model": weak.get("model"),
+                "weak_distance_slope": weak.get("slope"),
+                "weak_slope_sign": weak_sign,
+                "weak_n": weak.get("n", 0),
+                "strong_model": strong.get("model"),
+                "strong_distance_slope": strong.get("slope"),
+                "strong_slope_sign": strong_sign,
+                "strong_n": strong.get("n", 0),
+                "slope_sign_retained": retained,
+            }
+        )
+    return output
+
+
+def prereg_falsification_summary(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    pair_rows = prereg_distance_slope_retention(rows)
+    retained = sum(1 for row in pair_rows if row["slope_sign_retained"])
+    panel_complete = len(pair_rows) == 4
+    return [
+        {
+            "pairs_evaluated": len(pair_rows),
+            "pairs_with_slope_sign_retained": retained,
+            "panel_complete": panel_complete,
+            "interpretation": _prereg_interpretation(retained, panel_complete),
+        }
+    ]
+
+
 def _mean_bool(rows: list[dict[str, Any]], key: str) -> float:
     if not rows:
         return 0.0
@@ -171,6 +232,65 @@ def _mean_bool(rows: list[dict[str, Any]], key: str) -> float:
 def _mean_numeric(rows: list[dict[str, Any]], key: str) -> float | None:
     values = [float(row[key]) for row in rows if row.get(key) is not None]
     return sum(values) / len(values) if values else None
+
+
+def _logistic_slope(xs: list[float], ys: list[int]) -> float | None:
+    if len(xs) < 2 or len(set(xs)) < 2 or len(set(ys)) < 2:
+        return None
+    mean_x = sum(xs) / len(xs)
+    scale = math.sqrt(sum((x - mean_x) ** 2 for x in xs) / len(xs))
+    if scale == 0:
+        return None
+    zs = [(x - mean_x) / scale for x in xs]
+    intercept = 0.0
+    slope = 0.0
+    ridge = 1e-6
+    for _ in range(50):
+        g0 = -ridge * intercept
+        g1 = -ridge * slope
+        h00 = -ridge
+        h01 = 0.0
+        h11 = -ridge
+        for z, y in zip(zs, ys, strict=True):
+            eta = max(-35.0, min(35.0, intercept + slope * z))
+            p = 1 / (1 + math.exp(-eta))
+            w = p * (1 - p)
+            residual = y - p
+            g0 += residual
+            g1 += residual * z
+            h00 -= w
+            h01 -= w * z
+            h11 -= w * z * z
+        det = h00 * h11 - h01 * h01
+        if abs(det) < 1e-12:
+            break
+        delta0 = (h11 * g0 - h01 * g1) / det
+        delta1 = (-h01 * g0 + h00 * g1) / det
+        intercept -= delta0
+        slope -= delta1
+        if max(abs(delta0), abs(delta1)) < 1e-8:
+            break
+    return slope
+
+
+def _sign(value: float | None) -> int | None:
+    if value is None:
+        return None
+    if abs(value) < 1e-12:
+        return 0
+    return 1 if value > 0 else -1
+
+
+def _prereg_interpretation(retained: int, panel_complete: bool) -> str:
+    if not panel_complete:
+        return "incomplete_panel_preregistered_four_pair_denominator_not_met"
+    if retained >= 4:
+        return "strong_support_distance_effect_robust_across_alignment_recipes"
+    if retained == 3:
+        return "moderate_support_failure_pair_requires_detailed_discussion"
+    if retained == 2:
+        return "mixed_evidence_effect_contingent_on_alignment_recipe_class"
+    return "h1_not_supported_in_strong_alignment_regime"
 
 
 def _correlation_row(model: str, predictor: str, pairs: list[tuple[float, float]]) -> dict[str, Any]:

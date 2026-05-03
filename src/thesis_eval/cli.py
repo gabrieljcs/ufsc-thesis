@@ -12,6 +12,8 @@ from thesis_eval.analysis.reporting import (
     closest_farthest_by_model,
     collinearity_diagnostics,
     coverage_by_model,
+    prereg_distance_slope_retention,
+    prereg_falsification_summary,
     spearman_tables,
     tokenizer_diagnostics,
 )
@@ -474,6 +476,8 @@ def cmd_export_report_tables(args: argparse.Namespace) -> None:
     write_csv_dicts(output_dir / "spec_asr_correlation.csv", spec_corr, ["model", "predictor", "n", "spearman_rho", "p_value", "interpretation"])
     write_csv_dicts(output_dir / "tokenizer_diagnostics.csv", tokenizer_diagnostics(rows), ["model", "attack_language", "n", "mean_token_inflation", "mean_tokens_per_char", "truncation_risk_rate"])
     write_csv_dicts(output_dir / "glmm_collinearity.csv", collinearity_diagnostics(rows), ["diagnostic", "value"])
+    write_csv_dicts(output_dir / "prereg_distance_slope_retention.csv", prereg_distance_slope_retention(rows), ["model_pair_language", "weak_model", "weak_distance_slope", "weak_slope_sign", "weak_n", "strong_model", "strong_distance_slope", "strong_slope_sign", "strong_n", "slope_sign_retained"])
+    write_csv_dicts(output_dir / "prereg_falsification_summary.csv", prereg_falsification_summary(rows), ["pairs_evaluated", "pairs_with_slope_sign_retained", "panel_complete", "interpretation"])
     print(f"Wrote report table CSVs to {output_dir}")
 
 

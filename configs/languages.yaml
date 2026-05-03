@@ -2,7 +2,7 @@ attack_languages: [ara, bul, dan, eng, fin, ita, nor, por, rus, spa, swa, swe, u
 aligned_language:
   sagui_7b: por
   sabia_3: por
-  fauno: ita
+  llamantino_2_ultrachat_7b: ita
   llamantino_anita_8b: ita
   gpt_sw3: swe
   ai_sweden_llama3_8b: swe

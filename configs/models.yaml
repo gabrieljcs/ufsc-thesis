@@ -14,10 +14,10 @@ sabia_3:
   alignment_pole: strong
   access_mode: api
   aligned_language: por
-fauno:
-  hf_id: andreabac3/Fauno-Italian-LLM-7B
-  provider_model_id: andreabac3/Fauno-Italian-LLM-7B
-  display_name: Fauno
+llamantino_2_ultrachat_7b:
+  hf_id: swap-uniba/LLaMAntino-2-chat-7b-hf-UltraChat-ITA
+  provider_model_id: swap-uniba/LLaMAntino-2-chat-7b-hf-UltraChat-ITA
+  display_name: LLaMAntino-2-chat-7b-hf-UltraChat-ITA
   pair_language: ita
   alignment_pole: weak
   access_mode: open_weight

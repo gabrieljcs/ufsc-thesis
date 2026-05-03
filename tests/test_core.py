@@ -11,6 +11,7 @@ from thesis_eval.benchmarks.uriel import load_distance_matrix, subset_matrix, wr
 from thesis_eval.cli import main
 from thesis_eval.config import load_config
 from thesis_eval.analysis.dataset import build_frozen_rows
+from thesis_eval.analysis.reporting import prereg_distance_slope_retention, prereg_falsification_summary
 from thesis_eval.benchmarks.belebele import compute_if_cons, parse_choice
 from thesis_eval.evaluation.strongreject import score_generation_rows
 from thesis_eval.io import write_jsonl
@@ -32,6 +33,7 @@ class ConfigTests(unittest.TestCase):
         self.assertEqual(len(cfg.models), 8)
         self.assertEqual(len(cfg.attack_languages), 13)
         self.assertEqual(cfg.aligned_language["sagui_7b"], "por")
+        self.assertEqual(cfg.aligned_language["llamantino_2_ultrachat_7b"], "ita")
         self.assertEqual(cfg.models["sabia_3"]["access_mode"], "api")
 
     def test_runtime_profiles(self) -> None:
@@ -45,6 +47,7 @@ class ConfigTests(unittest.TestCase):
         self.assertIn("nllb_200", assets)
         self.assertIn("sagui_7b", assets)
         self.assertIn("sabia_3", assets)
+        self.assertIn("llamantino_2_ultrachat_7b", assets)
         self.assertEqual(select_assets(groups=["translation"])[0].group, "translation")
         self.assertEqual({asset.name for asset in select_assets(groups=["jailbreaks"])}, {"strongreject", "multijail"})
         status = asset_status(assets["nllb_200"])
@@ -146,6 +149,33 @@ class MetricsTests(unittest.TestCase):
         self.assertEqual(enriched[0]["token_inflation"], 1.0)
         self.assertEqual(enriched[1]["input_tokens"], 4)
         self.assertEqual(enriched[1]["token_inflation"], 2.0)
+
+    def test_prereg_distance_slope_retention(self) -> None:
+        rows = [
+            {
+                "model": "llamantino_2_ultrachat_7b",
+                "model_pair_language": "ita",
+                "model_alignment_pole": "weak",
+                "distance": distance,
+                "unsafe_binary": unsafe,
+                "excluded": False,
+            }
+            for distance, unsafe in [(0.0, 0), (0.0, 0), (1.0, 1), (1.0, 1)]
+        ] + [
+            {
+                "model": "llamantino_anita_8b",
+                "model_pair_language": "ita",
+                "model_alignment_pole": "strong",
+                "distance": distance,
+                "unsafe_binary": unsafe,
+                "excluded": False,
+            }
+            for distance, unsafe in [(0.0, 0), (0.0, 0), (1.0, 1), (1.0, 1)]
+        ]
+        pair_rows = prereg_distance_slope_retention(rows)
+        self.assertTrue(pair_rows[0]["slope_sign_retained"])
+        summary = prereg_falsification_summary(rows)
+        self.assertEqual(summary[0]["pairs_with_slope_sign_retained"], 1)
 
 
 class GenerationTests(unittest.TestCase):

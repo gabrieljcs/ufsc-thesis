@@ -136,19 +136,27 @@ assets:
     groups: [targets, api_targets]
     repo_id: sabia-3
     description: "Portuguese-aligned Sabiá-3 target model served by the Maritaca API."
-  fauno:
+  llamantino_2_ultrachat_7b:
     kind: hf_model
     group: targets
     groups: [targets]
-    repo_id: andreabac3/Fauno-Italian-LLM-7B
-    local_dir: assets/models/fauno-italian-llm-7b
-    required_files: [assets/models/fauno-italian-llm-7b/adapter_config.json, assets/models/fauno-italian-llm-7b/adapter_model.bin]
+    repo_id: swap-uniba/LLaMAntino-2-chat-7b-hf-UltraChat-ITA
+    local_dir: assets/models/llamantino-2-chat-7b-hf-ultrachat-ita
+    required_files: [assets/models/llamantino-2-chat-7b-hf-ultrachat-ita/config.json]
+    required_any_files: [[assets/models/llamantino-2-chat-7b-hf-ultrachat-ita/model.safetensors.index.json, assets/models/llamantino-2-chat-7b-hf-ultrachat-ita/model.safetensors]]
     allow_patterns:
       - .gitattributes
       - README.md
-      - adapter_config.json
-      - adapter_model.bin
-    description: "Italian-aligned target model."
+      - config.json
+      - generation_config.json
+      - tokenizer_config.json
+      - special_tokens_map.json
+      - tokenizer.json
+      - tokenizer.model
+      - model.safetensors
+      - model-*.safetensors
+      - model.safetensors.index.json
+    description: "Italian weak-pole merged LLaMAntino-2 UltraChat SFT target model."
   llamantino_anita_8b:
     kind: hf_model
     group: targets
