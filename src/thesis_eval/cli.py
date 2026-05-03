@@ -295,18 +295,50 @@ def cmd_translation_qc(args: argparse.Namespace) -> None:
 
 
 def cmd_prompt_roundtrip(args: argparse.Namespace) -> None:
-    logs = load_translation_logs(Path(args.translations))
-    updated = attach_prompt_roundtrip(
-        logs,
-        engine=args.engine,
-        checkpoint=args.checkpoint,
-        device=args.device,
-        dtype=args.dtype,
-        pass_threshold=args.pass_threshold,
-        fail_threshold=args.fail_threshold,
-    )
-    write_jsonl(Path(args.output), updated)
-    print(f"Wrote {len(updated)} translation logs with round-trip diagnostics to {args.output}")
+    translation_paths = [Path(path) for path in args.translations]
+    if not args.output and not args.output_dir:
+        raise ValueError("prompt-roundtrip requires --output or --output-dir.")
+    if len(translation_paths) > 1 and args.output:
+        raise ValueError("Use --output-dir for multi-file round-trip; --output is only for a single input file.")
+
+    groups: list[tuple[Path, list[dict[str, object]]]] = []
+    for translation_path in translation_paths:
+        groups.append((translation_path, load_translation_logs(translation_path)))
+
+    translator = None
+    if args.engine == "nllb" and any(
+        str(log["target_language"]) != "eng" for _, group_logs in groups for log in group_logs
+    ):
+        translator = NllbTranslator(checkpoint=args.checkpoint, device=args.device, dtype=args.dtype)
+
+    written: dict[str, str] = {}
+    for input_path, group_logs in groups:
+        with step(f"prompt round-trip {input_path}"):
+            updated = attach_prompt_roundtrip(
+                group_logs,
+                engine=args.engine,
+                checkpoint=args.checkpoint,
+                device=args.device,
+                dtype=args.dtype,
+                pass_threshold=args.pass_threshold,
+                fail_threshold=args.fail_threshold,
+                translator=translator,
+            )
+        if args.output_dir:
+            output_path = _language_output_path(
+                args.output_dir,
+                args.output_template,
+                _single_target_language(updated),
+                input_path,
+                model=None,
+            )
+        else:
+            output_path = Path(args.output)
+        write_jsonl(output_path, updated)
+        written[str(output_path)] = str(len(updated))
+        print(f"Wrote {len(updated)} round-trip records to {output_path}")
+    if len(written) > 1:
+        print(json.dumps(written, ensure_ascii=False, indent=2, sort_keys=True))
 
 
 def cmd_prewarm_sonar(args: argparse.Namespace) -> None:
@@ -699,8 +731,10 @@ def build_parser() -> argparse.ArgumentParser:
     qc.set_defaults(func=cmd_translation_qc)
 
     roundtrip = sub.add_parser("prompt-roundtrip")
-    roundtrip.add_argument("--translations", required=True)
-    roundtrip.add_argument("--output", required=True)
+    roundtrip.add_argument("--translations", action="append", required=True)
+    roundtrip.add_argument("--output")
+    roundtrip.add_argument("--output-dir")
+    roundtrip.add_argument("--output-template", default="{stem}.roundtrip.jsonl")
     roundtrip.add_argument("--engine", choices=["placeholder", "nllb"], default="placeholder")
     roundtrip.add_argument("--checkpoint", default="facebook/nllb-200-distilled-600M")
     roundtrip.add_argument("--device", choices=["auto", "cpu", "mps", "cuda"], default="auto")

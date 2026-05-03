@@ -25,12 +25,13 @@ def attach_prompt_roundtrip(
     dtype: str = "auto",
     pass_threshold: float = 0.60,
     fail_threshold: float = 0.35,
+    translator: NllbTranslator | None = None,
 ) -> list[dict[str, Any]]:
-    translator = None
-    if engine == "nllb":
-        translator = NllbTranslator(checkpoint=checkpoint, device=device, dtype=dtype)
-    elif engine != "placeholder":
-        raise ValueError(f"Unknown back-translation engine {engine!r}")
+    if translator is None:
+        if engine == "nllb":
+            translator = NllbTranslator(checkpoint=checkpoint, device=device, dtype=dtype)
+        elif engine != "placeholder":
+            raise ValueError(f"Unknown back-translation engine {engine!r}")
 
     output: list[dict[str, Any]] = []
     for log in logs:

@@ -397,19 +397,20 @@ uv run thesis-eval translate `
 
 ## 7. Run Round-Trip Diagnostics and BLASER QC
 
-Round-trip diagnostics back-translate prompts for inspection. BLASER assigns reference-free QE scores and pass/flag/fail status. These steps run over all language files produced in Step 6.
+Round-trip diagnostics back-translate prompts for inspection. BLASER assigns reference-free QE scores and pass/flag/fail status. Both `prompt-roundtrip` and `translation-qc` accept multiple `--translations` paths and `--output-dir`/`--output-template`, so each command loads its model (NLLB-3.3B for round-trip, BLASER+SONAR for QC) once and processes all 13 languages in a single process.
 
 Full run:
 
 ```powershell
-foreach ($lang in $LANGUAGES) {
-  uv run thesis-eval-gpu prompt-roundtrip `
-    --translations "outputs/translations/$lang.raw.jsonl" `
-    --engine nllb `
-    --checkpoint "$NLLB" `
-    --device "$DEVICE" `
-    --output "outputs/translations/$lang.roundtrip.jsonl"
-}
+$RawArgs = foreach ($lang in $LANGUAGES) { "--translations"; "outputs/translations/$lang.raw.jsonl" }
+
+uv run thesis-eval-gpu prompt-roundtrip `
+  @RawArgs `
+  --engine nllb `
+  --checkpoint "$NLLB" `
+  --device "$DEVICE" `
+  --output-dir outputs/translations `
+  --output-template "{lang}.roundtrip.jsonl"
 
 $RoundtripArgs = foreach ($lang in $LANGUAGES) { "--translations"; "outputs/translations/$lang.roundtrip.jsonl" }
 
