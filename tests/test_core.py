@@ -366,7 +366,9 @@ class UrielTests(unittest.TestCase):
             matrix, metadata = compute_urielplus_matrix_uv(["por", "eng"])
         command = run.call_args.args[0]
         self.assertEqual(command[:4], ["uv", "run", "--quiet", "--script"])
-        self.assertTrue(command[4].endswith("scripts/compute_urielplus.py"))
+        script_path = Path(command[4])
+        self.assertEqual(script_path.name, "compute_urielplus.py")
+        self.assertEqual(script_path.parent.name, "scripts")
         self.assertEqual(matrix["por"]["eng"], 0.25)
         self.assertEqual(metadata["execution_backend"], "uv")
 
