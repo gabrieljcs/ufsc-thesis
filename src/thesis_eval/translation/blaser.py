@@ -33,16 +33,28 @@ class BlaserScorer:
             )
         if self.device:
             self._blaser = self._blaser.to(self.device)
+        self._embed_cache: dict[tuple[str, str], "torch.Tensor"] = {}
+
+    def _embed(self, texts: list[str], lang_code: str, label: str) -> "torch.Tensor":
+        cache_keys = [(text, lang_code) for text in texts]
+        uncached = [(i, key[0]) for i, key in enumerate(cache_keys) if key not in self._embed_cache]
+        if uncached:
+            uncached_texts = [text for _, text in uncached]
+            with step(f"embed {len(uncached_texts)} {label} ({lang_code})"):
+                new_embs = self._embedder.predict(uncached_texts, source_lang=lang_code)
+            for (i, _), emb in zip(uncached, new_embs, strict=True):
+                self._embed_cache[cache_keys[i]] = emb
+        else:
+            info(f"reuse cached embeddings for {len(texts)} {label} ({lang_code})")
+        return self._torch.stack([self._embed_cache[key] for key in cache_keys])
 
     def score(self, source_texts: list[str], translated_texts: list[str], target_language: str) -> list[float]:
         if len(source_texts) != len(translated_texts):
             raise ValueError("source_texts and translated_texts must have the same length")
         source_lang = NLLB_CODES["eng"]
         target_lang = NLLB_CODES[target_language]
-        with step(f"embed {len(source_texts)} source texts ({source_lang})"):
-            src_embs = self._embedder.predict(source_texts, source_lang=source_lang)
-        with step(f"embed {len(translated_texts)} translated texts ({target_lang})"):
-            mt_embs = self._embedder.predict(translated_texts, source_lang=target_lang)
+        src_embs = self._embed(source_texts, source_lang, "source texts")
+        mt_embs = self._embed(translated_texts, target_lang, "translated texts")
         if self.device:
             src_embs = src_embs.to(self.device)
             mt_embs = mt_embs.to(self.device)
