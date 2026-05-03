@@ -445,6 +445,8 @@ uv run thesis-eval-gpu translation-qc `
 
 Create audit queues for bilingual review. Reviewers fill the exported CSV files with audit decisions and XSTS notes. The import command writes audited translation logs for generation.
 
+Audit queues are written as UTF-8 with BOM so Excel on Windows auto-detects encoding. **Tell reviewers to "Save As → CSV UTF-8 (Comma delimited) (*.csv)" — not the plain "CSV (Comma delimited)" option** — otherwise Excel will save as cp1252 and mangle non-ASCII characters on the way back in.
+
 Full audit queue export:
 
 ```powershell
@@ -470,21 +472,13 @@ foreach ($lang in $LANGUAGES) {
 
 The `.audit.jsonl` files are the prompt files used for model generation.
 
-Calibrate BLASER thresholds from the reviewed subset:
+Calibrate BLASER thresholds from the reviewed subset (`calibrate-blaser` accepts multiple `--audit-csv` arguments; no manual concat is needed):
 
 ```powershell
-$first = $true
-Get-ChildItem outputs/audit/*.xsts_decisions.csv | ForEach-Object {
-  if ($first) {
-    Get-Content $_
-    $first = $false
-  } else {
-    Get-Content $_ | Select-Object -Skip 1
-  }
-} | Set-Content outputs/audit/all_xsts_decisions.csv
+$AuditArgs = foreach ($lang in $LANGUAGES) { "--audit-csv"; "outputs/audit/$lang.xsts_decisions.csv" }
 
 uv run thesis-eval calibrate-blaser `
-  --audit-csv outputs/audit/all_xsts_decisions.csv `
+  @AuditArgs `
   --output outputs/audit/blaser_thresholds.json
 ```
 

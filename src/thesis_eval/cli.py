@@ -685,7 +685,11 @@ def cmd_import_audit(args: argparse.Namespace) -> None:
 
 
 def cmd_calibrate_blaser(args: argparse.Namespace) -> None:
-    rows = read_csv_dicts(Path(args.audit_csv)) if args.audit_csv.endswith(".csv") else read_jsonl(Path(args.audit_csv))
+    rows: list[dict[str, Any]] = []
+    for path_str in args.audit_csv:
+        path = Path(path_str)
+        chunk = read_csv_dicts(path) if path.suffix == ".csv" else read_jsonl(path)
+        rows.extend(chunk)
     result = calibrate_blaser_thresholds(rows)
     output = Path(args.output)
     output.parent.mkdir(parents=True, exist_ok=True)
@@ -925,7 +929,7 @@ def build_parser() -> argparse.ArgumentParser:
     audit_import.set_defaults(func=cmd_import_audit)
 
     calibrate = sub.add_parser("calibrate-blaser")
-    calibrate.add_argument("--audit-csv", required=True)
+    calibrate.add_argument("--audit-csv", action="append", required=True)
     calibrate.add_argument("--output", required=True)
     calibrate.set_defaults(func=cmd_calibrate_blaser)
 
