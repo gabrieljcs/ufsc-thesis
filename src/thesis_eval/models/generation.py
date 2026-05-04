@@ -148,6 +148,8 @@ def generate_outputs(
     dtype: str = "auto",
     trust_remote_code: bool = False,
     stream: bool = False,
+    gpu_batch_size: int = 1,
+    max_input_length: int | None = None,
 ) -> list[Any]:
     runner = build_generation_runner(
         model_ref,
@@ -159,6 +161,8 @@ def generate_outputs(
         trust_remote_code=trust_remote_code,
         stream=stream,
         prompt_texts=prompts,
+        gpu_batch_size=gpu_batch_size,
+        max_input_length=max_input_length,
     )
     return runner(prompts)
 
@@ -174,6 +178,8 @@ def build_generation_runner(
     trust_remote_code: bool = False,
     stream: bool = False,
     prompt_texts: list[str] | None = None,
+    gpu_batch_size: int = 1,
+    max_input_length: int | None = None,
 ) -> Callable[[list[str]], list[Any]]:
     if backend == "mock":
         return lambda prompts: ["[mock target response: replace with local model output before research use.]" for _ in prompts]
@@ -194,6 +200,8 @@ def build_generation_runner(
             dtype=dtype,
             trust_remote_code=trust_remote_code,
             stream=stream,
+            batch_size=gpu_batch_size,
+            max_input_length=max_input_length,
         )
     if backend == "maritaca":
         return lambda prompts: generate_with_maritaca(
@@ -222,6 +230,8 @@ def build_generation_runner(
             dtype=dtype,
             trust_remote_code=trust_remote_code,
             stream=stream,
+            batch_size=gpu_batch_size,
+            max_input_length=max_input_length,
         )
     raise ValueError(f"Unknown generation backend {backend!r}")
 
@@ -507,6 +517,8 @@ def generate_with_transformers(
     dtype: str = "auto",
     trust_remote_code: bool = False,
     stream: bool = False,
+    batch_size: int = 1,
+    max_input_length: int | None = None,
 ) -> list[str]:
     return _build_transformers_runner(
         model_ref,
@@ -516,6 +528,8 @@ def generate_with_transformers(
         dtype=dtype,
         trust_remote_code=trust_remote_code,
         stream=stream,
+        batch_size=batch_size,
+        max_input_length=max_input_length,
     )(prompts)
 
 
@@ -528,6 +542,8 @@ def _build_transformers_runner(
     dtype: str = "auto",
     trust_remote_code: bool = False,
     stream: bool = False,
+    batch_size: int = 1,
+    max_input_length: int | None = None,
 ) -> Callable[[list[str]], list[str]]:
     try:
         import torch
@@ -536,11 +552,24 @@ def _build_transformers_runner(
     except ImportError as exc:
         raise RuntimeError("Transformers generation requires torch and transformers. Install the mac or rtx extras.") from exc
 
+    if batch_size < 1:
+        raise ValueError(f"batch_size must be >= 1; got {batch_size}")
+    if stream and batch_size != 1:
+        raise RuntimeError("Streaming generation requires batch_size=1.")
+
     resolved_device = _resolve_device(device)
     model_dtype = _resolve_dtype(dtype, resolved_device)
     xla_model = _load_xla_model_module(resolved_device)
     model_device: Any = xla_model.xla_device() if xla_model is not None else resolved_device
     tokenizer = AutoTokenizer.from_pretrained(model_ref, trust_remote_code=trust_remote_code, local_files_only=_is_local_model_ref(model_ref))
+    # Causal-LM batched generation requires left-padding so all prompts end at the
+    # same column before the first new token.
+    tokenizer.padding_side = "left"
+    if tokenizer.pad_token_id is None:
+        if tokenizer.eos_token_id is None:
+            raise RuntimeError(f"Tokenizer for {model_ref} has neither pad_token nor eos_token; cannot batch.")
+        tokenizer.pad_token = tokenizer.eos_token
+        tokenizer.pad_token_id = tokenizer.eos_token_id
     model = AutoModelForCausalLM.from_pretrained(
         model_ref,
         dtype=model_dtype,
@@ -554,7 +583,7 @@ def _build_transformers_runner(
     else:
         info("Keeping model on CPU")
     model.eval()
-    info(f"Model ready on device={resolved_device}; starting generation loop")
+    info(f"Model ready on device={resolved_device}; starting generation loop (batch_size={batch_size})")
     prompt_metadata = prompt_format_metadata_for_tokenizer(tokenizer)
     info(
         "Prompt formatting "
@@ -567,22 +596,49 @@ def _build_transformers_runner(
     if stream and xla_model is not None:
         raise RuntimeError("Streaming generation is not supported on XLA/TPU devices.")
 
-    def _run(prompts: list[str]) -> list[str]:
-        outputs: list[str] = []
-        for index, prompt in enumerate(prompts, start=1):
-            info(f"Generating prompt {index}/{len(prompts)} with max_tokens={max_tokens}")
-            input_text = _format_prompt(tokenizer, prompt)
-            encoded = tokenizer(input_text, return_tensors="pt")
-            if resolved_device != "cpu":
-                encoded = {key: value.to(model_device) for key, value in encoded.items()}
-            generation_kwargs = {
-                **encoded,
-                "max_new_tokens": max_tokens,
-                "do_sample": do_sample,
-                "temperature": temperature if do_sample else None,
-                "pad_token_id": tokenizer.eos_token_id,
-            }
-            if stream:
+    # Resolve fixed input length. On XLA, dynamic padded shapes trigger HLO
+    # recompiles per unique length, which is catastrophic for throughput. Lock
+    # to a fixed length when XLA is active and the caller did not specify one.
+    effective_max_input_length = max_input_length
+    if effective_max_input_length is None and xla_model is not None:
+        config_max = getattr(getattr(model, "config", None), "max_position_embeddings", None)
+        if isinstance(config_max, int) and config_max > max_tokens:
+            effective_max_input_length = min(config_max - max_tokens, 4096)
+        else:
+            effective_max_input_length = 2048
+        info(f"XLA shape-stability: fixing input length to {effective_max_input_length} tokens")
+
+    def _tokenize_batch(input_texts: list[str]) -> dict[str, Any]:
+        kwargs: dict[str, Any] = {"return_tensors": "pt", "truncation": True}
+        if effective_max_input_length is not None:
+            kwargs["padding"] = "max_length"
+            kwargs["max_length"] = effective_max_input_length
+        else:
+            kwargs["padding"] = True
+        encoded = tokenizer(input_texts, **kwargs)
+        if resolved_device != "cpu":
+            encoded = {key: value.to(model_device) for key, value in encoded.items()}
+        else:
+            encoded = dict(encoded)
+        return encoded
+
+    if stream:
+        # Single-prompt streaming path (batch_size==1 verified above).
+        def _run_stream(prompts: list[str]) -> list[str]:
+            outputs: list[str] = []
+            for index, prompt in enumerate(prompts, start=1):
+                info(f"Generating prompt {index}/{len(prompts)} with max_tokens={max_tokens}")
+                input_text = _format_prompt(tokenizer, prompt)
+                encoded = tokenizer(input_text, return_tensors="pt")
+                if resolved_device != "cpu":
+                    encoded = {key: value.to(model_device) for key, value in encoded.items()}
+                generation_kwargs = {
+                    **encoded,
+                    "max_new_tokens": max_tokens,
+                    "do_sample": do_sample,
+                    "temperature": temperature if do_sample else None,
+                    "pad_token_id": tokenizer.pad_token_id,
+                }
                 streamer = TextIteratorStreamer(tokenizer, skip_prompt=True, skip_special_tokens=True)
                 generation_kwargs["streamer"] = streamer
                 pieces: list[str] = []
@@ -603,14 +659,39 @@ def _build_transformers_runner(
                 sys.stderr.write("\n[thesis-eval] END STREAM\n")
                 sys.stderr.flush()
                 outputs.append("".join(pieces).strip())
-            else:
-                with step(f"generate prompt {index}/{len(prompts)}"):
-                    with torch.no_grad():
-                        generated = model.generate(**generation_kwargs)
-                if xla_model is not None:
-                    xla_model.mark_step()
-                    generated = generated.cpu()
-                new_tokens = generated[0][encoded["input_ids"].shape[-1] :]
+            return outputs
+
+        return _run_stream
+
+    def _run(prompts: list[str]) -> list[str]:
+        outputs: list[str] = []
+        total = len(prompts)
+        for batch_start in range(0, total, batch_size):
+            batch_prompts = prompts[batch_start : batch_start + batch_size]
+            batch_index = batch_start // batch_size + 1
+            num_batches = (total + batch_size - 1) // batch_size
+            info(
+                f"Generating batch {batch_index}/{num_batches} "
+                f"({len(batch_prompts)} prompt(s), max_tokens={max_tokens})"
+            )
+            input_texts = [_format_prompt(tokenizer, prompt) for prompt in batch_prompts]
+            encoded = _tokenize_batch(input_texts)
+            generation_kwargs = {
+                **encoded,
+                "max_new_tokens": max_tokens,
+                "do_sample": do_sample,
+                "temperature": temperature if do_sample else None,
+                "pad_token_id": tokenizer.pad_token_id,
+            }
+            with step(f"generate batch {batch_index}/{num_batches} (size={len(batch_prompts)})"):
+                with torch.no_grad():
+                    generated = model.generate(**generation_kwargs)
+            if xla_model is not None:
+                xla_model.mark_step()
+                generated = generated.cpu()
+            input_length = encoded["input_ids"].shape[1]
+            for row in generated:
+                new_tokens = row[input_length:]
                 outputs.append(str(tokenizer.decode(new_tokens, skip_special_tokens=True)).strip())
         return outputs
 

@@ -423,6 +423,9 @@ def cmd_generate_targets(args: argparse.Namespace) -> None:
     dtype = args.dtype or (profile.dtype if profile else "auto")
     model_ref = _resolve_model_ref(args.model, args.model_path)
     local_batch_size = _resolve_local_generation_batch_size(args.local_batch_size, backend)
+    gpu_batch_size = _resolve_gpu_batch_size(
+        args.gpu_batch_size, backend, default=_DEFAULT_TRANSFORMERS_GPU_BATCH_SIZE_GENERATE
+    )
     prompt_metadata = describe_prompt_format(model_ref, backend=backend)
     translation_paths = [Path(path) for path in args.translations]
     groups: list[tuple[Path, Path, list[dict[str, Any]]]] = []
@@ -493,9 +496,14 @@ def cmd_generate_targets(args: argparse.Namespace) -> None:
                     trust_remote_code=args.trust_remote_code,
                     stream=args.stream,
                     prompt_texts=[str(row["prompt_text"]) for row in rows],
+                    gpu_batch_size=gpu_batch_size,
+                    max_input_length=args.max_input_length,
                 )
             info("Reusing initialized local backend across language files; the model will not reload between batches.")
-            info(f"Local generation batch size={local_batch_size} for backend={backend}")
+            info(
+                f"Local generation batch size={local_batch_size} (checkpoint), "
+                f"gpu batch size={gpu_batch_size} for backend={backend}"
+            )
         written: dict[str, str] = {}
         total_groups = len(groups)
         for group_index, (input_path, output_path, group_rows) in enumerate(groups, start=1):
@@ -534,6 +542,8 @@ def cmd_generate_targets(args: argparse.Namespace) -> None:
                     tokenizer_metric_map=tokenizer_metric_map,
                     force=args.force,
                     local_batch_size=local_batch_size,
+                    gpu_batch_size=gpu_batch_size,
+                    max_input_length=args.max_input_length,
                 )
             written[str(output_path)] = str(count)
             print(f"Wrote {count} target generations to {output_path}", flush=True)
@@ -558,8 +568,13 @@ def cmd_generate_targets(args: argparse.Namespace) -> None:
                     trust_remote_code=args.trust_remote_code,
                     stream=args.stream,
                     prompt_texts=[str(row["prompt_text"]) for row in rows],
+                    gpu_batch_size=gpu_batch_size,
+                    max_input_length=args.max_input_length,
                 )
-            info(f"Local generation batch size={local_batch_size} for backend={backend}")
+            info(
+                f"Local generation batch size={local_batch_size} (checkpoint), "
+                f"gpu batch size={gpu_batch_size} for backend={backend}"
+            )
         output_path = Path(args.output)
         partial_path = _partial_output_path(output_path)
         count = _generate_group_checkpointed(
@@ -580,6 +595,8 @@ def cmd_generate_targets(args: argparse.Namespace) -> None:
             tokenizer_metric_map=tokenizer_metric_map,
             force=args.force,
             local_batch_size=local_batch_size,
+            gpu_batch_size=gpu_batch_size,
+            max_input_length=args.max_input_length,
         )
         print(f"Wrote {count} target generations to {args.output}")
 
@@ -596,6 +613,9 @@ def cmd_predict_belebele(args: argparse.Namespace) -> None:
     dtype = args.dtype or (profile.dtype if profile else "auto")
     model_ref = _resolve_model_ref(args.model, args.model_path)
     local_batch_size = _resolve_local_generation_batch_size(args.local_batch_size, backend)
+    gpu_batch_size = _resolve_gpu_batch_size(
+        args.gpu_batch_size, backend, default=_DEFAULT_TRANSFORMERS_GPU_BATCH_SIZE_BELEBELE
+    )
     dataset_dir = _resolve_belebele_dataset_dir(args.dataset_dir)
     prompt_metadata = describe_prompt_format(model_ref, backend=backend)
     languages = list(args.language) if args.language else list(cfg.attack_languages)
@@ -650,8 +670,13 @@ def cmd_predict_belebele(args: argparse.Namespace) -> None:
                 trust_remote_code=args.trust_remote_code,
                 stream=False,
                 prompt_texts=all_prompts,
+                gpu_batch_size=gpu_batch_size,
+                max_input_length=args.max_input_length,
             )
-        info(f"BELEBELE local batch size={local_batch_size} for backend={backend}")
+        info(
+            f"BELEBELE local batch size={local_batch_size} (checkpoint), "
+            f"gpu batch size={gpu_batch_size} for backend={backend}"
+        )
     if args.output_dir:
         total_groups = len(groups)
         written: dict[str, str] = {}
@@ -685,6 +710,8 @@ def cmd_predict_belebele(args: argparse.Namespace) -> None:
                     mock_output=args.mock_output,
                     force=args.force,
                     local_batch_size=local_batch_size,
+                    gpu_batch_size=gpu_batch_size,
+                    max_input_length=args.max_input_length,
                 )
             written[str(output_path)] = str(count)
             print(f"Wrote {count} BELEBELE predictions to {output_path}")
@@ -721,6 +748,8 @@ def cmd_predict_belebele(args: argparse.Namespace) -> None:
             mock_output=args.mock_output,
             force=args.force,
             local_batch_size=local_batch_size,
+            gpu_batch_size=gpu_batch_size,
+            max_input_length=args.max_input_length,
         )
     print(f"Wrote {count} BELEBELE predictions to {args.output}")
 
@@ -966,6 +995,8 @@ def _generate_group_checkpointed(
     tokenizer_metric_map: dict[str, dict[str, Any]],
     force: bool,
     local_batch_size: int,
+    gpu_batch_size: int = 1,
+    max_input_length: int | None = None,
 ) -> int:
     if force and partial_path.exists():
         partial_path.unlink()
@@ -1011,6 +1042,8 @@ def _generate_group_checkpointed(
                         dtype=dtype,
                         trust_remote_code=trust_remote_code,
                         stream=stream,
+                        gpu_batch_size=gpu_batch_size,
+                        max_input_length=max_input_length,
                     )
             chunk_elapsed = perf_counter() - chunk_started
             chunk_output_chars = sum(len(_extract_output_text(item)) for item in outputs)
@@ -1064,6 +1097,8 @@ def _predict_belebele_group_checkpointed(
     mock_output: str | None,
     force: bool,
     local_batch_size: int,
+    gpu_batch_size: int = 1,
+    max_input_length: int | None = None,
 ) -> int:
     if len(prediction_rows) != len(prompts):
         raise ValueError("BELEBELE prompt count and prediction row count differ")
@@ -1107,6 +1142,8 @@ def _predict_belebele_group_checkpointed(
                         dtype=dtype,
                         trust_remote_code=trust_remote_code,
                         stream=False,
+                        gpu_batch_size=gpu_batch_size,
+                        max_input_length=max_input_length,
                     )
         append_jsonl(partial_path, attach_belebele_predictions(chunk_rows, outputs))
     final_count = len(completed_rows) + len(remaining_rows)
@@ -1168,6 +1205,23 @@ def _resolve_local_generation_batch_size(requested: int | None, backend: str) ->
     if backend == "vllm":
         return _DEFAULT_VLLM_LOCAL_GENERATION_CHECKPOINT_BATCH_SIZE
     return _DEFAULT_LOCAL_GENERATION_CHECKPOINT_BATCH_SIZE
+
+
+_DEFAULT_TRANSFORMERS_GPU_BATCH_SIZE_GENERATE = 8
+_DEFAULT_TRANSFORMERS_GPU_BATCH_SIZE_BELEBELE = 32
+
+
+def _resolve_gpu_batch_size(requested: int | None, backend: str, *, default: int) -> int:
+    if requested is not None:
+        if requested < 1:
+            raise ValueError("--gpu-batch-size must be at least 1")
+        return requested
+    # vLLM has its own continuous-batching engine; the on-device batch size is
+    # not user-controlled. Mock/maritaca don't use a GPU batch. Only the
+    # transformers backend honors --gpu-batch-size.
+    if backend == "transformers" or backend == "auto":
+        return default
+    return 1
 
 
 def _generate_maritaca_group_checkpointed(
@@ -1560,6 +1614,23 @@ def build_parser() -> argparse.ArgumentParser:
     gen.add_argument("--max-tokens", type=int, default=512)
     gen.add_argument("--max-records", type=int, help="Only generate the first N retained prompts from each translation file.")
     gen.add_argument("--local-batch-size", type=int, help="Local open-weight prompts per checkpointed generation chunk.")
+    gen.add_argument(
+        "--gpu-batch-size",
+        type=int,
+        help=(
+            "Prompts per on-device forward pass for the transformers backend. "
+            "Defaults to 8 for generate-targets. Ignored for vLLM/Maritaca/mock."
+        ),
+    )
+    gen.add_argument(
+        "--max-input-length",
+        type=int,
+        help=(
+            "Fixed input padding length for the batched transformers runner. "
+            "Required on XLA/TPU for shape-stable HLOs; defaults to "
+            "min(model.max_position_embeddings - max_tokens, 4096) on XLA, dynamic elsewhere."
+        ),
+    )
     gen.add_argument("--temperature", type=float, default=0.0)
     gen.add_argument("--trust-remote-code", action="store_true")
     gen.add_argument("--model-path")
@@ -1584,6 +1655,22 @@ def build_parser() -> argparse.ArgumentParser:
     belebele.add_argument("--max-tokens", type=int, default=8)
     belebele.add_argument("--limit", type=int, help="Only score the first N BELEBELE items from each language.")
     belebele.add_argument("--local-batch-size", type=int, help="Local prompts per checkpointed BELEBELE chunk.")
+    belebele.add_argument(
+        "--gpu-batch-size",
+        type=int,
+        help=(
+            "Prompts per on-device forward pass for the transformers backend. "
+            "Defaults to 32 for predict-belebele. Ignored for vLLM/Maritaca/mock."
+        ),
+    )
+    belebele.add_argument(
+        "--max-input-length",
+        type=int,
+        help=(
+            "Fixed input padding length for the batched transformers runner. "
+            "Required on XLA/TPU for shape-stable HLOs."
+        ),
+    )
     belebele.add_argument("--temperature", type=float, default=0.0)
     belebele.add_argument("--trust-remote-code", action="store_true")
     belebele.add_argument("--model-path")
