@@ -422,6 +422,7 @@ def _build_vllm_runner(
         f"max_new_tokens={max_tokens} max_model_len={effective_max_model_len} "
         f"gpu_memory_utilization={effective_gpu_memory_utilization:.2f}"
     )
+    _preflight_model_fits_gpu(model_ref, effective_max_model_len)
     last_error: Exception | None = None
     for attempt in range(1, _MAX_VLLM_INIT_ATTEMPTS + 1):
         try:
@@ -985,6 +986,66 @@ def _query_safe_gpu_memory_fraction() -> float | None:
     if total_bytes <= 0:
         return None
     return max(0.0, (free_bytes / total_bytes) - _VLLM_GPU_MEMORY_UTILIZATION_FREE_MARGIN)
+
+
+def _estimate_model_size_gib(model_ref: str) -> float | None:
+    if not _is_local_model_ref(model_ref):
+        return None
+    path = Path(model_ref)
+    if not path.is_dir():
+        return None
+    shards = list(path.glob("*.safetensors")) + list(path.glob("*.bin"))
+    if not shards:
+        return None
+    return sum(child.stat().st_size for child in shards) / (2**30)
+
+
+def _preflight_model_fits_gpu(model_ref: str, max_model_len: int) -> None:
+    model_size_gib = _estimate_model_size_gib(model_ref)
+    if model_size_gib is None:
+        return
+    try:
+        import torch
+    except ImportError:
+        return
+    if not torch.cuda.is_available():
+        return
+    try:
+        free_bytes, total_bytes = torch.cuda.mem_get_info()
+    except Exception:
+        return
+    if total_bytes <= 0:
+        return
+    free_gib = free_bytes / (2**30)
+    total_gib = total_bytes / (2**30)
+    # Rough overhead: activations + CUDA graph workspace scale with model size.
+    # Empirically ~1.5 GiB for a 7-8B model at fp16/bf16; a tiny KV reservation
+    # keeps the engine able to serve at least one token.
+    activations_gib = 1.5
+    minimum_kv_gib = 0.25
+    needed_gib = model_size_gib + activations_gib + minimum_kv_gib
+    info(
+        f"Pre-flight: model size {model_size_gib:.2f} GiB on disk; "
+        f"GPU free {free_gib:.2f} GiB / total {total_gib:.2f} GiB; "
+        f"need ~{needed_gib:.2f} GiB"
+    )
+    if needed_gib > total_gib:
+        raise RuntimeError(
+            f"Model is too large for this GPU at fp16/bf16: "
+            f"weights {model_size_gib:.2f} GiB + activations ~{activations_gib:.1f} GiB + "
+            f"minimum KV {minimum_kv_gib:.2f} GiB = ~{needed_gib:.2f} GiB needed, "
+            f"but the GPU only has {total_gib:.2f} GiB total. "
+            "No gpu_memory_utilization setting can fix this. "
+            "Use a quantized checkpoint, a smaller model, or a larger GPU."
+        )
+    if needed_gib > free_gib:
+        raise RuntimeError(
+            f"Model is too large to fit in currently free GPU memory: "
+            f"need ~{needed_gib:.2f} GiB, only {free_gib:.2f} GiB free "
+            f"({total_gib - free_gib:.2f} GiB held by other processes). "
+            "Close other GPU-using apps (browsers, Windows desktop accelerators) "
+            "and retry, or use a quantized / smaller model."
+        )
 
 
 def _parse_vllm_free_memory_from_error(error: BaseException) -> tuple[float, float, float | None] | None:
