@@ -10,6 +10,7 @@ from thesis_eval.metrics.spec import add_spec_scores
 
 
 OPTIONS = {"A", "B", "C", "D"}
+OPTION_ORDER = ("A", "B", "C", "D")
 BELEBELE_LANGUAGE_CODES = {
     "ara": "arb_Arab",
     "bul": "bul_Cyrl",
@@ -40,6 +41,39 @@ def parse_choice(text: str) -> str | None:
     matches = re.findall(r"\b([ABCD])\b", value)
     if matches:
         return matches[-1]
+    return None
+
+
+def _normalize_choice_text(text: str) -> str:
+    value = text.strip().casefold()
+    value = re.sub(r"\s+", " ", value)
+    value = re.sub(r"[\"'“”‘’«».,;:!?()\[\]{}]+", "", value)
+    return value.strip()
+
+
+def parse_choice_from_options(text: str, options: dict[str, str]) -> str | None:
+    direct = parse_choice(text)
+    if direct is not None:
+        return direct
+    normalized_text = _normalize_choice_text(text)
+    if not normalized_text:
+        return None
+    exact_matches = [
+        label
+        for label, option_text in options.items()
+        if _normalize_choice_text(option_text) == normalized_text
+    ]
+    if len(exact_matches) == 1:
+        return exact_matches[0]
+    contains_matches = [
+        label
+        for label, option_text in options.items()
+        if (normalized_option := _normalize_choice_text(option_text)) and (
+            normalized_option in normalized_text or normalized_text in normalized_option
+        )
+    ]
+    if len(contains_matches) == 1:
+        return contains_matches[0]
     return None
 
 
@@ -146,6 +180,10 @@ def build_belebele_prediction_rows(
                 "item_id": item_id,
                 "question_number": int(row["question_number"]),
                 "gold": ANSWER_BY_NUMBER[answer_number],
+                "choice_a": str(row["mc_answer1"]),
+                "choice_b": str(row["mc_answer2"]),
+                "choice_c": str(row["mc_answer3"]),
+                "choice_d": str(row["mc_answer4"]),
             }
         )
     return output
@@ -157,7 +195,15 @@ def attach_belebele_predictions(rows: list[dict[str, Any]], outputs: list[Any]) 
     enriched: list[dict[str, Any]] = []
     for row, output in zip(rows, outputs, strict=True):
         text = str(output.get("text", "")) if isinstance(output, dict) else str(output)
-        predicted = parse_choice(text)
+        predicted = parse_choice_from_options(
+            text,
+            {
+                "A": str(row.get("choice_a", "")),
+                "B": str(row.get("choice_b", "")),
+                "C": str(row.get("choice_c", "")),
+                "D": str(row.get("choice_d", "")),
+            },
+        )
         enriched_row = dict(row)
         enriched_row["raw_output"] = text
         enriched_row["prediction"] = predicted if predicted is not None else text.strip()
@@ -177,3 +223,36 @@ def attach_belebele_predictions(rows: list[dict[str, Any]], outputs: list[Any]) 
             enriched_row["generation_completed"] = True
         enriched.append(enriched_row)
     return enriched
+
+
+def repair_belebele_predictions(
+    predictions: list[dict[str, Any]],
+    *,
+    dataset_dir: Path,
+) -> list[dict[str, Any]]:
+    by_language: dict[str, dict[int, dict[str, Any]]] = {}
+    for language in sorted({str(row["language"]) for row in predictions}):
+        dataset_rows = load_belebele_rows(dataset_dir, language)
+        by_language[language] = {int(row["question_number"]): row for row in dataset_rows}
+    repaired: list[dict[str, Any]] = []
+    for row in predictions:
+        language = str(row["language"])
+        question_number = int(row["question_number"])
+        dataset_row = by_language[language][question_number]
+        choice_map = {
+            "A": str(dataset_row["mc_answer1"]),
+            "B": str(dataset_row["mc_answer2"]),
+            "C": str(dataset_row["mc_answer3"]),
+            "D": str(dataset_row["mc_answer4"]),
+        }
+        raw_output = str(row.get("raw_output", row.get("prediction", "")))
+        predicted = parse_choice_from_options(raw_output, choice_map)
+        updated = dict(row)
+        updated["choice_a"] = choice_map["A"]
+        updated["choice_b"] = choice_map["B"]
+        updated["choice_c"] = choice_map["C"]
+        updated["choice_d"] = choice_map["D"]
+        updated["prediction"] = predicted if predicted is not None else raw_output.strip()
+        updated["predicted_choice"] = predicted
+        repaired.append(updated)
+    return repaired

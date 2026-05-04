@@ -29,6 +29,8 @@ from thesis_eval.benchmarks.belebele import (
     compute_if_cons,
     load_belebele_rows,
     parse_choice,
+    parse_choice_from_options,
+    repair_belebele_predictions,
     resolve_belebele_language_code,
 )
 from thesis_eval.evaluation.strongreject import score_generation_rows
@@ -585,6 +587,13 @@ class DatasetBuilderTests(unittest.TestCase):
 class BelebeleTests(unittest.TestCase):
     def test_parse_choice_and_compute_spec(self) -> None:
         self.assertEqual(parse_choice("Answer: B"), "B")
+        self.assertEqual(
+            parse_choice_from_options(
+                "Alessandro Safina è italiano",
+                {"A": "Un cantante francese", "B": "Alessandro Safina è italiano", "C": "Un atleta", "D": "Uno scrittore"},
+            ),
+            "B",
+        )
         predictions = [
             {"model": "sagui_7b", "language": "por", "item_id": "i1", "prediction": "A", "gold": "A"},
             {"model": "sagui_7b", "language": "ara", "item_id": "i1", "prediction": "B", "gold": "A"},
@@ -623,6 +632,7 @@ class BelebeleTests(unittest.TestCase):
         self.assertIn("Pergunta?", prompt)
         self.assertEqual(predictions[0]["gold"], "B")
         self.assertEqual(predictions[0]["item_id"], "belebele_0001")
+        self.assertEqual(predictions[0]["choice_b"], "A2")
 
     def test_cli_predict_belebele_writes_predictions(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
@@ -824,6 +834,93 @@ class BelebeleTests(unittest.TestCase):
         self.assertEqual(len(rows), 2)
         self.assertEqual(rows[0]["prediction"], "B")
         self.assertEqual(rows[1]["prediction"], "C")
+
+    def test_repair_belebele_predictions_recovers_option_text_answers(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            tmp_path = Path(tmp)
+            data_dir = tmp_path / "data"
+            data_dir.mkdir()
+            dataset_row = {
+                "question_number": 1,
+                "flores_passage": "Passage",
+                "question": "Question?",
+                "mc_answer1": "Paris",
+                "mc_answer2": "Rome",
+                "mc_answer3": "Madrid",
+                "mc_answer4": "Berlin",
+                "correct_answer_num": "1",
+                "dialect": "eng_Latn",
+            }
+            write_jsonl(data_dir / "eng_Latn.jsonl", [dataset_row])
+            repaired = repair_belebele_predictions(
+                [
+                    {
+                        "model": "llamantino_2_ultrachat_7b",
+                        "language": "eng",
+                        "item_id": "belebele_0001",
+                        "question_number": 1,
+                        "gold": "A",
+                        "raw_output": "Rome",
+                        "prediction": "Rome",
+                    }
+                ],
+                dataset_dir=tmp_path,
+            )
+        self.assertEqual(repaired[0]["prediction"], "B")
+        self.assertEqual(repaired[0]["predicted_choice"], "B")
+        self.assertEqual(repaired[0]["choice_b"], "Rome")
+
+    def test_cli_repair_belebele_predictions_writes_reparsed_output(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            tmp_path = Path(tmp)
+            data_dir = tmp_path / "belebele" / "data"
+            data_dir.mkdir(parents=True)
+            write_jsonl(
+                data_dir / "eng_Latn.jsonl",
+                [
+                    {
+                        "question_number": 1,
+                        "flores_passage": "Passage",
+                        "question": "Question?",
+                        "mc_answer1": "Paris",
+                        "mc_answer2": "Rome",
+                        "mc_answer3": "Madrid",
+                        "mc_answer4": "Berlin",
+                        "correct_answer_num": "1",
+                        "dialect": "eng_Latn",
+                    }
+                ],
+            )
+            predictions = tmp_path / "dirty.jsonl"
+            write_jsonl(
+                predictions,
+                [
+                    {
+                        "model": "llamantino_2_ultrachat_7b",
+                        "language": "eng",
+                        "item_id": "belebele_0001",
+                        "question_number": 1,
+                        "gold": "A",
+                        "raw_output": "Rome",
+                        "prediction": "Rome",
+                    }
+                ],
+            )
+            output = tmp_path / "clean.jsonl"
+            main(
+                [
+                    "repair-belebele-predictions",
+                    "--predictions",
+                    str(predictions),
+                    "--dataset-dir",
+                    str(tmp_path / "belebele"),
+                    "--output",
+                    str(output),
+                ]
+            )
+            rows = read_jsonl(output)
+        self.assertEqual(rows[0]["prediction"], "B")
+        self.assertEqual(rows[0]["predicted_choice"], "B")
 
 
 class UrielTests(unittest.TestCase):

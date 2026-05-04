@@ -30,6 +30,7 @@ from thesis_eval.benchmarks.belebele import (
     build_belebele_prompt,
     compute_if_cons,
     load_belebele_rows,
+    repair_belebele_predictions,
 )
 from thesis_eval.benchmarks.strongreject import import_strongreject, write_prompt_records
 from thesis_eval.benchmarks.uriel import (
@@ -722,6 +723,14 @@ def cmd_predict_belebele(args: argparse.Namespace) -> None:
             local_batch_size=local_batch_size,
         )
     print(f"Wrote {count} BELEBELE predictions to {args.output}")
+
+
+def cmd_repair_belebele_predictions(args: argparse.Namespace) -> None:
+    dataset_dir = _resolve_belebele_dataset_dir(args.dataset_dir)
+    rows = read_jsonl(Path(args.predictions))
+    repaired = repair_belebele_predictions(rows, dataset_dir=dataset_dir)
+    write_jsonl(Path(args.output), repaired)
+    print(f"Wrote {len(repaired)} repaired BELEBELE predictions to {args.output}")
 
 
 def cmd_attach_tokenizer_metrics(args: argparse.Namespace) -> None:
@@ -1580,6 +1589,12 @@ def build_parser() -> argparse.ArgumentParser:
     belebele.add_argument("--model-path")
     belebele.add_argument("--force", action="store_true", help="Overwrite outputs that already exist.")
     belebele.set_defaults(func=cmd_predict_belebele)
+
+    belebele_repair = sub.add_parser("repair-belebele-predictions")
+    belebele_repair.add_argument("--predictions", required=True)
+    belebele_repair.add_argument("--output", required=True)
+    belebele_repair.add_argument("--dataset-dir", default=str(load_assets()["belebele"].local_dir))
+    belebele_repair.set_defaults(func=cmd_repair_belebele_predictions)
 
     token_metrics = sub.add_parser("attach-tokenizer-metrics")
     token_metrics.add_argument("--generations", required=True)
