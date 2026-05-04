@@ -745,13 +745,50 @@ uv run thesis-eval score-strongreject `
 
 ## 11. Compute BELEBELE IF/CONS/SPEC
 
-BELEBELE measures benign multilingual specialization for the eight paired target models. The English reference baseline is excluded from paired-design GLMMs, so SPEC for `llama3_1_8b_reference` is optional and not required for the main inferential tables. Query each paired target model on the BELEBELE multiple-choice items, then write predictions as JSONL with these fields:
+BELEBELE measures benign multilingual specialization for the eight paired target models. The English reference baseline is excluded from paired-design GLMMs, so SPEC for `llama3_1_8b_reference` is optional and not required for the main inferential tables.
 
-```json
-{"model":"sagui_7b","language":"por","item_id":"belebele_0001","prediction":"A","gold":"A"}
+The repo now includes a first-class `predict-belebele` command. It uses the same model-resolution and native chat-formatting logic as `generate-targets`, but emits multiple-choice prediction rows instead of free-form harmful generations.
+
+On the RTX path:
+
+```powershell
+uv run thesis-eval-gpu predict-belebele `
+  --model sagui_7b `
+  --profile rtx_5070_ti `
+  --backend vllm `
+  --output outputs/spec/sagui_7b.belebele.jsonl
 ```
 
-The prediction file should contain all model-language-item rows needed for IF and CONS. Then compute specialization:
+For Sabiá-3 via the Maritaca API:
+
+```powershell
+uv run thesis-eval predict-belebele `
+  --model sabia_3 `
+  --backend maritaca `
+  --output outputs/spec/sabia_3.belebele.jsonl
+```
+
+On a Google TPU Research Cloud VM:
+
+```bash
+uv run thesis-eval predict-belebele \
+  --model sagui_7b \
+  --profile trc_tpu \
+  --backend transformers \
+  --output outputs/spec/sagui_7b.belebele.jsonl
+```
+
+The TRC profile assumes you are running directly inside the TRC Linux VM and that `torch_xla` is already installed and configured there. This path does not use the RTX Docker wrapper.
+
+Use `--output-dir outputs/spec` plus `--output-template "{model}_{lang}.belebele.jsonl"` if you prefer resumable per-language files. Both single-file and per-language modes write `.partial.jsonl` checkpoints and resume on rerun.
+
+The prediction rows look like this:
+
+```json
+{"model":"sagui_7b","language":"por","item_id":"belebele_0001","prediction":"A","gold":"A","raw_output":"A"}
+```
+
+If you already have predictions from another runtime, any JSONL with at least `model`, `language`, `item_id`, `prediction`, and `gold` still works. Then compute specialization:
 
 ```powershell
 New-Item -ItemType Directory -Force outputs/spec | Out-Null

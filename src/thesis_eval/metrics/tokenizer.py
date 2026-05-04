@@ -3,6 +3,8 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any
 
+from thesis_eval.models.generation import build_prompt_messages, format_generation_prompt
+
 
 def load_tokenizer(model_ref: str, trust_remote_code: bool = False) -> Any:
     try:
@@ -19,12 +21,12 @@ def load_tokenizer(model_ref: str, trust_remote_code: bool = False) -> Any:
 def count_chat_template_tokens(tokenizer: Any, prompt: str) -> int:
     if getattr(tokenizer, "chat_template", None):
         tokenized = tokenizer.apply_chat_template(
-            [{"role": "user", "content": prompt}],
+            build_prompt_messages(tokenizer, prompt),
             tokenize=True,
             add_generation_prompt=True,
         )
         return _token_count(tokenized)
-    tokenized = tokenizer(prompt, add_special_tokens=True)
+    tokenized = tokenizer(format_generation_prompt(tokenizer, prompt), add_special_tokens=True)
     return _token_count(tokenized["input_ids"])
 
 

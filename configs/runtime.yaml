@@ -9,3 +9,13 @@ profiles:
     device: cuda
     dtype: auto
     notes: "Linux Docker path with CUDA 12.8 and vLLM. Use for full local target-model generations."
+  tpu:
+    target_backend: transformers
+    device: xla
+    dtype: bfloat16
+    notes: "PyTorch/XLA path for TPU-backed runs such as BELEBELE multiple-choice prediction."
+  trc_tpu:
+    target_backend: transformers
+    device: xla
+    dtype: bfloat16
+    notes: "Google TPU Research Cloud VM path via PyTorch/XLA. Use for BELEBELE prediction on TRC."

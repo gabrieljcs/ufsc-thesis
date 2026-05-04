@@ -1,7 +1,11 @@
 from __future__ import annotations
 
 import argparse
+import gc
 import json
+import sys
+from collections.abc import Callable
+from time import perf_counter
 from pathlib import Path
 from typing import Any
 
@@ -20,7 +24,13 @@ from thesis_eval.analysis.reporting import (
     tokenizer_diagnostics,
 )
 from thesis_eval.analysis.glmm import fit_main_glmm
-from thesis_eval.benchmarks.belebele import compute_if_cons
+from thesis_eval.benchmarks.belebele import (
+    attach_belebele_predictions,
+    build_belebele_prediction_rows,
+    build_belebele_prompt,
+    compute_if_cons,
+    load_belebele_rows,
+)
 from thesis_eval.benchmarks.strongreject import import_strongreject, write_prompt_records
 from thesis_eval.benchmarks.uriel import (
     compare_matrices,
@@ -36,11 +46,19 @@ from thesis_eval.benchmarks.uriel import (
 from thesis_eval.config import load_config
 from thesis_eval.evaluation.benign import score_benign_rows
 from thesis_eval.evaluation.strongreject import score_generation_rows
-from thesis_eval.io import read_csv_dicts, read_jsonl, write_csv_dicts, write_jsonl
+from thesis_eval.io import append_jsonl, read_csv_dicts, read_jsonl, write_csv_dicts, write_jsonl
 from thesis_eval.metrics.tokenizer import attach_tokenizer_metrics, load_tokenizer
-from thesis_eval.models.generation import attach_outputs, build_generation_rows, estimate_model_asset_state, generate_outputs
+from thesis_eval.models.generation import (
+    attach_outputs,
+    build_generation_runner,
+    build_generation_rows,
+    describe_prompt_format,
+    estimate_model_asset_state,
+    generate_outputs,
+    iter_generate_with_maritaca,
+)
 from thesis_eval.paths import DATA_DIR, OUTPUT_DIR, THESIS_ROOT, ensure_dir
-from thesis_eval.pipeline import enrich_generation_rows, run_mock_pilot
+from thesis_eval.pipeline import run_mock_pilot
 from thesis_eval.progress import info, step
 from thesis_eval.runtime import load_runtime_profiles, resolve_runtime_profile
 from thesis_eval.translation.sonar import prewarm_sonar_text_encoder
@@ -52,6 +70,9 @@ from thesis_eval.translation.log import load_translation_logs, save_translation_
 from thesis_eval.translation.llm_audit import judge_audit_rows
 from thesis_eval.translation.pipeline import NllbTranslator, PromptRecord, apply_translation_qc, run_translation
 from thesis_eval.translation.reference_spbleu import attach_reference_scores
+
+_DEFAULT_LOCAL_GENERATION_CHECKPOINT_BATCH_SIZE = 32
+_DEFAULT_VLLM_LOCAL_GENERATION_CHECKPOINT_BATCH_SIZE = 8
 
 
 def cmd_validate_config(_: argparse.Namespace) -> None:
@@ -393,7 +414,6 @@ def cmd_generate_targets(args: argparse.Namespace) -> None:
     if not args.output and not args.output_dir:
         raise ValueError("generate-targets requires --output or --output-dir.")
     cfg = load_config()
-    assets = load_assets()
     profile = resolve_runtime_profile(args.profile) if args.profile else None
     model_cfg = cfg.models[args.model]
     default_backend = "maritaca" if model_cfg.get("access_mode") == "api" else "auto"
@@ -401,12 +421,29 @@ def cmd_generate_targets(args: argparse.Namespace) -> None:
     device = args.device or (profile.device if profile else "auto")
     dtype = args.dtype or (profile.dtype if profile else "auto")
     model_ref = _resolve_model_ref(args.model, args.model_path)
+    local_batch_size = _resolve_local_generation_batch_size(args.local_batch_size, backend)
+    prompt_metadata = describe_prompt_format(model_ref, backend=backend)
     translation_paths = [Path(path) for path in args.translations]
     groups: list[tuple[Path, Path, list[dict[str, Any]]]] = []
     rows: list[dict[str, Any]] = []
     for translation_path in translation_paths:
         translations = load_translation_logs(translation_path)
-        group_rows = build_generation_rows(translations, model=args.model, aligned_language=cfg.aligned_language[args.model], benchmark=args.benchmark)
+        base_rows = build_generation_rows(
+            translations,
+            model=args.model,
+            aligned_language=cfg.aligned_language[args.model],
+            benchmark=args.benchmark,
+        )
+        if args.max_records is not None:
+            base_rows = base_rows[: args.max_records]
+        group_rows = _attach_generation_request_metadata(
+            base_rows,
+            backend=backend,
+            max_tokens=args.max_tokens,
+            temperature=args.temperature,
+            model_ref=model_ref,
+            prompt_metadata=prompt_metadata,
+        )
         if args.output_dir:
             output_path = _language_output_path(
                 args.output_dir,
@@ -425,12 +462,184 @@ def cmd_generate_targets(args: argparse.Namespace) -> None:
         info("generate-targets: all outputs already exist; nothing to do.")
         return
     info(f"Generating {len(rows)} target responses with backend={backend} model={args.model} model_ref={model_ref}")
-    if args.mock_output:
-        outputs = [args.mock_output for _ in rows]
+    info(
+        "Prompt format "
+        f"strategy={prompt_metadata['strategy']} "
+        f"layout={prompt_metadata['message_layout']} "
+        f"chat_template={prompt_metadata['uses_chat_template']} "
+        f"system_prompt={prompt_metadata['system_prompt_id'] or 'none'}"
+    )
+    tokenizer_metric_map = _prepare_tokenizer_metric_map(
+        rows,
+        backend=backend,
+        skip_tokenizer_metrics=args.skip_tokenizer_metrics,
+        model=args.model,
+        model_path=args.model_path,
+        trust_remote_code=args.trust_remote_code,
+    )
+    distance_matrix = load_distance_matrix(Path(args.distance_csv))
+    if args.output_dir:
+        shared_generate_batch: Callable[[list[str]], list[Any]] | None = None
+        if not args.mock_output and backend in {"auto", "transformers", "vllm"}:
+            with step("initialize target model backend"):
+                shared_generate_batch = build_generation_runner(
+                    model_ref,
+                    backend=backend,
+                    max_tokens=args.max_tokens,
+                    temperature=args.temperature,
+                    device=device,
+                    dtype=dtype,
+                    trust_remote_code=args.trust_remote_code,
+                    stream=args.stream,
+                    prompt_texts=[str(row["prompt_text"]) for row in rows],
+                )
+            info("Reusing initialized local backend across language files; the model will not reload between batches.")
+            info(f"Local generation batch size={local_batch_size} for backend={backend}")
+        written: dict[str, str] = {}
+        total_groups = len(groups)
+        for group_index, (input_path, output_path, group_rows) in enumerate(groups, start=1):
+            info(
+                f"Language batch {group_index}/{total_groups}: "
+                f"{output_path.name} prompts={len(group_rows)}"
+            )
+            partial_path = _partial_output_path(output_path)
+            if backend == "maritaca" and not args.mock_output:
+                count = _generate_maritaca_group_checkpointed(
+                    group_rows,
+                    output_path=output_path,
+                    partial_path=partial_path,
+                    model_ref=model_ref,
+                    max_tokens=args.max_tokens,
+                    temperature=args.temperature,
+                    distance_matrix=distance_matrix,
+                    tokenizer_metric_map=tokenizer_metric_map,
+                )
+            else:
+                count = _generate_group_checkpointed(
+                    group_rows,
+                    generate_batch=shared_generate_batch,
+                    output_path=output_path,
+                    partial_path=partial_path,
+                    backend=backend,
+                    model_ref=model_ref,
+                    max_tokens=args.max_tokens,
+                    temperature=args.temperature,
+                    device=device,
+                    dtype=dtype,
+                    trust_remote_code=args.trust_remote_code,
+                    stream=args.stream,
+                    mock_output=args.mock_output,
+                    distance_matrix=distance_matrix,
+                    tokenizer_metric_map=tokenizer_metric_map,
+                    force=args.force,
+                    local_batch_size=local_batch_size,
+                )
+            written[str(output_path)] = str(count)
+            print(f"Wrote {count} target generations to {output_path}", flush=True)
+            sys.stdout.flush()
+            sys.stderr.flush()
+            if group_index < total_groups:
+                _release_inter_language_memory()
+                info(f"Ready for next language batch {group_index + 1}/{total_groups}")
+        if len(written) > 1:
+            print(json.dumps(written, ensure_ascii=False, indent=2, sort_keys=True))
     else:
-        with step("target model generation"):
-            outputs = generate_outputs(
-                [str(row["prompt_text"]) for row in rows],
+        shared_generate_batch = None
+        if not args.mock_output and backend in {"auto", "transformers", "vllm"}:
+            with step("initialize target model backend"):
+                shared_generate_batch = build_generation_runner(
+                    model_ref,
+                    backend=backend,
+                    max_tokens=args.max_tokens,
+                    temperature=args.temperature,
+                    device=device,
+                    dtype=dtype,
+                    trust_remote_code=args.trust_remote_code,
+                    stream=args.stream,
+                    prompt_texts=[str(row["prompt_text"]) for row in rows],
+                )
+            info(f"Local generation batch size={local_batch_size} for backend={backend}")
+        output_path = Path(args.output)
+        partial_path = _partial_output_path(output_path)
+        count = _generate_group_checkpointed(
+            rows,
+            generate_batch=shared_generate_batch,
+            output_path=output_path,
+            partial_path=partial_path,
+            backend=backend,
+            model_ref=model_ref,
+            max_tokens=args.max_tokens,
+            temperature=args.temperature,
+            device=device,
+            dtype=dtype,
+            trust_remote_code=args.trust_remote_code,
+            stream=args.stream,
+            mock_output=args.mock_output,
+            distance_matrix=distance_matrix,
+            tokenizer_metric_map=tokenizer_metric_map,
+            force=args.force,
+            local_batch_size=local_batch_size,
+        )
+        print(f"Wrote {count} target generations to {args.output}")
+
+
+def cmd_predict_belebele(args: argparse.Namespace) -> None:
+    if not args.output and not args.output_dir:
+        raise ValueError("predict-belebele requires --output or --output-dir.")
+    cfg = load_config()
+    profile = resolve_runtime_profile(args.profile) if args.profile else None
+    model_cfg = cfg.models[args.model]
+    default_backend = "maritaca" if model_cfg.get("access_mode") == "api" else "auto"
+    backend = args.backend or (profile.target_backend if profile else default_backend)
+    device = args.device or (profile.device if profile else "auto")
+    dtype = args.dtype or (profile.dtype if profile else "auto")
+    model_ref = _resolve_model_ref(args.model, args.model_path)
+    local_batch_size = _resolve_local_generation_batch_size(args.local_batch_size, backend)
+    dataset_dir = _resolve_belebele_dataset_dir(args.dataset_dir)
+    prompt_metadata = describe_prompt_format(model_ref, backend=backend)
+    languages = list(args.language) if args.language else list(cfg.attack_languages)
+    all_prompts: list[str] = []
+    groups: list[tuple[str, Path, list[dict[str, Any]], list[str]]] = []
+    rows: list[dict[str, Any]] = []
+    for language in languages:
+        dataset_rows = load_belebele_rows(dataset_dir, language, limit=args.limit)
+        prediction_rows = build_belebele_prediction_rows(dataset_rows, model=args.model, language=language)
+        prompts = [build_belebele_prompt(row) for row in dataset_rows]
+        if args.output_dir:
+            output_path = _language_output_path(
+                args.output_dir,
+                args.output_template,
+                language,
+                Path(f"{language}.jsonl"),
+                model=args.model,
+            )
+            if _skip_existing(output_path, args.force, f"predict-belebele {args.model} <- {language}"):
+                continue
+            groups.append((language, output_path, prediction_rows, prompts))
+        else:
+            rows.extend(prediction_rows)
+        all_prompts.extend(prompts)
+    if not args.output_dir and not rows:
+        info("predict-belebele: no rows selected; nothing to do.")
+        return
+    if args.output_dir and not groups:
+        info("predict-belebele: all outputs already exist; nothing to do.")
+        return
+    info(
+        f"Predicting BELEBELE with backend={backend} model={args.model} model_ref={model_ref} "
+        f"languages={len(groups) if args.output_dir else len(languages)}"
+    )
+    info(
+        "Prompt format "
+        f"strategy={prompt_metadata['strategy']} "
+        f"layout={prompt_metadata['message_layout']} "
+        f"chat_template={prompt_metadata['uses_chat_template']} "
+        f"system_prompt={prompt_metadata['system_prompt_id'] or 'none'}"
+    )
+    shared_generate_batch: Callable[[list[str]], list[Any]] | None = None
+    if backend != "mock" and not args.mock_output and backend in {"auto", "transformers", "vllm"}:
+        with step("initialize BELEBELE model backend"):
+            shared_generate_batch = build_generation_runner(
                 model_ref,
                 backend=backend,
                 max_tokens=args.max_tokens,
@@ -438,30 +647,81 @@ def cmd_generate_targets(args: argparse.Namespace) -> None:
                 device=device,
                 dtype=dtype,
                 trust_remote_code=args.trust_remote_code,
-                stream=args.stream,
+                stream=False,
+                prompt_texts=all_prompts,
             )
-    enriched = enrich_generation_rows(attach_outputs(rows, outputs), Path(args.distance_csv))
-    if not args.skip_tokenizer_metrics and backend != "mock":
-        with step("tokenizer metrics"):
-            enriched = attach_tokenizer_metrics(enriched, load_tokenizer(model_ref, trust_remote_code=args.trust_remote_code))
-    elif args.skip_tokenizer_metrics:
-        info("Skipping tokenizer metrics by request")
-    else:
-        info("Skipping tokenizer metrics for mock generation")
+        info(f"BELEBELE local batch size={local_batch_size} for backend={backend}")
     if args.output_dir:
+        total_groups = len(groups)
         written: dict[str, str] = {}
-        cursor = 0
-        for input_path, output_path, group_rows in groups:
-            enriched_slice = enriched[cursor : cursor + len(group_rows)]
-            cursor += len(group_rows)
-            write_jsonl(output_path, enriched_slice)
-            written[str(output_path)] = str(len(enriched_slice))
-            print(f"Wrote {len(enriched_slice)} target generations to {output_path}")
+        for group_index, (language, output_path, prediction_rows, prompts) in enumerate(groups, start=1):
+            info(f"BELEBELE batch {group_index}/{total_groups}: {output_path.name} items={len(prediction_rows)}")
+            if backend == "maritaca" and not args.mock_output:
+                count = _predict_belebele_maritaca_group_checkpointed(
+                    prediction_rows,
+                    prompts=prompts,
+                    output_path=output_path,
+                    partial_path=_partial_output_path(output_path),
+                    model_ref=model_ref,
+                    max_tokens=args.max_tokens,
+                    temperature=args.temperature,
+                    force=args.force,
+                )
+            else:
+                count = _predict_belebele_group_checkpointed(
+                    prediction_rows,
+                    prompts=prompts,
+                    generate_batch=shared_generate_batch,
+                    output_path=output_path,
+                    partial_path=_partial_output_path(output_path),
+                    backend=backend,
+                    model_ref=model_ref,
+                    max_tokens=args.max_tokens,
+                    temperature=args.temperature,
+                    device=device,
+                    dtype=dtype,
+                    trust_remote_code=args.trust_remote_code,
+                    mock_output=args.mock_output,
+                    force=args.force,
+                    local_batch_size=local_batch_size,
+                )
+            written[str(output_path)] = str(count)
+            print(f"Wrote {count} BELEBELE predictions to {output_path}")
         if len(written) > 1:
             print(json.dumps(written, ensure_ascii=False, indent=2, sort_keys=True))
+        return
+
+    prompts = all_prompts
+    if backend == "maritaca" and not args.mock_output:
+        count = _predict_belebele_maritaca_group_checkpointed(
+            rows,
+            prompts=prompts,
+            output_path=Path(args.output),
+            partial_path=_partial_output_path(Path(args.output)),
+            model_ref=model_ref,
+            max_tokens=args.max_tokens,
+            temperature=args.temperature,
+            force=args.force,
+        )
     else:
-        write_jsonl(Path(args.output), enriched)
-        print(f"Wrote {len(rows)} target generations to {args.output}")
+        count = _predict_belebele_group_checkpointed(
+            rows,
+            prompts=prompts,
+            generate_batch=shared_generate_batch,
+            output_path=Path(args.output),
+            partial_path=_partial_output_path(Path(args.output)),
+            backend=backend,
+            model_ref=model_ref,
+            max_tokens=args.max_tokens,
+            temperature=args.temperature,
+            device=device,
+            dtype=dtype,
+            trust_remote_code=args.trust_remote_code,
+            mock_output=args.mock_output,
+            force=args.force,
+            local_batch_size=local_batch_size,
+        )
+    print(f"Wrote {count} BELEBELE predictions to {args.output}")
 
 
 def cmd_attach_tokenizer_metrics(args: argparse.Namespace) -> None:
@@ -483,14 +743,20 @@ def cmd_attach_tokenizer_metrics(args: argparse.Namespace) -> None:
 
     output_rows = [dict(row) for row in rows]
     for model in models:
-        model_ref = _resolve_model_ref(model, args.model_path if len(models) == 1 else None)
+        tokenizer_ref = _resolve_tokenizer_ref(model, args.model_path if len(models) == 1 else None)
         model_indexes = [index for index, row in enumerate(output_rows) if str(row["model"]) == model]
         model_rows = [output_rows[index] for index in model_indexes]
-        info(f"Computing tokenizer metrics for {len(model_rows)} rows model={model} model_ref={model_ref}")
+        if tokenizer_ref is None:
+            info(
+                f"Skipping tokenizer metrics for model={model}; "
+                "no local or Hugging Face tokenizer reference is configured."
+            )
+            continue
+        info(f"Computing tokenizer metrics for {len(model_rows)} rows model={model} model_ref={tokenizer_ref}")
         with step(f"tokenizer metrics for {model}"):
             metric_rows = attach_tokenizer_metrics(
                 model_rows,
-                load_tokenizer(model_ref, trust_remote_code=args.trust_remote_code),
+                load_tokenizer(tokenizer_ref, trust_remote_code=args.trust_remote_code),
             )
         for index, metric_row in zip(model_indexes, metric_rows, strict=True):
             output_rows[index] = metric_row
@@ -518,6 +784,420 @@ def _resolve_model_ref(model: str, model_path: str | None = None) -> str:
     model_asset = assets.get(model)
     asset_path = model_asset.local_dir if model_asset and model_asset.local_dir and model_asset.local_dir.exists() else None
     return model_path or (str(asset_path) if asset_path else str(cfg.models[model].get("hf_id") or cfg.models[model]["provider_model_id"]))
+
+
+def _resolve_tokenizer_ref(model: str, model_path: str | None = None) -> str | None:
+    cfg = load_config()
+    assets = load_assets()
+    model_asset = assets.get(model)
+    asset_path = model_asset.local_dir if model_asset and model_asset.local_dir and model_asset.local_dir.exists() else None
+    if model_path:
+        return model_path
+    if asset_path:
+        return str(asset_path)
+    hf_id = cfg.models[model].get("hf_id")
+    return str(hf_id) if hf_id else None
+
+
+def _partial_output_path(output_path: Path) -> Path:
+    return output_path.with_name(f"{output_path.stem}.partial{output_path.suffix}")
+
+
+def _release_inter_language_memory() -> None:
+    gc.collect()
+    try:
+        import torch
+    except ImportError:
+        return
+    if torch.cuda.is_available():
+        torch.cuda.empty_cache()
+
+
+def _extract_output_text(item: Any) -> str:
+    if isinstance(item, str):
+        return item
+    if isinstance(item, dict):
+        return str(item.get("text", "") or "")
+    return ""
+
+
+def _format_eta(seconds: float) -> str:
+    if seconds <= 0 or seconds != seconds:  # NaN guard
+        return "0s"
+    seconds = int(seconds)
+    hours, rem = divmod(seconds, 3600)
+    minutes, secs = divmod(rem, 60)
+    if hours:
+        return f"{hours}h{minutes:02d}m"
+    if minutes:
+        return f"{minutes}m{secs:02d}s"
+    return f"{secs}s"
+
+
+def _attach_generation_request_metadata(
+    rows: list[dict[str, Any]],
+    *,
+    backend: str,
+    max_tokens: int,
+    temperature: float,
+    model_ref: str,
+    prompt_metadata: dict[str, Any],
+) -> list[dict[str, Any]]:
+    output: list[dict[str, Any]] = []
+    for row in rows:
+        updated = dict(row)
+        updated["generation_backend"] = backend
+        updated["generation_max_tokens"] = max_tokens
+        updated["generation_temperature"] = temperature
+        updated["generation_model_ref"] = model_ref
+        updated["generation_prompt_strategy"] = prompt_metadata["strategy"]
+        updated["generation_prompt_message_layout"] = prompt_metadata["message_layout"]
+        updated["generation_prompt_uses_chat_template"] = prompt_metadata["uses_chat_template"]
+        updated["generation_system_prompt_id"] = prompt_metadata["system_prompt_id"]
+        output.append(updated)
+    return output
+
+
+def _resolve_belebele_dataset_dir(dataset_dir: str | None) -> Path:
+    if dataset_dir:
+        return Path(dataset_dir)
+    asset = load_assets()["belebele"]
+    if asset.local_dir is None:
+        raise ValueError("The BELEBELE asset does not define a local_dir")
+    return asset.local_dir
+
+
+def _prepare_tokenizer_metric_map(
+    rows: list[dict[str, Any]],
+    *,
+    backend: str,
+    skip_tokenizer_metrics: bool,
+    model: str,
+    model_path: str | None,
+    trust_remote_code: bool,
+) -> dict[str, dict[str, Any]]:
+    if skip_tokenizer_metrics:
+        info("Skipping tokenizer metrics by request")
+        return {}
+    if backend == "mock":
+        info("Skipping tokenizer metrics for mock generation")
+        return {}
+    tokenizer_ref = _resolve_tokenizer_ref(model, model_path)
+    if tokenizer_ref is None:
+        info(
+            f"Skipping tokenizer metrics for model={model}; "
+            "no local or Hugging Face tokenizer reference is configured."
+        )
+        return {}
+    with step("tokenizer metrics precompute"):
+        metric_rows = attach_tokenizer_metrics(
+            rows,
+            load_tokenizer(tokenizer_ref, trust_remote_code=trust_remote_code),
+        )
+    return {
+        str(row["run_id"]): {
+            "input_tokens": row.get("input_tokens"),
+            "tokens_per_char": row.get("tokens_per_char"),
+            "token_inflation": row.get("token_inflation"),
+        }
+        for row in metric_rows
+    }
+
+
+def _enrich_generation_rows_with_metrics(
+    rows: list[dict[str, Any]],
+    *,
+    distance_matrix: dict[str, dict[str, float]],
+    tokenizer_metric_map: dict[str, dict[str, Any]],
+) -> list[dict[str, Any]]:
+    output: list[dict[str, Any]] = []
+    for row in rows:
+        enriched = dict(row)
+        aligned = str(row["aligned_language"])
+        attack = str(row["attack_language"])
+        prompt_text = str(row["prompt_text"])
+        enriched.update(
+            {
+                "distance": distance_matrix[aligned][attack],
+                "if_score": None,
+                "cons_score": None,
+                "spec_score": None,
+                "input_tokens": None,
+                "tokens_per_char": None,
+                "token_inflation": None,
+                "excluded": False,
+                "exclusion_reason": None,
+            }
+        )
+        if prompt_text:
+            enriched["tokens_per_char"] = None
+        metrics = tokenizer_metric_map.get(str(row["run_id"]))
+        if metrics:
+            enriched.update(metrics)
+        output.append(enriched)
+    return output
+
+
+def _generate_group_checkpointed(
+    group_rows: list[dict[str, Any]],
+    *,
+    generate_batch: Callable[[list[str]], list[Any]] | None,
+    output_path: Path,
+    partial_path: Path,
+    backend: str,
+    model_ref: str,
+    max_tokens: int,
+    temperature: float,
+    device: str,
+    dtype: str,
+    trust_remote_code: bool,
+    stream: bool,
+    mock_output: str | None,
+    distance_matrix: dict[str, dict[str, float]],
+    tokenizer_metric_map: dict[str, dict[str, Any]],
+    force: bool,
+    local_batch_size: int,
+) -> int:
+    if force and partial_path.exists():
+        partial_path.unlink()
+    completed_rows = read_jsonl(partial_path) if partial_path.exists() else []
+    if len(completed_rows) > len(group_rows):
+        raise ValueError(f"Checkpoint for {output_path.name} has more rows than expected")
+    if len(completed_rows) == len(group_rows):
+        info(f"Promoting complete checkpoint for {output_path.name} without regeneration")
+        partial_path.replace(output_path)
+        return len(completed_rows)
+    if completed_rows:
+        info(f"Resuming {output_path.name} from checkpoint rows={len(completed_rows)}/{len(group_rows)}")
+    remaining_rows = group_rows[len(completed_rows) :]
+    if not remaining_rows:
+        raise RuntimeError(f"Checkpoint accounting for {output_path.name} is inconsistent")
+    group_started = perf_counter()
+    group_prompts_done = 0
+    group_output_chars = 0
+    for chunk_start in range(0, len(remaining_rows), local_batch_size):
+        chunk_rows = remaining_rows[chunk_start : chunk_start + local_batch_size]
+        chunk_offset = len(completed_rows) + chunk_start
+        chunk_end = chunk_offset + len(chunk_rows)
+        if mock_output:
+            outputs = [mock_output for _ in chunk_rows]
+            chunk_elapsed = 0.0
+        else:
+            chunk_started = perf_counter()
+            with step(
+                f"target model generation [{output_path.name}] "
+                f"rows {chunk_offset + 1}-{chunk_end}/{len(group_rows)}"
+            ):
+                prompts = [str(row["prompt_text"]) for row in chunk_rows]
+                if generate_batch is not None:
+                    outputs = generate_batch(prompts)
+                else:
+                    outputs = generate_outputs(
+                        prompts,
+                        model_ref,
+                        backend=backend,
+                        max_tokens=max_tokens,
+                        temperature=temperature,
+                        device=device,
+                        dtype=dtype,
+                        trust_remote_code=trust_remote_code,
+                        stream=stream,
+                    )
+            chunk_elapsed = perf_counter() - chunk_started
+            chunk_output_chars = sum(len(_extract_output_text(item)) for item in outputs)
+            group_prompts_done += len(chunk_rows)
+            group_output_chars += chunk_output_chars
+            info(
+                f"Pass speed [{output_path.name}] rows {chunk_offset + 1}-{chunk_end}: "
+                f"{len(chunk_rows)} prompts in {chunk_elapsed:.1f}s "
+                f"({len(chunk_rows) / chunk_elapsed:.2f} prompts/s, "
+                f"~{chunk_output_chars / max(chunk_elapsed, 1e-9) / 4:.1f} tok/s, "
+                f"~{chunk_output_chars / max(len(chunk_rows), 1):.0f} chars/prompt)"
+            )
+            group_elapsed = perf_counter() - group_started
+            remaining = len(remaining_rows) - group_prompts_done
+            avg_prompts_per_sec = group_prompts_done / max(group_elapsed, 1e-9)
+            eta_seconds = remaining / avg_prompts_per_sec if avg_prompts_per_sec > 0 else 0.0
+            info(
+                f"Group running average [{output_path.name}]: "
+                f"{group_prompts_done}/{len(remaining_rows)} prompts, "
+                f"{avg_prompts_per_sec:.2f} prompts/s, "
+                f"~{group_output_chars / max(group_elapsed, 1e-9) / 4:.1f} tok/s, "
+                f"ETA {_format_eta(eta_seconds)}"
+            )
+        enriched_rows = _enrich_generation_rows_with_metrics(
+            attach_outputs(chunk_rows, outputs),
+            distance_matrix=distance_matrix,
+            tokenizer_metric_map=tokenizer_metric_map,
+        )
+        append_jsonl(partial_path, enriched_rows)
+    final_count = len(completed_rows) + len(remaining_rows)
+    if final_count != len(group_rows):
+        raise RuntimeError(f"Checkpoint for {output_path.name} is incomplete after local generation")
+    partial_path.replace(output_path)
+    return final_count
+
+
+def _predict_belebele_group_checkpointed(
+    prediction_rows: list[dict[str, Any]],
+    *,
+    prompts: list[str],
+    generate_batch: Callable[[list[str]], list[Any]] | None,
+    output_path: Path,
+    partial_path: Path,
+    backend: str,
+    model_ref: str,
+    max_tokens: int,
+    temperature: float,
+    device: str,
+    dtype: str,
+    trust_remote_code: bool,
+    mock_output: str | None,
+    force: bool,
+    local_batch_size: int,
+) -> int:
+    if len(prediction_rows) != len(prompts):
+        raise ValueError("BELEBELE prompt count and prediction row count differ")
+    if force and partial_path.exists():
+        partial_path.unlink()
+    completed_rows = read_jsonl(partial_path) if partial_path.exists() else []
+    if len(completed_rows) > len(prediction_rows):
+        raise ValueError(f"Checkpoint for {output_path.name} has more rows than expected")
+    if len(completed_rows) == len(prediction_rows):
+        info(f"Promoting complete checkpoint for {output_path.name} without regeneration")
+        partial_path.replace(output_path)
+        return len(completed_rows)
+    if completed_rows:
+        info(f"Resuming {output_path.name} from checkpoint rows={len(completed_rows)}/{len(prediction_rows)}")
+    remaining_rows = prediction_rows[len(completed_rows) :]
+    remaining_prompts = prompts[len(completed_rows) :]
+    for chunk_start in range(0, len(remaining_rows), local_batch_size):
+        chunk_rows = remaining_rows[chunk_start : chunk_start + local_batch_size]
+        chunk_prompts = remaining_prompts[chunk_start : chunk_start + local_batch_size]
+        chunk_offset = len(completed_rows) + chunk_start
+        chunk_end = chunk_offset + len(chunk_rows)
+        if backend == "mock":
+            outputs: list[Any] = [mock_output or "A" for _ in chunk_rows]
+        elif mock_output is not None:
+            outputs = [mock_output for _ in chunk_rows]
+        else:
+            with step(
+                f"belebele generation [{output_path.name}] "
+                f"rows {chunk_offset + 1}-{chunk_end}/{len(prediction_rows)}"
+            ):
+                if generate_batch is not None:
+                    outputs = generate_batch(chunk_prompts)
+                else:
+                    outputs = generate_outputs(
+                        chunk_prompts,
+                        model_ref,
+                        backend=backend,
+                        max_tokens=max_tokens,
+                        temperature=temperature,
+                        device=device,
+                        dtype=dtype,
+                        trust_remote_code=trust_remote_code,
+                        stream=False,
+                    )
+        append_jsonl(partial_path, attach_belebele_predictions(chunk_rows, outputs))
+    final_count = len(completed_rows) + len(remaining_rows)
+    if final_count != len(prediction_rows):
+        raise RuntimeError(f"Checkpoint for {output_path.name} is incomplete after BELEBELE generation")
+    partial_path.replace(output_path)
+    return final_count
+
+
+def _predict_belebele_maritaca_group_checkpointed(
+    prediction_rows: list[dict[str, Any]],
+    *,
+    prompts: list[str],
+    output_path: Path,
+    partial_path: Path,
+    model_ref: str,
+    max_tokens: int,
+    temperature: float,
+    force: bool,
+) -> int:
+    if len(prediction_rows) != len(prompts):
+        raise ValueError("BELEBELE prompt count and prediction row count differ")
+    if force and partial_path.exists():
+        partial_path.unlink()
+    completed_rows = read_jsonl(partial_path) if partial_path.exists() else []
+    if len(completed_rows) > len(prediction_rows):
+        raise ValueError(f"Checkpoint for {output_path.name} has more rows than expected")
+    if len(completed_rows) == len(prediction_rows):
+        info(f"Promoting complete checkpoint for {output_path.name} without regeneration")
+        partial_path.replace(output_path)
+        return len(completed_rows)
+    if completed_rows:
+        info(f"Resuming {output_path.name} from checkpoint rows={len(completed_rows)}/{len(prediction_rows)}")
+    remaining_rows = prediction_rows[len(completed_rows) :]
+    remaining_prompts = prompts[len(completed_rows) :]
+    for row, output in zip(
+        remaining_rows,
+        iter_generate_with_maritaca(
+            remaining_prompts,
+            model_ref=model_ref,
+            max_tokens=max_tokens,
+            temperature=temperature,
+        ),
+        strict=True,
+    ):
+        append_jsonl(partial_path, attach_belebele_predictions([row], [output]))
+    final_count = len(read_jsonl(partial_path))
+    if final_count != len(prediction_rows):
+        raise RuntimeError(f"Checkpoint for {output_path.name} is incomplete after Maritaca BELEBELE generation")
+    partial_path.replace(output_path)
+    return final_count
+
+
+def _resolve_local_generation_batch_size(requested: int | None, backend: str) -> int:
+    if requested is not None:
+        if requested < 1:
+            raise ValueError("--local-batch-size must be at least 1")
+        return requested
+    if backend == "vllm":
+        return _DEFAULT_VLLM_LOCAL_GENERATION_CHECKPOINT_BATCH_SIZE
+    return _DEFAULT_LOCAL_GENERATION_CHECKPOINT_BATCH_SIZE
+
+
+def _generate_maritaca_group_checkpointed(
+    group_rows: list[dict[str, Any]],
+    *,
+    output_path: Path,
+    partial_path: Path,
+    model_ref: str,
+    max_tokens: int,
+    temperature: float,
+    distance_matrix: dict[str, dict[str, float]],
+    tokenizer_metric_map: dict[str, dict[str, Any]],
+) -> int:
+    completed_rows = read_jsonl(partial_path) if partial_path.exists() else []
+    if len(completed_rows) > len(group_rows):
+        raise ValueError(f"Checkpoint for {output_path.name} has more rows than expected")
+    if completed_rows:
+        info(f"Resuming {output_path.name} from checkpoint rows={len(completed_rows)}/{len(group_rows)}")
+    remaining_rows = group_rows[len(completed_rows) :]
+    for row, output in zip(
+        remaining_rows,
+        iter_generate_with_maritaca(
+            [str(group_row["prompt_text"]) for group_row in remaining_rows],
+            model_ref=model_ref,
+            max_tokens=max_tokens,
+            temperature=temperature,
+        ),
+        strict=True,
+    ):
+        enriched_row = _enrich_generation_rows_with_metrics(
+            attach_outputs([row], [output]),
+            distance_matrix=distance_matrix,
+            tokenizer_metric_map=tokenizer_metric_map,
+        )[0]
+        append_jsonl(partial_path, [enriched_row])
+    if len(read_jsonl(partial_path)) != len(group_rows):
+        raise RuntimeError(f"Checkpoint for {output_path.name} is incomplete after Maritaca generation")
+    partial_path.replace(output_path)
+    return len(group_rows)
 
 
 def _single_target_language(rows: list[dict[str, object]]) -> str:
@@ -762,6 +1442,7 @@ def cmd_export_results(args: argparse.Namespace) -> None:
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(prog="thesis-eval")
     sub = parser.add_subparsers(dest="command", required=True)
+    runtime_profile_choices = sorted(load_runtime_profiles())
 
     validate = sub.add_parser("validate-config")
     validate.set_defaults(func=cmd_validate_config)
@@ -862,12 +1543,14 @@ def build_parser() -> argparse.ArgumentParser:
     gen.add_argument("--output")
     gen.add_argument("--output-dir")
     gen.add_argument("--output-template", default="target_generations_{model}_{lang}.jsonl")
-    gen.add_argument("--profile", choices=["macbook", "rtx_5070_ti"])
+    gen.add_argument("--profile", choices=runtime_profile_choices)
     gen.add_argument("--backend", choices=["auto", "mock", "vllm", "transformers", "maritaca"])
-    gen.add_argument("--device", choices=["auto", "cpu", "mps", "cuda"])
+    gen.add_argument("--device", choices=["auto", "cpu", "mps", "cuda", "xla"])
     gen.add_argument("--dtype", choices=["auto", "float16", "bfloat16", "float32"])
     gen.add_argument("--mock-output")
     gen.add_argument("--max-tokens", type=int, default=512)
+    gen.add_argument("--max-records", type=int, help="Only generate the first N retained prompts from each translation file.")
+    gen.add_argument("--local-batch-size", type=int, help="Local open-weight prompts per checkpointed generation chunk.")
     gen.add_argument("--temperature", type=float, default=0.0)
     gen.add_argument("--trust-remote-code", action="store_true")
     gen.add_argument("--model-path")
@@ -876,6 +1559,27 @@ def build_parser() -> argparse.ArgumentParser:
     gen.add_argument("--distance-csv", default=str(DATA_DIR / "uriel_plus" / "distance_matrix.csv"))
     gen.add_argument("--force", action="store_true", help="Overwrite outputs that already exist.")
     gen.set_defaults(func=cmd_generate_targets)
+
+    belebele = sub.add_parser("predict-belebele")
+    belebele.add_argument("--model", default="sagui_7b")
+    belebele.add_argument("--language", action="append", help="One attack language code (e.g. por, ara). Defaults to all thesis languages.")
+    belebele.add_argument("--output")
+    belebele.add_argument("--output-dir")
+    belebele.add_argument("--output-template", default="{model}_{lang}.belebele.jsonl")
+    belebele.add_argument("--dataset-dir", default=str(load_assets()["belebele"].local_dir))
+    belebele.add_argument("--profile", choices=runtime_profile_choices)
+    belebele.add_argument("--backend", choices=["auto", "mock", "vllm", "transformers", "maritaca"])
+    belebele.add_argument("--device", choices=["auto", "cpu", "mps", "cuda", "xla"])
+    belebele.add_argument("--dtype", choices=["auto", "float16", "bfloat16", "float32"])
+    belebele.add_argument("--mock-output")
+    belebele.add_argument("--max-tokens", type=int, default=8)
+    belebele.add_argument("--limit", type=int, help="Only score the first N BELEBELE items from each language.")
+    belebele.add_argument("--local-batch-size", type=int, help="Local prompts per checkpointed BELEBELE chunk.")
+    belebele.add_argument("--temperature", type=float, default=0.0)
+    belebele.add_argument("--trust-remote-code", action="store_true")
+    belebele.add_argument("--model-path")
+    belebele.add_argument("--force", action="store_true", help="Overwrite outputs that already exist.")
+    belebele.set_defaults(func=cmd_predict_belebele)
 
     token_metrics = sub.add_parser("attach-tokenizer-metrics")
     token_metrics.add_argument("--generations", required=True)

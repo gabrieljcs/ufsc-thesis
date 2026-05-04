@@ -23,13 +23,29 @@ from thesis_eval.analysis.reporting import (
     prereg_falsification_summary,
     reference_distance_curve,
 )
-from thesis_eval.benchmarks.belebele import compute_if_cons, parse_choice
+from thesis_eval.benchmarks.belebele import (
+    build_belebele_prediction_rows,
+    build_belebele_prompt,
+    compute_if_cons,
+    load_belebele_rows,
+    parse_choice,
+    resolve_belebele_language_code,
+)
 from thesis_eval.evaluation.strongreject import score_generation_rows
-from thesis_eval.io import write_jsonl
+from thesis_eval.io import read_jsonl, write_jsonl
 from thesis_eval.metrics.asr import summarize_labels
 from thesis_eval.metrics.spec import add_spec_scores, z_scores
 from thesis_eval.metrics.tokenizer import attach_tokenizer_metrics
-from thesis_eval.models.generation import estimate_model_asset_state, generate_outputs
+from thesis_eval.models.generation import (
+    _parse_vllm_estimated_max_model_len,
+    _retry_vllm_max_model_len_from_error,
+    build_generation_runner,
+    build_prompt_messages,
+    describe_prompt_format,
+    estimate_model_asset_state,
+    format_generation_prompt,
+    generate_outputs,
+)
 from thesis_eval.runtime import load_runtime_profiles
 from thesis_eval.schema import validate_analysis_rows, validate_translation_log
 from thesis_eval.translation.audit import apply_audit_decisions, build_audit_queue
@@ -54,6 +70,8 @@ class ConfigTests(unittest.TestCase):
         profiles = load_runtime_profiles()
         self.assertEqual(profiles["macbook"].target_backend, "transformers")
         self.assertEqual(profiles["rtx_5070_ti"].target_backend, "vllm")
+        self.assertEqual(profiles["tpu"].device, "xla")
+        self.assertEqual(profiles["trc_tpu"].device, "xla")
 
     def test_assets_manifest(self) -> None:
         assets = load_assets()
@@ -166,6 +184,65 @@ class MetricsTests(unittest.TestCase):
         self.assertEqual(enriched[1]["input_tokens"], 4)
         self.assertEqual(enriched[1]["token_inflation"], 2.0)
 
+    def test_attach_tokenizer_metrics_skips_api_model_without_tokenizer_reference(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            tmp_path = Path(tmp)
+            generations = tmp_path / "sabia_rows.jsonl"
+            output = tmp_path / "sabia_rows.with_metrics.jsonl"
+            write_jsonl(
+                generations,
+                [
+                    {
+                        "model": "sabia_3",
+                        "benchmark": "strongreject",
+                        "prompt_id": "p1",
+                        "aligned_language": "por",
+                        "attack_language": "ara",
+                        "prompt_text": "prompt",
+                        "model_output": "response",
+                    }
+                ],
+            )
+            main(
+                [
+                    "attach-tokenizer-metrics",
+                    "--generations",
+                    str(generations),
+                    "--output",
+                    str(output),
+                ]
+            )
+            rows = read_jsonl(output)
+            self.assertEqual(len(rows), 1)
+            self.assertEqual(rows[0]["model"], "sabia_3")
+            self.assertNotIn("input_tokens", rows[0])
+
+    def test_tokenizer_metrics_use_manual_prompt_fallback_without_chat_template(self) -> None:
+        class FakeTokenizer:
+            name_or_path = "swap-uniba/LLaMAntino-2-chat-7b-hf-UltraChat-ITA"
+            chat_template = None
+
+            def __call__(self, text, add_special_tokens):
+                self.last_text = text
+                self.last_add_special_tokens = add_special_tokens
+                return {"input_ids": [0 for _ in text.split()]}
+
+        tokenizer = FakeTokenizer()
+        rows = [
+            {
+                "model": "llamantino_2_ultrachat_7b",
+                "benchmark": "strongreject",
+                "prompt_id": "p1",
+                "aligned_language": "ita",
+                "attack_language": "ita",
+                "prompt_text": "Ciao mondo",
+            }
+        ]
+        attach_tokenizer_metrics(rows, tokenizer)
+        self.assertTrue(tokenizer.last_add_special_tokens)
+        self.assertIn("[INST]", tokenizer.last_text)
+        self.assertIn("Sei un assistente disponibile", tokenizer.last_text)
+
     def test_prereg_distance_slope_retention(self) -> None:
         rows = [
             {
@@ -235,6 +312,61 @@ class GenerationTests(unittest.TestCase):
         self.assertEqual(len(outputs), 1)
         self.assertIn("mock target response", outputs[0])
 
+    def test_build_generation_runner_mock_is_reusable(self) -> None:
+        runner = build_generation_runner("unused/model", backend="mock")
+        self.assertEqual(runner(["one"]), ["[mock target response: replace with local model output before research use.]"])
+        self.assertEqual(len(runner(["one", "two"])), 2)
+
+    def test_local_generation_batch_size_defaults_by_backend(self) -> None:
+        from thesis_eval.cli import _resolve_local_generation_batch_size
+
+        self.assertEqual(_resolve_local_generation_batch_size(None, "vllm"), 8)
+        self.assertEqual(_resolve_local_generation_batch_size(None, "transformers"), 32)
+        self.assertEqual(_resolve_local_generation_batch_size(3, "vllm"), 3)
+
+    def test_parse_vllm_estimated_max_model_len(self) -> None:
+        message = "Based on the available memory, the estimated maximum model length is 1184."
+        self.assertEqual(_parse_vllm_estimated_max_model_len(message), 1184)
+        self.assertIsNone(_parse_vllm_estimated_max_model_len("some other failure"))
+
+    def test_retry_vllm_max_model_len_from_error(self) -> None:
+        error = RuntimeError("Based on the available memory, the estimated maximum model length is 1184.")
+        retry_len = _retry_vllm_max_model_len_from_error(
+            error,
+            longest_prompt_tokens=744,
+            requested_max_model_len=1256,
+        )
+        self.assertEqual(retry_len, 1168)
+
+    def test_retry_vllm_max_model_len_from_nested_error_message(self) -> None:
+        inner = ValueError("Based on the available memory, the estimated maximum model length is 1104.")
+        outer = RuntimeError("Engine core initialization failed. See root cause above. Failed core proc(s): {}")
+        outer.__cause__ = inner
+        retry_len = _retry_vllm_max_model_len_from_error(
+            outer,
+            longest_prompt_tokens=744,
+            requested_max_model_len=1256,
+        )
+        self.assertEqual(retry_len, 1088)
+
+    def test_retry_vllm_max_model_len_from_generic_engine_failure(self) -> None:
+        error = RuntimeError("Engine core initialization failed. See root cause above. Failed core proc(s): {}")
+        retry_len = _retry_vllm_max_model_len_from_error(
+            error,
+            longest_prompt_tokens=744,
+            requested_max_model_len=1256,
+        )
+        self.assertEqual(retry_len, 1099)
+
+    def test_retry_vllm_max_model_len_raises_if_prompt_alone_does_not_fit(self) -> None:
+        error = RuntimeError("Based on the available memory, the estimated maximum model length is 1184.")
+        with self.assertRaisesRegex(RuntimeError, "cannot fit even the prompt alone"):
+            _retry_vllm_max_model_len_from_error(
+                error,
+                longest_prompt_tokens=1184,
+                requested_max_model_len=1256,
+            )
+
     def test_model_status_reports_chat_template(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             path = Path(tmp)
@@ -266,6 +398,70 @@ class GenerationTests(unittest.TestCase):
         rows = build_generation_rows(translations, model="sagui_7b", aligned_language="por")
         self.assertEqual(len(rows), 1)
         self.assertEqual(rows[0]["prompt_id"], "p1")
+
+    def test_format_generation_prompt_wraps_llamantino2_without_chat_template(self) -> None:
+        class FakeTokenizer:
+            name_or_path = "swap-uniba/LLaMAntino-2-chat-7b-hf-UltraChat-ITA"
+            chat_template = None
+
+        formatted = format_generation_prompt(FakeTokenizer(), "Ciao?")
+        self.assertTrue(formatted.startswith("[INST]"))
+        self.assertIn("Sei un assistente disponibile", formatted)
+        self.assertTrue(formatted.endswith("Ciao? [/INST]"))
+
+    def test_format_generation_prompt_uses_native_sagui_user_only_chat_template(self) -> None:
+        class FakeTokenizer:
+            name_or_path = "OliveiraJLT/Sagui-7B-Instruct-v0.1"
+            chat_template = "{{ messages }}"
+
+            def apply_chat_template(self, messages, tokenize, add_generation_prompt):
+                self.messages = messages
+                self.tokenize = tokenize
+                self.add_generation_prompt = add_generation_prompt
+                return "FORMATTED"
+
+        tokenizer = FakeTokenizer()
+        formatted = format_generation_prompt(tokenizer, "Ola?")
+        self.assertEqual(formatted, "FORMATTED")
+        self.assertFalse(tokenizer.tokenize)
+        self.assertTrue(tokenizer.add_generation_prompt)
+        self.assertEqual(tokenizer.messages, [{"role": "user", "content": "Ola?", "text": ""}])
+
+    def test_build_prompt_messages_include_gpt_sw3_text_field(self) -> None:
+        class FakeTokenizer:
+            name_or_path = "AI-Sweden-Models/gpt-sw3-6.7b-v2-instruct"
+            chat_template = "fake"
+
+        messages = build_prompt_messages(FakeTokenizer(), "Hej")
+        self.assertEqual(messages, [{"role": "user", "content": "Hej", "text": ""}])
+
+    def test_describe_prompt_format_reports_local_policy(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            tmp_path = Path(tmp)
+            sagui_path = tmp_path / "sagui-7b-instruct-v0.1"
+            sagui_path.mkdir()
+            (sagui_path / "tokenizer_config.json").write_text('{"chat_template":"{{ messages }}"}', encoding="utf-8")
+            sagui_meta = describe_prompt_format(str(sagui_path))
+            self.assertEqual(sagui_meta["strategy"], "chat_template_user_only")
+            self.assertIsNone(sagui_meta["system_prompt_id"])
+
+            llamantino_path = tmp_path / "llamantino-2-chat-7b-hf-ultrachat-ita"
+            llamantino_path.mkdir()
+            (llamantino_path / "tokenizer_config.json").write_text("{}", encoding="utf-8")
+            llamantino_meta = describe_prompt_format(str(llamantino_path))
+            self.assertEqual(llamantino_meta["strategy"], "manual_llama2_inst")
+            self.assertFalse(llamantino_meta["uses_chat_template"])
+
+    def test_longest_tokenized_prompt_length_tracks_longest_prompt(self) -> None:
+        from thesis_eval.models.generation import _longest_tokenized_prompt_length
+
+        class FakeTokenizer:
+            def __call__(self, text, add_special_tokens=True):
+                extra = 1 if add_special_tokens else 0
+                return {"input_ids": [0 for _ in range(len(text.split()) + extra)]}
+
+        longest = _longest_tokenized_prompt_length(FakeTokenizer(), ["um dois", "um dois tres quatro"])
+        self.assertEqual(longest, 5)
 
 
 class StrongRejectScoringTests(unittest.TestCase):
@@ -400,6 +596,234 @@ class BelebeleTests(unittest.TestCase):
         self.assertEqual(by_lang["por"]["if_score"], 1.0)
         self.assertEqual(by_lang["ara"]["cons_score"], 0.5)
         self.assertIn("spec_score", by_lang["ara"])
+
+    def test_load_belebele_rows_and_prompt(self) -> None:
+        self.assertEqual(resolve_belebele_language_code("por"), "por_Latn")
+        with tempfile.TemporaryDirectory() as tmp:
+            tmp_path = Path(tmp)
+            data_dir = tmp_path / "data"
+            data_dir.mkdir()
+            sample = {
+                "question_number": 1,
+                "flores_passage": "Trecho",
+                "question": "Pergunta?",
+                "mc_answer1": "A1",
+                "mc_answer2": "A2",
+                "mc_answer3": "A3",
+                "mc_answer4": "A4",
+                "correct_answer_num": "2",
+                "dialect": "por_Latn",
+            }
+            write_jsonl(data_dir / "por_Latn.jsonl", [sample])
+            rows = load_belebele_rows(tmp_path, "por")
+            prompt = build_belebele_prompt(rows[0])
+            predictions = build_belebele_prediction_rows(rows, model="sagui_7b", language="por")
+        self.assertEqual(len(rows), 1)
+        self.assertIn("Passage:", prompt)
+        self.assertIn("Pergunta?", prompt)
+        self.assertEqual(predictions[0]["gold"], "B")
+        self.assertEqual(predictions[0]["item_id"], "belebele_0001")
+
+    def test_cli_predict_belebele_writes_predictions(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            tmp_path = Path(tmp)
+            data_dir = tmp_path / "belebele" / "data"
+            data_dir.mkdir(parents=True)
+            write_jsonl(
+                data_dir / "por_Latn.jsonl",
+                [
+                    {
+                        "question_number": 1,
+                        "flores_passage": "Trecho",
+                        "question": "Pergunta?",
+                        "mc_answer1": "A1",
+                        "mc_answer2": "A2",
+                        "mc_answer3": "A3",
+                        "mc_answer4": "A4",
+                        "correct_answer_num": "2",
+                        "dialect": "por_Latn",
+                    }
+                ],
+            )
+            output = tmp_path / "predictions.jsonl"
+            main(
+                [
+                    "predict-belebele",
+                    "--dataset-dir",
+                    str(tmp_path / "belebele"),
+                    "--language",
+                    "por",
+                    "--model",
+                    "sagui_7b",
+                    "--backend",
+                    "mock",
+                    "--output",
+                    str(output),
+                ]
+            )
+            rows = read_jsonl(output)
+        self.assertEqual(len(rows), 1)
+        self.assertEqual(rows[0]["prediction"], "A")
+        self.assertEqual(rows[0]["gold"], "B")
+        self.assertEqual(rows[0]["language"], "por")
+
+    def test_cli_predict_belebele_sabia_api_writes_prediction_metadata(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            tmp_path = Path(tmp)
+            data_dir = tmp_path / "belebele" / "data"
+            data_dir.mkdir(parents=True)
+            write_jsonl(
+                data_dir / "por_Latn.jsonl",
+                [
+                    {
+                        "question_number": 1,
+                        "flores_passage": "Trecho",
+                        "question": "Pergunta?",
+                        "mc_answer1": "A1",
+                        "mc_answer2": "A2",
+                        "mc_answer3": "A3",
+                        "mc_answer4": "A4",
+                        "correct_answer_num": "2",
+                        "dialect": "por_Latn",
+                    }
+                ],
+            )
+            output = tmp_path / "sabia_predictions.jsonl"
+            with patch(
+                "thesis_eval.cli.iter_generate_with_maritaca",
+                return_value=iter(
+                    [
+                        {
+                            "text": "B",
+                            "generation_completed": True,
+                            "api_http_status": 200,
+                            "api_failure": False,
+                            "api_failure_reason": None,
+                            "provider_block": False,
+                            "provider_block_reason": None,
+                        }
+                    ]
+                ),
+            ):
+                main(
+                    [
+                        "predict-belebele",
+                        "--dataset-dir",
+                        str(tmp_path / "belebele"),
+                        "--language",
+                        "por",
+                        "--model",
+                        "sabia_3",
+                        "--backend",
+                        "maritaca",
+                        "--output",
+                        str(output),
+                    ]
+                )
+            rows = read_jsonl(output)
+        self.assertEqual(len(rows), 1)
+        self.assertEqual(rows[0]["prediction"], "B")
+        self.assertEqual(rows[0]["api_http_status"], 200)
+        self.assertFalse(rows[0]["api_failure"])
+        self.assertTrue(rows[0]["generation_completed"])
+
+    def test_cli_predict_belebele_sabia_api_resumes_partial_checkpoint(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            tmp_path = Path(tmp)
+            data_dir = tmp_path / "belebele" / "data"
+            data_dir.mkdir(parents=True)
+            dataset_rows = [
+                {
+                    "question_number": 1,
+                    "flores_passage": "Trecho 1",
+                    "question": "Pergunta 1?",
+                    "mc_answer1": "A1",
+                    "mc_answer2": "A2",
+                    "mc_answer3": "A3",
+                    "mc_answer4": "A4",
+                    "correct_answer_num": "2",
+                    "dialect": "por_Latn",
+                },
+                {
+                    "question_number": 2,
+                    "flores_passage": "Trecho 2",
+                    "question": "Pergunta 2?",
+                    "mc_answer1": "A1",
+                    "mc_answer2": "A2",
+                    "mc_answer3": "A3",
+                    "mc_answer4": "A4",
+                    "correct_answer_num": "3",
+                    "dialect": "por_Latn",
+                },
+            ]
+            write_jsonl(
+                data_dir / "por_Latn.jsonl",
+                dataset_rows,
+            )
+            expected_prompt = build_belebele_prompt(dataset_rows[1])
+            partial = tmp_path / "sabia_predictions.partial.jsonl"
+            write_jsonl(
+                partial,
+                [
+                    {
+                        "model": "sabia_3",
+                        "language": "por",
+                        "dataset_dialect": "por_Latn",
+                        "item_id": "belebele_0001",
+                        "question_number": 1,
+                        "gold": "B",
+                        "raw_output": "B",
+                        "prediction": "B",
+                        "predicted_choice": "B",
+                        "generation_completed": True,
+                        "api_http_status": 200,
+                        "api_failure": False,
+                        "api_failure_reason": None,
+                        "provider_block": False,
+                        "provider_block_reason": None,
+                    }
+                ],
+            )
+            output = tmp_path / "sabia_predictions.jsonl"
+            calls: list[list[str]] = []
+
+            def fake_iter(prompts, **kwargs):
+                calls.append(list(prompts))
+                return iter(
+                    [
+                        {
+                            "text": "C",
+                            "generation_completed": True,
+                            "api_http_status": 200,
+                            "api_failure": False,
+                            "api_failure_reason": None,
+                            "provider_block": False,
+                            "provider_block_reason": None,
+                        }
+                    ]
+                )
+
+            with patch("thesis_eval.cli.iter_generate_with_maritaca", side_effect=fake_iter):
+                main(
+                    [
+                        "predict-belebele",
+                        "--dataset-dir",
+                        str(tmp_path / "belebele"),
+                        "--language",
+                        "por",
+                        "--model",
+                        "sabia_3",
+                        "--backend",
+                        "maritaca",
+                        "--output",
+                        str(output),
+                    ]
+                )
+            rows = read_jsonl(output)
+        self.assertEqual(calls, [[expected_prompt]])
+        self.assertEqual(len(rows), 2)
+        self.assertEqual(rows[0]["prediction"], "B")
+        self.assertEqual(rows[1]["prediction"], "C")
 
 
 class UrielTests(unittest.TestCase):
@@ -660,7 +1084,326 @@ class TranslationTests(unittest.TestCase):
             )
             self.assertEqual(len(output.read_text(encoding="utf-8").strip().splitlines()), 2)
 
-    def _translation_log(self, prompt_id: str, target_language: str) -> dict[str, object]:
+    def test_cli_generate_targets_max_records_limits_retained_rows(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            tmp_path = Path(tmp)
+            por = tmp_path / "por.jsonl"
+            output = tmp_path / "generations.jsonl"
+            skipped = dict(self._translation_log("p0", "por"))
+            skipped["translation_excluded"] = True
+            write_jsonl(
+                por,
+                [
+                    skipped,
+                    self._translation_log("p1", "por"),
+                    self._translation_log("p2", "por"),
+                ],
+            )
+            main(
+                [
+                    "generate-targets",
+                    "--translations",
+                    str(por),
+                    "--model",
+                    "sagui_7b",
+                    "--backend",
+                    "mock",
+                    "--output",
+                    str(output),
+                    "--max-records",
+                    "1",
+                ]
+            )
+            rows = read_jsonl(output)
+            self.assertEqual(len(rows), 1)
+            self.assertEqual(rows[0]["prompt_id"], "p1")
+
+    def test_cli_generate_targets_output_dir_writes_per_language_files(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            tmp_path = Path(tmp)
+            por = tmp_path / "por.jsonl"
+            ara = tmp_path / "ara.jsonl"
+            output_dir = tmp_path / "generations"
+            write_jsonl(por, [self._translation_log("p1", "por")])
+            write_jsonl(ara, [self._translation_log("p1", "ara")])
+            main(
+                [
+                    "generate-targets",
+                    "--translations",
+                    str(por),
+                    "--translations",
+                    str(ara),
+                    "--model",
+                    "sagui_7b",
+                    "--backend",
+                    "mock",
+                    "--output-dir",
+                    str(output_dir),
+                    "--output-template",
+                    "{model}_{lang}.jsonl",
+                ]
+            )
+            por_rows = read_jsonl(output_dir / "sagui_7b_por.jsonl")
+            ara_rows = read_jsonl(output_dir / "sagui_7b_ara.jsonl")
+            self.assertEqual(len(por_rows), 1)
+            self.assertEqual(len(ara_rows), 1)
+            self.assertEqual(por_rows[0]["generation_backend"], "mock")
+            self.assertEqual(por_rows[0]["generation_temperature"], 0.0)
+            self.assertEqual(por_rows[0]["generation_prompt_strategy"], "chat_template_user_only")
+            self.assertIsNone(por_rows[0]["generation_system_prompt_id"])
+
+    def test_cli_generate_targets_output_dir_reuses_local_generation_runner(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            tmp_path = Path(tmp)
+            por = tmp_path / "por.jsonl"
+            ara = tmp_path / "ara.jsonl"
+            output_dir = tmp_path / "generations"
+            write_jsonl(por, [self._translation_log("p1", "por")])
+            write_jsonl(ara, [self._translation_log("p1", "ara")])
+
+            def fake_runner(prompts):
+                return [f"OUT:{prompt}" for prompt in prompts]
+
+            with patch("thesis_eval.cli.build_generation_runner", return_value=fake_runner) as build_runner, patch(
+                "thesis_eval.cli.generate_outputs"
+            ) as generate_outputs_mock:
+                main(
+                    [
+                        "generate-targets",
+                        "--translations",
+                        str(por),
+                        "--translations",
+                        str(ara),
+                        "--model",
+                        "sagui_7b",
+                        "--backend",
+                        "transformers",
+                        "--output-dir",
+                        str(output_dir),
+                        "--output-template",
+                        "{model}_{lang}.jsonl",
+                        "--skip-tokenizer-metrics",
+                    ]
+                )
+
+            build_runner.assert_called_once()
+            build_kwargs = build_runner.call_args.kwargs
+            self.assertEqual(build_kwargs["backend"], "transformers")
+            self.assertEqual(len(build_kwargs["prompt_texts"]), 2)
+            generate_outputs_mock.assert_not_called()
+            por_rows = read_jsonl(output_dir / "sagui_7b_por.jsonl")
+            ara_rows = read_jsonl(output_dir / "sagui_7b_ara.jsonl")
+            self.assertEqual(por_rows[0]["model_output"], "OUT:same text")
+            self.assertEqual(ara_rows[0]["model_output"], "OUT:same text")
+
+    def test_cli_generate_targets_output_dir_keeps_local_partial_checkpoint_on_failure(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            tmp_path = Path(tmp)
+            por = tmp_path / "por.jsonl"
+            output_dir = tmp_path / "generations"
+            write_jsonl(
+                por,
+                [
+                    self._translation_log("p1", "por", translated_text="primeiro"),
+                    self._translation_log("p2", "por", translated_text="segundo"),
+                ],
+            )
+            calls: list[list[str]] = []
+
+            def fake_runner(prompts):
+                calls.append(list(prompts))
+                if len(calls) == 1:
+                    return [f"OUT:{prompt}" for prompt in prompts]
+                raise RuntimeError("boom")
+
+            with patch("thesis_eval.cli.build_generation_runner", return_value=fake_runner):
+                with self.assertRaisesRegex(RuntimeError, "boom"):
+                    main(
+                        [
+                            "generate-targets",
+                            "--translations",
+                            str(por),
+                            "--model",
+                            "sagui_7b",
+                            "--backend",
+                            "transformers",
+                            "--output-dir",
+                            str(output_dir),
+                            "--output-template",
+                            "{model}_{lang}.jsonl",
+                            "--local-batch-size",
+                            "1",
+                            "--skip-tokenizer-metrics",
+                        ]
+                    )
+
+            partial_rows = read_jsonl(output_dir / "sagui_7b_por.partial.jsonl")
+            self.assertEqual(calls, [["primeiro"], ["segundo"]])
+            self.assertEqual(len(partial_rows), 1)
+            self.assertEqual(partial_rows[0]["model_output"], "OUT:primeiro")
+
+    def test_cli_generate_targets_output_dir_resumes_local_partial_checkpoint(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            tmp_path = Path(tmp)
+            por = tmp_path / "por.jsonl"
+            output_dir = tmp_path / "generations"
+            write_jsonl(
+                por,
+                [
+                    self._translation_log("p1", "por", translated_text="primeiro"),
+                    self._translation_log("p2", "por", translated_text="segundo"),
+                ],
+            )
+            partial_path = output_dir / "sagui_7b_por.partial.jsonl"
+            write_jsonl(
+                partial_path,
+                [
+                    {
+                        "model": "sagui_7b",
+                        "aligned_language": "por",
+                        "attack_language": "por",
+                        "prompt_id": "p1",
+                        "run_id": "sagui_7b:por:p1:pilot-1",
+                        "prompt_text": "primeiro",
+                        "source_prompt_text": "same text",
+                        "model_output": "OUT:primeiro",
+                    }
+                ],
+            )
+            calls: list[list[str]] = []
+
+            def fake_runner(prompts):
+                calls.append(list(prompts))
+                return [f"OUT:{prompt}" for prompt in prompts]
+
+            with patch("thesis_eval.cli.build_generation_runner", return_value=fake_runner):
+                main(
+                    [
+                        "generate-targets",
+                        "--translations",
+                        str(por),
+                        "--model",
+                        "sagui_7b",
+                        "--backend",
+                        "transformers",
+                        "--output-dir",
+                        str(output_dir),
+                        "--output-template",
+                        "{model}_{lang}.jsonl",
+                        "--local-batch-size",
+                        "1",
+                        "--skip-tokenizer-metrics",
+                    ]
+                )
+
+            final_rows = read_jsonl(output_dir / "sagui_7b_por.jsonl")
+            self.assertEqual(calls, [["segundo"]])
+            self.assertEqual(len(final_rows), 2)
+            self.assertEqual(final_rows[0]["model_output"], "OUT:primeiro")
+            self.assertEqual(final_rows[1]["model_output"], "OUT:segundo")
+
+    def test_cli_generate_targets_single_output_keeps_local_partial_checkpoint_on_failure(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            tmp_path = Path(tmp)
+            por = tmp_path / "por.jsonl"
+            output = tmp_path / "sagui_7b_por.jsonl"
+            write_jsonl(
+                por,
+                [
+                    self._translation_log("p1", "por", translated_text="primeiro"),
+                    self._translation_log("p2", "por", translated_text="segundo"),
+                ],
+            )
+            calls: list[list[str]] = []
+
+            def fake_runner(prompts):
+                calls.append(list(prompts))
+                if len(calls) == 1:
+                    return [f"OUT:{prompt}" for prompt in prompts]
+                raise RuntimeError("boom")
+
+            with patch("thesis_eval.cli.build_generation_runner", return_value=fake_runner):
+                with self.assertRaisesRegex(RuntimeError, "boom"):
+                    main(
+                        [
+                            "generate-targets",
+                            "--translations",
+                            str(por),
+                            "--model",
+                            "sagui_7b",
+                            "--backend",
+                            "transformers",
+                            "--output",
+                            str(output),
+                            "--local-batch-size",
+                            "1",
+                            "--skip-tokenizer-metrics",
+                        ]
+                    )
+
+            partial_rows = read_jsonl(tmp_path / "sagui_7b_por.partial.jsonl")
+            self.assertEqual(calls, [["primeiro"], ["segundo"]])
+            self.assertEqual(len(partial_rows), 1)
+            self.assertEqual(partial_rows[0]["model_output"], "OUT:primeiro")
+
+    def test_cli_generate_targets_single_output_resumes_local_partial_checkpoint(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            tmp_path = Path(tmp)
+            por = tmp_path / "por.jsonl"
+            output = tmp_path / "sagui_7b_por.jsonl"
+            write_jsonl(
+                por,
+                [
+                    self._translation_log("p1", "por", translated_text="primeiro"),
+                    self._translation_log("p2", "por", translated_text="segundo"),
+                ],
+            )
+            write_jsonl(
+                tmp_path / "sagui_7b_por.partial.jsonl",
+                [
+                    {
+                        "model": "sagui_7b",
+                        "aligned_language": "por",
+                        "attack_language": "por",
+                        "prompt_id": "p1",
+                        "run_id": "sagui_7b:por:p1:pilot-1",
+                        "prompt_text": "primeiro",
+                        "source_prompt_text": "same text",
+                        "model_output": "OUT:primeiro",
+                    }
+                ],
+            )
+            calls: list[list[str]] = []
+
+            def fake_runner(prompts):
+                calls.append(list(prompts))
+                return [f"OUT:{prompt}" for prompt in prompts]
+
+            with patch("thesis_eval.cli.build_generation_runner", return_value=fake_runner):
+                main(
+                    [
+                        "generate-targets",
+                        "--translations",
+                        str(por),
+                        "--model",
+                        "sagui_7b",
+                        "--backend",
+                        "transformers",
+                        "--output",
+                        str(output),
+                        "--local-batch-size",
+                        "1",
+                        "--skip-tokenizer-metrics",
+                    ]
+                )
+
+            final_rows = read_jsonl(output)
+            self.assertEqual(calls, [["segundo"]])
+            self.assertEqual(len(final_rows), 2)
+            self.assertEqual(final_rows[0]["model_output"], "OUT:primeiro")
+            self.assertEqual(final_rows[1]["model_output"], "OUT:segundo")
+
+    def _translation_log(self, prompt_id: str, target_language: str, translated_text: str = "same text") -> dict[str, object]:
         return TranslationLog(
             prompt_id=prompt_id,
             source_language="eng",
@@ -677,7 +1420,7 @@ class TranslationTests(unittest.TestCase):
             harm_preservation="pending",
             revision_note=None,
             source_text="same text",
-            translated_text="same text",
+            translated_text=translated_text,
         ).to_dict()
 
 
