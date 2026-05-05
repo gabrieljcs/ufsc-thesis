@@ -217,15 +217,23 @@ runs on TPU). predict-belebele and generate-targets write per-language
 `*.partial.jsonl` checkpoints, so a Ctrl-C or spot preemption is
 recoverable.
 
-> **Why `--max-input-length`?** XLA needs fixed-shape inputs to avoid HLO
-> recompiles, and the prefill attention tensor is `f32[batch, heads, seq,
-> seq] × 4 B`, so doubling `seq` quadruples HBM. On v6e-1 (32 GB HBM) with
-> an 8B bf16 model (~16 GB resident), `seq=4096 × batch=32` is a 64 GB
-> attention OOM. The settings below are the safe sweet spot:
-> - `--max-input-length 1024` for BELEBELE (`max_tokens=8`, prompts cap at
->   ~700 tokens)
-> - `--max-input-length 2048` for §9 (`max_tokens=512`, prompts cap at
->   ~1500 tokens post-audit)
+> **Why these `--gpu-batch-size` and `--max-input-length` numbers?** v6e-1
+> has 31.25 GB usable HBM. An 8B bf16 model is ~16 GB resident
+> ("program"); the rest goes to prefill attention scores (`f32[batch,
+> heads, seq, seq] × 4 B`), KV cache, and layer activations
+> ("arguments"). XLA needs fixed shapes to avoid HLO recompiles. The
+> settings below are the safe sweet spot found by retrying through OOMs:
+> - **BELEBELE**: `--gpu-batch-size 32 --max-input-length 1024` →
+>   attention 4 GB, total ~24 GB. Prompts cap at ~700 tokens; no
+>   truncation risk.
+> - **§9 generation**: `--gpu-batch-size 4 --max-input-length 2048` →
+>   attention 2 GB, arguments ~7.5 GB, total ~24 GB. Doubling batch to 8
+>   pushes arguments to ~15 GB and crosses the 31.25 GB cap by a few
+>   hundred MB; halving batch is the conservative path with no prompt
+>   truncation.
+> - **9B Gemma exception** (`bggpt_gemma_9b`): the program block is
+>   ~20 GB instead of ~16 GB, so even batch=4 is tight. If it OOMs, drop
+>   to `--gpu-batch-size 2` for that one model.
 
 > **Run inside `tmux`** so the block survives SSH disconnects (which WILL
 > happen over a 10+ hour window). Per VM:
@@ -275,7 +283,7 @@ PJRT_DEVICE=TPU uv run thesis-eval generate-targets \
   "${AUDIT_ARGS[@]}" \
   --model llamantino_anita_8b \
   --backend transformers --profile trc_tpu \
-  --gpu-batch-size 8 \
+  --gpu-batch-size 4 \
   --max-input-length 2048 \
   --max-tokens 512 --temperature 0.0 --trust-remote-code \
   --output-dir outputs/generations \
@@ -307,7 +315,7 @@ PJRT_DEVICE=TPU uv run thesis-eval generate-targets \
   "${AUDIT_ARGS[@]}" \
   --model ai_sweden_llama3_8b \
   --backend transformers --profile trc_tpu \
-  --gpu-batch-size 8 \
+  --gpu-batch-size 4 \
   --max-input-length 2048 \
   --max-tokens 512 --temperature 0.0 --trust-remote-code \
   --output-dir outputs/generations \
@@ -331,7 +339,7 @@ PJRT_DEVICE=TPU uv run thesis-eval generate-targets \
   "${AUDIT_ARGS[@]}" \
   --model gpt_sw3 \
   --backend transformers --profile trc_tpu \
-  --gpu-batch-size 8 \
+  --gpu-batch-size 4 \
   --max-input-length 2048 \
   --max-tokens 512 --temperature 0.0 --trust-remote-code \
   --output-dir outputs/generations \
@@ -363,7 +371,7 @@ PJRT_DEVICE=TPU uv run thesis-eval generate-targets \
   "${AUDIT_ARGS[@]}" \
   --model bggpt_gemma_9b \
   --backend transformers --profile trc_tpu \
-  --gpu-batch-size 8 \
+  --gpu-batch-size 4 \
   --max-input-length 2048 \
   --max-tokens 512 --temperature 0.0 --trust-remote-code \
   --output-dir outputs/generations \
@@ -387,7 +395,7 @@ PJRT_DEVICE=TPU uv run thesis-eval generate-targets \
   "${AUDIT_ARGS[@]}" \
   --model bggpt_7b \
   --backend transformers --profile trc_tpu \
-  --gpu-batch-size 8 \
+  --gpu-batch-size 4 \
   --max-input-length 2048 \
   --max-tokens 512 --temperature 0.0 --trust-remote-code \
   --output-dir outputs/generations \
@@ -420,7 +428,7 @@ PJRT_DEVICE=TPU uv run thesis-eval generate-targets \
   "${AUDIT_ARGS[@]}" \
   --model llama3_1_8b_reference \
   --backend transformers --profile trc_tpu \
-  --gpu-batch-size 8 \
+  --gpu-batch-size 4 \
   --max-input-length 2048 \
   --max-tokens 512 --temperature 0.0 --trust-remote-code \
   --output-dir outputs/generations \
