@@ -194,7 +194,7 @@ uv run thesis-eval verify-assets --name belebele
 > PJRT_DEVICE=TPU uv run thesis-eval predict-belebele \
 >   --model sagui_7b \
 >   --backend transformers --profile trc_tpu \
->   --gpu-batch-size 32 \
+>   --gpu-batch-size 16 \
 >   --max-input-length 1024 \
 >   --output-dir outputs/spec_validation \
 >   --output-template "{model}_{lang}.belebele.jsonl"
@@ -534,7 +534,7 @@ The two failure modes in practice:
 On the affected VM:
 
 ```bash
-# Pull the latest patches (e.g. the gpu-batch-size 4 default for §9, the
+# Pull the latest patches (per-model gpu-batch-size tuning, the
 # sliding_window cache fix, the trailing-batch shape padding).
 cd ~/ufsc-thesis && git pull
 cd eval
