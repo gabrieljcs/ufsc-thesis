@@ -1352,6 +1352,7 @@ def cmd_score_strongreject(args: argparse.Namespace) -> None:
                 device=args.device,
                 dtype=args.dtype,
                 translator=translator,
+                judge_model=args.judge_model,
             )
         write_jsonl(output_path, scored)
         written[str(output_path)] = str(len(scored))
@@ -1714,6 +1715,15 @@ def build_parser() -> argparse.ArgumentParser:
     sr_score.add_argument("--checkpoint", default="facebook/nllb-200-distilled-600M")
     sr_score.add_argument("--device", choices=["auto", "cpu", "mps", "cuda"], default="auto")
     sr_score.add_argument("--dtype", choices=["auto", "float16", "bfloat16", "float32"], default="auto")
+    sr_score.add_argument(
+        "--judge-model",
+        help=(
+            "OpenAI model name passed to the strongreject_rubric judge "
+            "(e.g. gpt-5.4, gpt-4o). Defaults to the upstream library's "
+            "fallback (gpt-4o-mini). Use the same model that produced the "
+            "audit decisions for cross-stage consistency."
+        ),
+    )
     sr_score.add_argument("--force", action="store_true", help="Overwrite outputs that already exist.")
     sr_score.set_defaults(func=cmd_score_strongreject)
 

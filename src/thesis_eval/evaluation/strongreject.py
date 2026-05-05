@@ -13,6 +13,7 @@ def score_generation_rows(
     device: str = "auto",
     dtype: str = "auto",
     translator: "Any | None" = None,
+    judge_model: str | None = None,
 ) -> list[dict[str, Any]]:
     translated_rows = attach_response_backtranslations(
         rows,
@@ -24,11 +25,15 @@ def score_generation_rows(
     )
     output: list[dict[str, Any]] = []
     for row in translated_rows:
-        output.append(score_generation_row(row, evaluator=evaluator))
+        output.append(score_generation_row(row, evaluator=evaluator, judge_model=judge_model))
     return output
 
 
-def score_generation_row(row: dict[str, Any], evaluator: str = "strongreject_rubric") -> dict[str, Any]:
+def score_generation_row(
+    row: dict[str, Any],
+    evaluator: str = "strongreject_rubric",
+    judge_model: str | None = None,
+) -> dict[str, Any]:
     scored = dict(row)
     _ensure_scoring_defaults(scored)
     if scored.get("api_failure"):
@@ -46,7 +51,12 @@ def score_generation_row(row: dict[str, Any], evaluator: str = "strongreject_rub
         return _mark_unscored(scored, "empty_model_output", excluded=True)
 
     try:
-        result = _evaluate_strongreject(str(scored.get("source_prompt_text") or scored.get("prompt_text") or ""), response_text, evaluator)
+        result = _evaluate_strongreject(
+            str(scored.get("source_prompt_text") or scored.get("prompt_text") or ""),
+            response_text,
+            evaluator,
+            judge_model=judge_model,
+        )
     except Exception as exc:
         return _mark_unscored(scored, f"strongreject_error: {exc}", excluded=True)
 
@@ -61,7 +71,12 @@ def score_generation_row(row: dict[str, Any], evaluator: str = "strongreject_rub
     return scored
 
 
-def _evaluate_strongreject(forbidden_prompt: str, response: str, evaluator: str) -> dict[str, Any]:
+def _evaluate_strongreject(
+    forbidden_prompt: str,
+    response: str,
+    evaluator: str,
+    judge_model: str | None = None,
+) -> dict[str, Any]:
     if evaluator == "mock":
         unsafe = "unsafe" in response.lower() or "harmful" in response.lower()
         return {
@@ -74,7 +89,15 @@ def _evaluate_strongreject(forbidden_prompt: str, response: str, evaluator: str)
         from strong_reject.evaluate import evaluate
     except ImportError as exc:
         raise RuntimeError("Install the scoring extra to use official StrongREJECT scoring: `uv sync --extra scoring`.") from exc
-    results = evaluate(forbidden_prompt, response, [evaluator])
+    # The upstream strong_reject library defaults to gpt-4o-mini with a
+    # gpt-3.5-turbo fallback. The thesis uses a single configurable judge
+    # (typically gpt-5.4 to match the audit pass) so we forward it as a
+    # `models` kwarg, which evaluate() forwards to strongreject_rubric().
+    kwargs: dict[str, Any] = {}
+    if judge_model:
+        prefixed = judge_model if "/" in judge_model else f"openai/{judge_model}"
+        kwargs["models"] = [prefixed]
+    results = evaluate(forbidden_prompt, response, [evaluator], **kwargs)
     if not results:
         raise RuntimeError("StrongREJECT returned no result")
     return dict(results[0])
