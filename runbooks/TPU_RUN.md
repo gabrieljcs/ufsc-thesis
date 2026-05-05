@@ -194,7 +194,7 @@ uv run thesis-eval verify-assets --name belebele
 > PJRT_DEVICE=TPU uv run thesis-eval predict-belebele \
 >   --model sagui_7b \
 >   --backend transformers --profile trc_tpu \
->   --gpu-batch-size 16 \
+>   --gpu-batch-size 8 \
 >   --max-input-length 1024 \
 >   --output-dir outputs/spec_validation \
 >   --output-template "{model}_{lang}.belebele.jsonl"
