@@ -1,6 +1,11 @@
 # GPU Docker Profile
 
-This profile is the canonical GPU runtime for `thesis-eval`. The image targets the RTX 5070 Ti / Blackwell path with CUDA 12.8 and vLLM, and is the recommended runtime for translation, BLASER QC, target generation, and StrongREJECT scoring on any host (Windows + WSL 2, Linux, or macOS with NVIDIA GPU passthrough).
+This profile is the local/containerized GPU runtime for `thesis-eval`. The
+active plan uses RunPod for pending model generation; see
+[`../runbooks/RUNPOD_RUN.md`](../runbooks/RUNPOD_RUN.md). The Docker image
+remains the recommended RTX path for light GPU checks, translation/BLASER
+smokes, target-generation smoke tests, and StrongREJECT scoring on a CUDA host
+(Windows + WSL 2, Linux, or macOS with NVIDIA GPU passthrough).
 
 For the user-facing setup walk-through, see §1 of [`../README.md`](../README.md). This file documents image internals and reference invocations.
 

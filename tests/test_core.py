@@ -72,6 +72,8 @@ class ConfigTests(unittest.TestCase):
         profiles = load_runtime_profiles()
         self.assertEqual(profiles["macbook"].target_backend, "transformers")
         self.assertEqual(profiles["rtx_5070_ti"].target_backend, "vllm")
+        self.assertEqual(profiles["runpod_a100"].target_backend, "vllm")
+        self.assertEqual(profiles["runpod_a100"].device, "cuda")
         self.assertEqual(profiles["tpu"].device, "xla")
         self.assertEqual(profiles["trc_tpu"].device, "xla")
 

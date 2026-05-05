@@ -8,7 +8,12 @@ profiles:
     target_backend: vllm
     device: cuda
     dtype: auto
-    notes: "Linux Docker path with CUDA 12.8 and vLLM. Use for full local target-model generations."
+    notes: "Local Linux/Docker CUDA path with vLLM. Use for light GPU checks and StrongREJECT scoring."
+  runpod_a100:
+    target_backend: vllm
+    device: cuda
+    dtype: auto
+    notes: "RunPod CUDA pod profile for A100/H100-class rented GPUs. Primary path for pending BELEBELE and target generations."
   tpu:
     target_backend: transformers
     device: xla

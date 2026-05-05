@@ -18,7 +18,7 @@ eval/
 │   ├── assets.yaml        # datasets, translators, BLASER, target model assets
 │   ├── languages.yaml     # 13 attack languages and model aligned languages
 │   ├── models.yaml        # target model metadata, access mode, provider IDs
-│   └── runtime.yaml       # Mac and RTX runtime profiles
+│   └── runtime.yaml       # Mac, local CUDA, RunPod, and TPU fallback profiles
 ├── data/
 │   ├── raw/               # imported StrongREJECT, MultiJail, BELEBELE inputs
 │   ├── translations/      # finalized translated prompt logs
@@ -67,7 +67,14 @@ ara bul dan eng fin ita nor por rus spa swa swe ukr
 
 ## 1. Environment Setup
 
-The full thesis pipeline (translation, BLASER QC, target generation, StrongREJECT scoring) runs on a CUDA GPU through PyTorch and vLLM. **Use the Docker GPU profile.** Native installs cover only narrower cases — Apple Silicon smoke tests and Windows analysis-only work — described in §1.3.
+The remaining heavy model-generation work should run on RunPod. Follow
+[`runbooks/RUNPOD_RUN.md`](runbooks/RUNPOD_RUN.md) for the active A100/H100 pod
+workflow, then keep lighter RTX work such as §10 StrongREJECT scoring in
+[`runbooks/RTX_RUN.md`](runbooks/RTX_RUN.md). The Docker GPU profile below
+remains useful for local CUDA smoke tests, RTX scoring, and reproducible
+containerized runs on a machine you control. Native installs cover only narrower
+cases — Apple Silicon smoke tests and Windows analysis-only work — described in
+§1.3.
 
 > **Why Docker for the GPU path?** PyPI's default `torch` wheel on Windows is CPU-only, so `torch.cuda.is_available()` returns `False` even on a working NVIDIA driver. vLLM has no Windows wheel at all, and `fairseq2` / `sonar-space` (used by BLASER QC) are gated to non-Windows platforms in `pyproject.toml`. The Docker image builds on `nvidia/cuda:12.8.1-cudnn-devel-ubuntu24.04` with `torch` pinned to `cu128` (Blackwell-ready, e.g. RTX 50-series) and a Linux `vllm`, so every command in this README works end-to-end. See [`docker/README.md`](docker/README.md) for image internals.
 
@@ -244,7 +251,7 @@ data/raw/strongreject/pilot_prompts.jsonl
 
 ## 3. Prepare Translation and QC Models
 
-NLLB-200 is used for prompt translation and response back-translation. BLASER 2.0 QE is used for reference-free translation quality screening. The 3.3B NLLB checkpoint is the thesis-grade translation asset for the RTX run; the 600M checkpoint is useful for quick smoke tests.
+NLLB-200 is used for prompt translation and response back-translation. BLASER 2.0 QE is used for reference-free translation quality screening. The 3.3B NLLB checkpoint is the thesis-grade translation asset for the full GPU run; the 600M checkpoint is useful for quick smoke tests.
 
 ```powershell
 uv run thesis-eval download-assets --name nllb_200_3_3b
@@ -577,7 +584,13 @@ uv run thesis-eval reference-spbleu `
 
 ## 9. Generate Target Responses
 
-Open-weight models use vLLM on the RTX machine. Move cautiously here: after the Plan B audit, `generate-targets` skips rows marked `translation_excluded=true`, so a full all-language run for one model should currently generate 4,021 retained prompt-language rows split across 13 output files.
+Open-weight models use vLLM. The active full-panel path is RunPod
+([`runbooks/RUNPOD_RUN.md`](runbooks/RUNPOD_RUN.md)); the PowerShell examples
+below remain useful for local Docker fallback. Move cautiously here: after the
+Plan B audit, `generate-targets` skips rows marked
+`translation_excluded=true`, so a full all-language run for one model should
+currently generate 4,021 retained prompt-language rows split across 13 output
+files.
 
 ```powershell
 New-Item -ItemType Directory -Force outputs/generations | Out-Null
@@ -749,13 +762,12 @@ BELEBELE measures benign multilingual specialization for the eight paired target
 
 The repo now includes a first-class `predict-belebele` command. It uses the same model-resolution and native chat-formatting logic as `generate-targets`, but emits multiple-choice prediction rows instead of free-form harmful generations.
 
-On the RTX path:
+On the RunPod path:
 
-```powershell
-uv run thesis-eval-gpu predict-belebele `
-  --model sagui_7b `
-  --profile rtx_5070_ti `
-  --backend vllm `
+```bash
+uv run thesis-eval predict-belebele \
+  --model sagui_7b \
+  --profile runpod_a100 \
   --output outputs/spec/sagui_7b.belebele.jsonl
 ```
 

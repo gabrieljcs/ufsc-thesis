@@ -1,8 +1,8 @@
 # Laptop runbook — reconverge into the frozen dataset and Results-chapter tables
 
-After [`TPU_RUN.md`](TPU_RUN.md) and [`RTX_RUN.md`](RTX_RUN.md) finish, all
-artifacts should be on the laptop under `eval/outputs/`. This runbook is one
-contiguous bash block plus a verification step.
+After [`RUNPOD_RUN.md`](RUNPOD_RUN.md) finishes, all artifacts should be on the
+laptop under `eval/outputs/`. This runbook is one contiguous bash block plus a
+verification step.
 
 > **Working directory** for everything below: `~/Developer/ufsc-thesis/eval`.
 
@@ -26,8 +26,8 @@ echo "spec files:         $(ls outputs/spec/*.belebele*.jsonl 2>/dev/null | wc -
 echo "spec rows:          $(cat outputs/spec/*.belebele.jsonl outputs/spec/*.belebele.repaired.jsonl 2>/dev/null | wc -l)  (expect ~93600 with 8 paired models, ~105300 with reference)"
 ```
 
-If any count is short, find the gap and rerun the corresponding TPU/RTX
-runbook block before continuing.
+If any count is short, find the gap and rerun the corresponding RunPod runbook
+block before continuing.
 
 ---
 
@@ -230,7 +230,8 @@ exclusions.
 - The thesis manuscript reads from `outputs/tables/*.csv` directly (see
   README §14). The table → LaTeX glue is checked in elsewhere; you don't
   need to copy values by hand.
-- After this runbook, double-check no TPU VMs are still up:
+- If you used the older TPU fallback at any point, double-check no TPU VMs are
+  still up:
 
   ```bash
   cd ~/Developer/ufsc-thesis/eval/runbooks/tpu-terraform

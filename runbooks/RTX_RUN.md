@@ -1,8 +1,9 @@
-# RTX 5070 Ti runbook — StrongREJECT scoring only
+# RTX 5070 Ti runbook — light GPU steps and §10 scoring
 
-The RTX rig used to run §9 for the ≤7B models, but throughput on vLLM was
-too slow to be worthwhile. **All §9 generations now run on TPU.** This
-runbook is the §10 StrongREJECT scoring pass over every model's outputs.
+The active plan is hybrid: [`RUNPOD_RUN.md`](RUNPOD_RUN.md) runs the pending
+BELEBELE and §9 target generations on rented A100/H100 capacity; this runbook
+keeps the lighter local RTX work, especially §10 StrongREJECT scoring after the
+RunPod generation files come back.
 
 > **Working directory** for everything below: `path\to\ufsc-thesis\eval` on
 > the RTX rig (the dir containing `pyproject.toml`, `assets/`, `outputs/`).
@@ -14,21 +15,20 @@ runbook is the §10 StrongREJECT scoring pass over every model's outputs.
 
 ---
 
-## §1 — Sync TPU §9 generations onto this rig
+## §1 — Sync RunPod §9 generations onto this rig
 
-After all four tabs in `TPU_RUN.md` finish their `generate-targets` step,
-the laptop pulls them via `gcloud compute tpus tpu-vm scp`. Get those
-`outputs/generations/*.jsonl` files onto this RTX rig before scoring.
+After `RUNPOD_RUN.md` finishes its `generate-targets` step, pull
+`outputs/generations/*.jsonl` onto this RTX rig before scoring.
 
 Easiest: copy the laptop's `eval/outputs/generations/` directory over LAN
 / USB / `rsync` so the RTX rig's `outputs/generations/` ends up holding
-all 8 × 13 = 104 files (3 from earlier work + the 5–6 new ones from TPU).
+all 8 × 13 = 104 files (3 from earlier work + the 5–6 new ones from RunPod).
 
 Quick count check before continuing:
 
 ```powershell
 (Get-ChildItem outputs/generations/*.jsonl).Count
-# Target: 104 (or 117 if you ran the optional llama3_1_8b_reference on TPU Tab 3).
+# Target: 104 (or 117 if you ran the optional llama3_1_8b_reference on RunPod).
 ```
 
 ---
@@ -39,6 +39,15 @@ Score every `outputs/generations/*.jsonl` file in one pass. NLLB-600M
 loads once, then each input is back-translated and the official
 StrongREJECT rubric runs (which calls OpenAI under the hood, hence
 `OPENAI_API_KEY`).
+
+Quick local checks before launching the full pass:
+
+```powershell
+uv run thesis-eval-gpu validate-config
+uv run thesis-eval-gpu runtime-profiles
+uv run thesis-eval download-assets --name nllb_200
+uv run thesis-eval verify-assets --name nllb_200
+```
 
 ```powershell
 # Make sure the scored output dir exists.
