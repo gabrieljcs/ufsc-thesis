@@ -621,27 +621,42 @@ def _build_transformers_runner(
             effective_max_input_length = auto_default
         info(f"XLA shape-stability: fixing input length to {effective_max_input_length} tokens")
 
-    # Mistral-style models set config.sliding_window (e.g. Mistral-7B and its
-    # bggpt_7b derivative use sliding_window=4096). The HF SlidingWindowCache
-    # path does `full_key_states[:, :, -self.sliding_window + 1 :, :]`, which
-    # raises "Value out of range" when the actual sequence dim is shorter
-    # than the configured window. We always pad to a length we know is
-    # shorter than that window for HBM reasons, so the sliding cache offers
-    # no functional benefit (full attention within a sub-window equals
-    # sliding attention with the same data). Disable it and let the model
-    # use the default DynamicCache instead.
+    # Models with sliding-window attention need careful handling because two
+    # different cache implementations live in transformers:
+    #
+    #   - Mistral-style (Mistral-7B, bggpt_7b, etc.) uses SlidingWindowCache.
+    #     Its update() does `full_key_states[:, :, -sliding_window + 1 :, :]`
+    #     unconditionally, which raises "Value out of range" when the actual
+    #     sequence dim is shorter than the configured window. We pad to a
+    #     length below the window for HBM reasons, so this path always
+    #     trips. Setting `config.sliding_window = None` forces generate() to
+    #     pick the default DynamicCache instead, which has no such slice.
+    #
+    #   - Gemma-2/3 uses HybridCache (alternating local/global layers). The
+    #     global layers' get_mask_sizes() does `cumulative_length >=
+    #     sliding_window`, which crashes with TypeError when sliding_window
+    #     is None. Gemma also REQUIRES sliding_window to be an int because
+    #     local layers genuinely apply sliding attention. The good news:
+    #     when our seq (max_input_length + max_tokens) is shorter than the
+    #     window, `is_full` stays False and the buggy slice path never
+    #     fires. So for Gemma we leave sliding_window alone — the original
+    #     value (e.g. 4096 on Gemma-2) is fine for our short BELEBELE/§9
+    #     prompts.
     cfg = getattr(model, "config", None)
     sliding_window = getattr(cfg, "sliding_window", None)
+    arch = (getattr(cfg, "model_type", "") or "").lower()
+    is_gemma_family = "gemma" in arch
     if (
         cfg is not None
         and sliding_window
         and effective_max_input_length is not None
         and sliding_window > effective_max_input_length
+        and not is_gemma_family
     ):
         info(
             f"Disabling sliding_window={sliding_window} > max_input_length="
             f"{effective_max_input_length} to avoid SlidingWindowCache index "
-            f"errors on this model"
+            f"errors on {arch}"
         )
         cfg.sliding_window = None
         # Some models also expose it on a nested text_config (multi-modal).
@@ -654,6 +669,11 @@ def _build_transformers_runner(
         gen_cfg = getattr(model, "generation_config", None)
         if gen_cfg is not None and getattr(gen_cfg, "cache_implementation", None) == "sliding_window":
             gen_cfg.cache_implementation = None
+    elif is_gemma_family and sliding_window:
+        info(
+            f"Keeping {arch} sliding_window={sliding_window} (HybridCache "
+            f"requires an int; seq < window so the sliding branch is inert)"
+        )
 
     def _tokenize_batch(input_texts: list[str]) -> dict[str, Any]:
         kwargs: dict[str, Any] = {"return_tensors": "pt", "truncation": True}
