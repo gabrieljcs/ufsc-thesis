@@ -1,0 +1,29 @@
+project_id       = "mestrado-495311"
+region           = "europe-west4"
+zone             = "europe-west4-a"
+accelerator_type = "v6e-1"
+runtime_version  = "v2-alpha-tpuv6e"
+vm_count         = 4
+use_spot         = true
+vm_name_prefix   = "thesis-belebele"
+
+# ----------------------------------------------------------------------------
+# Alternative configurations (uncomment one to override the v6e-spot default):
+#
+# v6e-1 spot in US-east (mirror of the EU default; pick whichever has stock):
+#   zone             = "us-east1-d"
+#
+# v5e single-chip slice in EU (older but more abundant). Note: v5litepod-1 only
+# has 16 GB HBM and CANNOT fit Gemma-2-9B in bf16. Use v5litepod-4 (4-chip
+# single-host) if you stick with v5e for the heavy §9 grind:
+#   zone             = "europe-west4-b"
+#   accelerator_type = "v5litepod-4"
+#   runtime_version  = "v2-alpha-tpuv5-lite"
+#
+# v4 on-demand in us-central2-b (no preemption — best for a one-shot thesis run
+# that you can't afford to babysit). v4 minimum slice is v4-8 (4 chips).
+#   zone             = "us-central2-b"
+#   accelerator_type = "v4-8"
+#   runtime_version  = "tpu-ubuntu2204-base"
+#   use_spot         = false
+# ----------------------------------------------------------------------------
