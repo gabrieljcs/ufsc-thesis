@@ -217,6 +217,18 @@ runs on TPU). predict-belebele and generate-targets write per-language
 `*.partial.jsonl` checkpoints, so a Ctrl-C or spot preemption is
 recoverable.
 
+> **Always `git pull` before running**, on every VM. The runbook's
+> `--gpu-batch-size`, `--max-input-length`, sliding-window cache fix,
+> and trailing-batch shape padding were all hardened across multiple
+> OOM iterations; older clones don't have those patches and will OOM
+> again. After SSH'ing in (or reattaching to tmux):
+>
+> ```bash
+> cd ~/ufsc-thesis && git pull
+> cd eval
+> set -a && source .env && set +a
+> ```
+
 > **Why these `--gpu-batch-size` and `--max-input-length` numbers?** v6e-1
 > has 31.25 GB usable HBM. An 8B bf16 model is ~16 GB resident
 > ("program"); the rest goes to prefill attention scores (`f32[batch,
@@ -474,9 +486,53 @@ they're a few GB total).
 
 ---
 
-## 6. Recover from spot preemption
+## 6. Recover after a failure (OOM / preemption / crash)
 
-If a v6e-1 spot VM is preempted mid-run:
+The two failure modes in practice:
+
+1. **§9 OOM** (`Used 31.56G of 31.25G hbm. Exceeded hbm capacity`). The
+   model and language that failed are still at the partial-checkpoint
+   stage; nothing after that point ran. Pull the latest patches and
+   rerun the same per-VM block; completed languages are skipped, the
+   failed language resumes from its `*.partial.jsonl`.
+2. **Spot preemption.** The VM is gone. Recreate it via Terraform, then
+   bootstrap and rerun.
+
+### 6a. Reset and restart on a single VM (most common)
+
+On the affected VM:
+
+```bash
+# Pull the latest patches (e.g. the gpu-batch-size 4 default for §9, the
+# sliding_window cache fix, the trailing-batch shape padding).
+cd ~/ufsc-thesis && git pull
+cd eval
+
+# Make sure .env is still loaded after a fresh shell/tmux session.
+set -a && source .env && set +a
+
+# Reattach to your tmux session (or start a new one — see §4 callout).
+tmux attach -t thesis 2>/dev/null || tmux new -s thesis
+
+# Re-paste the matching per-VM block from §4 verbatim. predict-belebele
+# and generate-targets are idempotent: a finished `*.belebele.jsonl` /
+# `*.jsonl` is skipped with a one-line log; an interrupted language
+# resumes from its sibling `*.partial.jsonl`. No prior good work is lost.
+```
+
+If you suspect a partial checkpoint is corrupted (e.g., process killed
+mid-write), nuke just that one and rerun:
+
+```bash
+# Delete the partial for ONE failed language (replace MODEL and LANG):
+MODEL=bggpt_7b
+LANG=ara
+rm -f outputs/spec/${MODEL}_${LANG}.belebele.partial.jsonl
+rm -f outputs/generations/${MODEL}_${LANG}.partial.jsonl
+# Then re-paste the per-VM block as above.
+```
+
+### 6b. Spot preemption (VM gone entirely)
 
 ```bash
 # Laptop
@@ -487,8 +543,28 @@ gcloud compute tpus tpu-vm ssh thesis-belebele-N --project=mestrado-495311 --zon
 ```
 
 On the new VM, paste §3 (bootstrap) again, then re-paste the matching tab
-block from §4. `predict-belebele` and `generate-targets` pick up at the next
-unfinished language because of `*.partial.jsonl` checkpoints.
+block from §4. `predict-belebele` and `generate-targets` pick up at the
+next unfinished language because of `*.partial.jsonl` checkpoints, but
+note: the VM lost any in-flight HF model snapshot under `assets/models/`,
+so the per-VM block's `download-assets` step will re-download (~5–10 min
+per model).
+
+### 6c. Hard reset for one model (start that model's outputs from zero)
+
+If a model's outputs look bad and you want a clean redo (rare — only do
+this if you have evidence the partial JSONL is wrong, not just because
+something looked slow):
+
+```bash
+MODEL=bggpt_7b
+# Wipe BELEBELE outputs for that model
+rm -f outputs/spec/${MODEL}_*.belebele.jsonl outputs/spec/${MODEL}_*.belebele.partial.jsonl
+# Wipe §9 outputs for that model
+rm -f outputs/generations/${MODEL}_*.jsonl outputs/generations/${MODEL}_*.partial.jsonl
+# Then re-paste the per-VM block; it'll start from scratch for this model.
+```
+
+Other models' outputs are untouched.
 
 ---
 
