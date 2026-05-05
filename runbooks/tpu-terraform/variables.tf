@@ -5,32 +5,19 @@ variable "project_id" {
 
 variable "region" {
   type        = string
-  description = "GCP region containing var.zone. Inferred from zone if not overridden."
+  description = "GCP region containing var.zone."
   default     = "europe-west4"
 }
 
 variable "zone" {
   type        = string
-  description = <<-EOT
-    TPU zone. Suggested:
-      - europe-west4-a → v6e (Trillium) spot
-      - us-east1-d     → v6e spot, US-side latency
-      - europe-west4-b → v5e spot
-      - us-central2-b  → v4 on-demand or spot (set use_spot=false for on-demand)
-  EOT
+  description = "TPU zone (e.g. europe-west4-a, us-east1-d, us-central2-b)."
   default     = "europe-west4-a"
 }
 
 variable "accelerator_type" {
   type        = string
-  description = <<-EOT
-    Accelerator slice. Recommended single-host shapes:
-      - v6e-1  (1 chip,  32 GB HBM)  ← default
-      - v5litepod-4  (4 chips, 64 GB HBM total) — use only if v6e unavailable
-      - v4-8   (4 chips, 128 GB HBM total) — for us-central2-b on-demand
-    Note: predict-belebele/generate-targets use single-device transformers
-    on XLA, so multi-chip slices add no speed without code changes.
-  EOT
+  description = "Accelerator slice (e.g. v6e-1, v5litepod-4, v4-8)."
   default     = "v6e-1"
 }
 

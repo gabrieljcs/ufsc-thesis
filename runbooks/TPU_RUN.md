@@ -1,11 +1,42 @@
 # TPU runbook — BELEBELE × 6 + heavy §9 × 4
 
 Copy-paste end-to-end. Each block is self-contained; each command is annotated
-only where the why is non-obvious. Defaults: `mestrado-495311` /
-`europe-west4-a` / `v6e-1` / `vm_count=4` / spot.
+only where the why is non-obvious.
+
+**Default deployment** (set in `terraform.tfvars`):
+
+| Field | Value |
+| --- | --- |
+| Project | `mestrado-495311` |
+| Zone | `europe-west4-a` |
+| Slice | `v6e-1` (1 chip × 32 GB HBM) |
+| Pricing | spot (preemptible) |
+| `vm_count` | 4 |
+
+> **VMs have no external IPs, but they have internet via Cloud NAT.** The
+> Terraform stack creates a regional Cloud Router + NAT gateway
+> (`thesis-tpu-router-<region>` / `thesis-tpu-nat-<region>`) attached to
+> the default network, plus an IAP firewall rule
+> (`thesis-tpu-iap-ssh`, TCP/22 from `35.235.240.0/20`). Net effect:
+>
+> - **Outbound internet** works on each VM (HF / PyPI / GitHub / libtpu
+>   wheels) via the NAT, so `curl ... | sh` / `gh repo clone` / `uv sync`
+>   in §3 all succeed.
+> - **SSH from your laptop** uses `gcloud ssh`, which auto-tunnels through
+>   IAP since the VM has no external IP. Make sure `iap.googleapis.com`
+>   is enabled and your account has `roles/iap.tunnelResourceAccessor`
+>   on the project.
+>
+> The `network_config(s)` block on `google_tpu_v2_vm` is intentionally
+> omitted — the google-beta provider has a known bug serializing both the
+> singular and plural forms, which the Cloud TPU API rejects with
+> "NetworkConfig and NetworkConfigs fields are exclusive". Omitting it
+> lets apply succeed and Cloud NAT carries the connectivity load.
 
 > **Precondition**: the `eval/` repo branch you push must contain the batched
-> transformers runner patch (Step 0). Verify locally:
+> transformers runner patch (commit `1b1eb9b`). The `--judge-model` flag
+> for §10 (`4783012`) is RTX-only, but pinning to `4783012` or later on
+> `main` covers both. Verify:
 > ```bash
 > cd ~/Developer/ufsc-thesis/eval && uv run python -m unittest tests.test_generation_batched -v
 > ```
@@ -16,11 +47,26 @@ only where the why is non-obvious. Defaults: `mestrado-495311` /
 ## 1. Provision the TPU VMs (laptop)
 
 ```bash
-cd ~/Developer/ufsc-thesis/runbooks/tpu-terraform
+cd ~/Developer/ufsc-thesis/eval/runbooks/tpu-terraform
 terraform init
 terraform apply           # confirm with "yes"
+```
 
-# Print the SSH commands and the scp pull commands you'll need later:
+If `terraform apply` fails with `Error code 8: There is no more capacity in
+the zone` (Cloud TPU runs out of physical capacity *independently* of your
+quota — TRC quotas don't reserve capacity), use the supplied retry helper
+that polls every 2 minutes:
+
+```bash
+bash retry-apply.sh
+# Logs to retry-apply.log; bails out on any non-capacity error.
+# Cap: 30 attempts / ~1 hour. If that elapses without success, pivot zones
+# (see "If capacity stays out" below).
+```
+
+Once apply succeeds, print the SSH and scp pull commands you'll use later:
+
+```bash
 terraform output ssh_commands
 terraform output scp_pull_outputs_spec_commands
 terraform output scp_pull_outputs_generations_commands
@@ -28,8 +74,16 @@ terraform output scp_pull_outputs_generations_commands
 
 If you want fewer than 4 VMs (e.g., low quota or debugging): `terraform apply -var "vm_count=1"`.
 
-Provisioning takes ~3 minutes. Each VM gets a 100 GB local SSD and routable
-public IP for SSH.
+Provisioning takes ~3 minutes per VM. Each VM gets a 100 GB local SSD and a
+public IP attached via the `network_configs.enable_external_ips = true`
+setting in `main.tf` (without that, `gcloud ssh` falls back to IAP and
+times out, and the VM has no outbound internet for `curl`/`git`/HF).
+
+### If capacity stays out
+
+After ~1 hour of failed retries, change `zone` (and matching `region`) in
+`terraform.tfvars` to a different TRC-allocated zone with the same
+accelerator family, e.g. `us-east1-d` for v6e. Then `terraform apply`.
 
 ---
 
@@ -49,23 +103,41 @@ gcloud compute tpus tpu-vm ssh thesis-belebele-2 --project=mestrado-495311 --zon
 gcloud compute tpus tpu-vm ssh thesis-belebele-3 --project=mestrado-495311 --zone=europe-west4-a
 ```
 
-The first SSH may take ~30 s while gcloud propagates your account into the VM.
+The first SSH may take ~30 s while gcloud generates `~/.ssh/google_compute_engine`
+(if not already present) and uploads the public key to the VM via instance
+metadata. Same key is reused by `gcloud compute tpus tpu-vm scp` later, so
+no per-VM key management.
 
 ---
 
 ## 3. Bootstrap (paste into EACH VM, one-time)
 
 ```bash
-# uv (manages Python 3.12; TPU base image ships 3.10)
+# Python 3.12 system-wide (TPU base image ships 3.10; thesis-eval pins
+# requires-python >=3.12,<3.13). Installing system-wide lands
+# libpython3.12.so.1.0 in /usr/lib so torch_xla's _XLAC.so native module
+# can dlopen it at runtime. Without this, you'd need a manual
+# LD_LIBRARY_PATH dance pointing at uv's managed Python's lib dir.
+sudo add-apt-repository -y ppa:deadsnakes/ppa
+sudo apt-get update -y
+sudo apt-get install -y python3.12 python3.12-dev libpython3.12
+
+# uv (we'll have it use the system python3.12 when creating venvs)
 curl -LsSf https://astral.sh/uv/install.sh | sh
 source ~/.bashrc
 
-# gh CLI for cloning the private eval repo
-sudo apt-get update -y
-sudo apt-get install -y gh
+# gh CLI for cloning the private eval repo, plus tmux so the per-VM block
+# in §4 survives SSH disconnects (a ~10-13 h block from your laptop will
+# almost certainly drop before it finishes).
+sudo apt-get install -y gh tmux
 gh auth login --hostname github.com --git-protocol https --web
 # ↑ follow the device-flow prompt: copy the one-time code, open the URL on
 #   your laptop, paste the code, authorize. Then back in the VM:
+
+# Install gh as the git credential helper so `git clone`/`git fetch`/etc
+# (including the one inside `gh repo clone`) reuse the gh token without
+# prompting for a password.
+gh auth setup-git
 
 gh repo clone gabrieljcs/ufsc-thesis ~/ufsc-thesis
 cd ~/ufsc-thesis/eval
@@ -73,15 +145,18 @@ cd ~/ufsc-thesis/eval
 # Make sure you're on the branch with the batched runner patch (skip if merged to main)
 # git checkout feat/batched-transformers-runner
 
-# Transformers stack via the platform-agnostic mac extra
-uv sync --extra mac --python 3.12
+# Transformers stack via the platform-agnostic mac extra. Use the system
+# python3.12 (installed above) so libpython3.12.so.1.0 sits in /usr/lib.
+uv sync --extra mac --python /usr/bin/python3.12
 
 # Overlay TPU torch + torch_xla from the libtpu wheel index. This replaces
-# the PyPI torch installed by --extra mac with a TPU-compatible build pinned
-# to the same 2.8 line. Required for predict-belebele/generate-targets to
-# see the TPU.
-uv pip install --reinstall \
-  'torch~=2.8' 'torch_xla[tpu]~=2.8' \
+# the torch installed by --extra mac with one paired exactly with the matching
+# torch_xla, plus the TPU-flavored libtpu via the [tpu] extra. The PyPI
+# `torch_xla` 2.9.0 is built against torch 2.9.0; if you let `~=2.8` resolve
+# you get torch 2.8.0 + torch_xla 2.9.0 → ABI mismatch → undefined symbol
+# at import time. So pin both to the same exact version.
+uv pip install --reinstall --force-reinstall \
+  'torch==2.8.0' 'torch_xla[tpu]==2.8.0' \
   -f https://storage.googleapis.com/libtpu-releases/index.html
 
 # Verify torch_xla sees the chip
@@ -94,8 +169,8 @@ PJRT_DEVICE=TPU uv run python -c \
 # if you plan to run the optional reference baseline; otherwise any read
 # token works.
 cat > .env <<EOF
-HF_TOKEN=<YOUR_HF_TOKEN>
-HF_HUB_ENABLE_HF_TRANSFER=1
+HF_TOKEN=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
+HF_HUB_ENABLE_HF_TRANSFER=0
 PJRT_DEVICE=TPU
 EOF
 set -a && source .env && set +a
@@ -136,9 +211,32 @@ uv run thesis-eval verify-assets --name belebele
 ## 4. Per-VM model block — paste into the matching tab
 
 Each tab runs ONE block. Tabs 0–3 below are independent; they don't talk to
-each other. Each block runs ~6–9 hours; predict-belebele and generate-targets
-write per-language `*.partial.jsonl` checkpoints, so a Ctrl-C or spot
-preemption is recoverable.
+each other. Each block runs ~10–13 hours (down from ~6–9 since all §9 now
+runs on TPU). predict-belebele and generate-targets write per-language
+`*.partial.jsonl` checkpoints, so a Ctrl-C or spot preemption is
+recoverable.
+
+> **Run inside `tmux`** so the block survives SSH disconnects (which WILL
+> happen over a 10+ hour window). Per VM:
+>
+> ```bash
+> tmux new -s thesis            # start a new persistent session
+> # …paste the model block below…
+> # detach with: Ctrl-b then d   (the block keeps running)
+> # closing the SSH terminal also detaches; the tmux session lives on
+> ```
+>
+> To reattach from a fresh SSH session:
+>
+> ```bash
+> gcloud compute tpus tpu-vm ssh thesis-belebele-N --project=mestrado-495311 --zone=europe-west4-a
+> tmux attach -t thesis
+> ```
+>
+> Without `tmux`, an SSH drop sends SIGHUP to your block and kills
+> everything in flight (downloads, model loads, generation). Resumable
+> commands recover from `*.partial.jsonl`, but you lose any in-flight HF
+> downloads (which would force a `download-assets` rerun).
 
 ### Tab 0 — `llamantino_anita_8b`
 
@@ -174,13 +272,13 @@ rm -rf assets/models/llamantino-3-anita-8b-inst-dpo-ita
 echo "Tab 0 done."
 ```
 
-### Tab 1 — `ai_sweden_llama3_8b` + `gpt_sw3` (BELEBELE only)
+### Tab 1 — `ai_sweden_llama3_8b` + `gpt_sw3`
 
 ```bash
 LANGS=(ara bul dan eng fin ita nor por rus spa swa swe ukr)
 AUDIT_ARGS=(); for L in "${LANGS[@]}"; do AUDIT_ARGS+=(--translations "outputs/translations/$L.audit.jsonl"); done
 
-# --- Heavy §9 + BELEBELE for ai_sweden_llama3_8b ---
+# --- §9 + BELEBELE for ai_sweden_llama3_8b ---
 uv run thesis-eval download-assets --name ai_sweden_llama3_8b
 uv run thesis-eval verify-assets  --name ai_sweden_llama3_8b
 
@@ -202,7 +300,7 @@ PJRT_DEVICE=TPU uv run thesis-eval generate-targets \
 
 rm -rf assets/models/ai-sweden-llama-3-8b-instruct
 
-# --- BELEBELE-only for gpt_sw3 ---
+# --- §9 + BELEBELE for gpt_sw3 ---
 uv run thesis-eval download-assets --name gpt_sw3
 uv run thesis-eval verify-assets  --name gpt_sw3
 
@@ -213,17 +311,26 @@ PJRT_DEVICE=TPU uv run thesis-eval predict-belebele \
   --output-dir outputs/spec \
   --output-template "{model}_{lang}.belebele.jsonl"
 
+PJRT_DEVICE=TPU uv run thesis-eval generate-targets \
+  "${AUDIT_ARGS[@]}" \
+  --model gpt_sw3 \
+  --backend transformers --profile trc_tpu \
+  --gpu-batch-size 8 \
+  --max-tokens 512 --temperature 0.0 --trust-remote-code \
+  --output-dir outputs/generations \
+  --output-template "{model}_{lang}.jsonl"
+
 rm -rf assets/models/gpt-sw3-6.7b-v2-instruct
 echo "Tab 1 done."
 ```
 
-### Tab 2 — `bggpt_gemma_9b` + `bggpt_7b` (BELEBELE only)
+### Tab 2 — `bggpt_gemma_9b` + `bggpt_7b`
 
 ```bash
 LANGS=(ara bul dan eng fin ita nor por rus spa swa swe ukr)
 AUDIT_ARGS=(); for L in "${LANGS[@]}"; do AUDIT_ARGS+=(--translations "outputs/translations/$L.audit.jsonl"); done
 
-# --- Heavy §9 + BELEBELE for bggpt_gemma_9b ---
+# --- §9 + BELEBELE for bggpt_gemma_9b ---
 uv run thesis-eval download-assets --name bggpt_gemma_9b
 uv run thesis-eval verify-assets  --name bggpt_gemma_9b
 
@@ -245,7 +352,7 @@ PJRT_DEVICE=TPU uv run thesis-eval generate-targets \
 
 rm -rf assets/models/bggpt-gemma-2-9b-it-v1.0
 
-# --- BELEBELE-only for bggpt_7b ---
+# --- §9 + BELEBELE for bggpt_7b ---
 uv run thesis-eval download-assets --name bggpt_7b
 uv run thesis-eval verify-assets  --name bggpt_7b
 
@@ -255,6 +362,15 @@ PJRT_DEVICE=TPU uv run thesis-eval predict-belebele \
   --gpu-batch-size 32 --trust-remote-code \
   --output-dir outputs/spec \
   --output-template "{model}_{lang}.belebele.jsonl"
+
+PJRT_DEVICE=TPU uv run thesis-eval generate-targets \
+  "${AUDIT_ARGS[@]}" \
+  --model bggpt_7b \
+  --backend transformers --profile trc_tpu \
+  --gpu-batch-size 8 \
+  --max-tokens 512 --temperature 0.0 --trust-remote-code \
+  --output-dir outputs/generations \
+  --output-template "{model}_{lang}.jsonl"
 
 rm -rf assets/models/bggpt-7b-instruct-v0.2
 echo "Tab 2 done."
@@ -315,9 +431,10 @@ gcloud compute tpus tpu-vm scp --recurse --project=mestrado-495311 --zone=europe
 gcloud compute tpus tpu-vm scp --recurse --project=mestrado-495311 --zone=europe-west4-a thesis-belebele-3:~/ufsc-thesis/eval/outputs/generations ./eval/outputs/
 ```
 
-If you used a different `vm_count`, prefer the auto-generated lists from
-Terraform: `terraform output scp_pull_outputs_spec_commands` and
-`terraform output scp_pull_outputs_generations_commands`.
+If you used a different `zone` or `vm_count`, prefer the auto-generated
+lists from Terraform: `terraform output scp_pull_outputs_spec_commands`
+and `terraform output scp_pull_outputs_generations_commands` regenerate
+against the live config.
 
 The `outputs/generations/` files from this step also need to land on the **RTX
 rig** for §10 StrongREJECT scoring. After pulling to the laptop, sync to the
@@ -328,17 +445,18 @@ they're a few GB total).
 
 ## 6. Recover from spot preemption
 
-If a VM is preempted mid-run:
+If a v6e-1 spot VM is preempted mid-run:
 
 ```bash
 # Laptop
-cd ~/Developer/ufsc-thesis/runbooks/tpu-terraform
+cd ~/Developer/ufsc-thesis/eval/runbooks/tpu-terraform
 terraform apply           # recreates the missing VM with the same name
+# (Use bash retry-apply.sh if capacity is tight.)
 gcloud compute tpus tpu-vm ssh thesis-belebele-N --project=mestrado-495311 --zone=europe-west4-a
 ```
 
 On the new VM, paste §3 (bootstrap) again, then re-paste the matching tab
-block from §4. predict-belebele and generate-targets pick up at the next
+block from §4. `predict-belebele` and `generate-targets` pick up at the next
 unfinished language because of `*.partial.jsonl` checkpoints.
 
 ---
@@ -349,15 +467,15 @@ After §5 pulled everything back and you've confirmed file counts on the
 laptop:
 
 ```bash
-cd ~/Developer/ufsc-thesis/runbooks/tpu-terraform
+cd ~/Developer/ufsc-thesis/eval/runbooks/tpu-terraform
 terraform destroy
 
-# Sanity check: no live TPU VMs left
-gcloud compute tpus tpu-vm list --project=mestrado-495311
+# Sanity check: no live TPU VMs in the configured zone
+gcloud compute tpus tpu-vm list --project=mestrado-495311 --zone=europe-west4-a
 ```
 
-`terraform destroy` releases TRC quota immediately. Don't skip this — TPU VMs
-keep billing (well, against quota) while up.
+`terraform destroy` releases TPU VMs and the custom subnet. Don't skip this —
+on-demand TPU VMs bill while up.
 
 ---
 
@@ -368,7 +486,7 @@ After all tabs and `terraform destroy` finish, on the laptop:
 ```bash
 cd ~/Developer/ufsc-thesis/eval
 
-# 13 BELEBELE files per heavy-§9 model + the BELEBELE-only models. ~900 rows each.
+# 13 BELEBELE files per model. ~900 rows each.
 # Note: llamantino_2_ultrachat_7b is excluded — its BELEBELE was completed
 # locally and is already at outputs/spec/llamantino_2_ultrachat_7b.belebele.repaired.jsonl.
 for m in llamantino_anita_8b ai_sweden_llama3_8b bggpt_gemma_9b llama3_1_8b_reference \
@@ -377,12 +495,15 @@ for m in llamantino_anita_8b ai_sweden_llama3_8b bggpt_gemma_9b llama3_1_8b_refe
   printf "%-30s %s files\n" "$m" "$count"
 done
 
-# 13 §9 files per heavy-§9 model. ~309 rows each (post-audit retained count).
-for m in llamantino_anita_8b ai_sweden_llama3_8b bggpt_gemma_9b llama3_1_8b_reference; do
+# 13 §9 files per model. ~309 rows each (post-audit retained count). All §9
+# now runs on TPU, so every paired model in the loop should land 13 files.
+for m in llamantino_anita_8b ai_sweden_llama3_8b bggpt_gemma_9b llama3_1_8b_reference \
+         gpt_sw3 bggpt_7b; do
   count=$(ls outputs/generations/${m}_*.jsonl 2>/dev/null | wc -l)
   printf "%-30s %s files\n" "$m" "$count"
 done
 ```
 
-Each heavy-§9 model should have 13 BELEBELE files **and** 13 generation
-files. BELEBELE-only models have 13 BELEBELE files and zero generation files.
+Each model should have 13 BELEBELE files **and** 13 §9 generation files
+(after TPU runs complete). The exception is `llama3_1_8b_reference` if you
+skipped Tab 3 — those files won't exist.

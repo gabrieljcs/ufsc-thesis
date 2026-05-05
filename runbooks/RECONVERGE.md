@@ -233,9 +233,9 @@ exclusions.
 - After this runbook, double-check no TPU VMs are still up:
 
   ```bash
-  cd ~/Developer/ufsc-thesis/runbooks/tpu-terraform
+  cd ~/Developer/ufsc-thesis/eval/runbooks/tpu-terraform
   terraform destroy   # idempotent; safe to rerun
-  gcloud compute tpus tpu-vm list --project=mestrado-495311
+  gcloud compute tpus tpu-vm list --project=mestrado-495311 --zone=europe-west4-a
   ```
 - Commit `outputs/dataset_frozen.jsonl` only if you've added it to the
   thesis-eval repo's frozen-dataset workflow. The default `.gitignore` keeps

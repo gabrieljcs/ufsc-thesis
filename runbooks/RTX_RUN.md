@@ -1,70 +1,30 @@
-# RTX 5070 Ti runbook — light §9 + StrongREJECT scoring
+# RTX 5070 Ti runbook — StrongREJECT scoring only
 
-Two PowerShell blocks. Run §1 immediately (parallel with the TPU work in
-[`TPU_RUN.md`](TPU_RUN.md)). Run §2 after the TPU `outputs/generations/` are
-copied onto this machine.
+The RTX rig used to run §9 for the ≤7B models, but throughput on vLLM was
+too slow to be worthwhile. **All §9 generations now run on TPU.** This
+runbook is the §10 StrongREJECT scoring pass over every model's outputs.
 
 > **Working directory** for everything below: `path\to\ufsc-thesis\eval` on
 > the RTX rig (the dir containing `pyproject.toml`, `assets/`, `outputs/`).
 >
-> **Required env**: `HF_TOKEN` and `OPENAI_API_KEY` are the two credentials
-> the pipeline reads. They live in `eval\.env` (one `KEY=VALUE` per line, no
-> quotes). The `thesis-eval-gpu` wrapper passes `.env` into the Docker
-> container automatically.
+> **Required env**: `HF_TOKEN` (HF mirror access) and `OPENAI_API_KEY` (for
+> the StrongREJECT rubric judge). Both live in `eval\.env`, one
+> `KEY=VALUE` per line, no quotes. The `thesis-eval-gpu` wrapper passes
+> `.env` into the Docker container automatically.
 
 ---
 
-## §1 — Light §9 generations (start NOW)
+## §1 — Sync TPU §9 generations onto this rig
 
-Models that fit the 16 GB VRAM with vLLM's KV cache for `--max-tokens 512`:
-`gpt_sw3` (6.7B) and `bggpt_7b` (7B). The 8B and 9B targets go to TPU.
+After all four tabs in `TPU_RUN.md` finish their `generate-targets` step,
+the laptop pulls them via `gcloud compute tpus tpu-vm scp`. Get those
+`outputs/generations/*.jsonl` files onto this RTX rig before scoring.
 
-```powershell
-# Build the audit-translation arg list once (13 languages, post-audit).
-$LANGUAGES = @("ara","bul","dan","eng","fin","ita","nor","por","rus","spa","swa","swe","ukr")
-$AuditArgs = foreach ($lang in $LANGUAGES) {
-  "--translations"; "outputs/translations/$lang.audit.jsonl"
-}
+Easiest: copy the laptop's `eval/outputs/generations/` directory over LAN
+/ USB / `rsync` so the RTX rig's `outputs/generations/` ends up holding
+all 8 × 13 = 104 files (3 from earlier work + the 5–6 new ones from TPU).
 
-foreach ($MODEL in @("gpt_sw3","bggpt_7b")) {
-  Write-Host "=== Downloading $MODEL ==="
-  uv run thesis-eval download-assets --name $MODEL
-  uv run thesis-eval verify-assets  --name $MODEL
-
-  Write-Host "=== Generating §9 for $MODEL ==="
-  uv run thesis-eval-gpu generate-targets `
-    @AuditArgs `
-    --model $MODEL --backend vllm --profile rtx_5070_ti `
-    --max-tokens 512 --temperature 0.0 --trust-remote-code `
-    --output-dir outputs/generations `
-    --output-template "{model}_{lang}.jsonl"
-}
-
-# Sanity check: 13 generation files per model.
-foreach ($MODEL in @("gpt_sw3","bggpt_7b")) {
-  $count = (Get-ChildItem "outputs/generations/${MODEL}_*.jsonl").Count
-  Write-Host ("{0,-15} {1} files" -f $MODEL, $count)
-}
-```
-
-Expected per-model wall time on the 5070 Ti: ~3–5 hours (≈4,021 retained
-prompts × 13 languages with vLLM). Both models in series: ~6–10 hours
-unattended.
-
----
-
-## Sync TPU §9 generations onto this rig
-
-After Tab 0/1/2/3 in `TPU_RUN.md` finish their `generate-targets` step on
-each TPU VM, the laptop pulls them via `gcloud compute tpus tpu-vm scp`.
-Get those `outputs/generations/*.jsonl` files onto this RTX rig before §2.
-
-Easiest: copy the laptop's `eval/outputs/generations/` directory over LAN /
-USB / `rsync` so the RTX rig's `outputs/generations/` ends up holding all 8
-× 13 = 104 files (3 already there + 2 newly added by §1 above + 3–4 from
-TPU). Then proceed.
-
-Quick count check on the RTX rig before continuing:
+Quick count check before continuing:
 
 ```powershell
 (Get-ChildItem outputs/generations/*.jsonl).Count
@@ -73,11 +33,12 @@ Quick count check on the RTX rig before continuing:
 
 ---
 
-## §2 — StrongREJECT scoring (run AFTER §1 + TPU §9 are merged)
+## §2 — StrongREJECT scoring
 
-Score every `outputs/generations/*.jsonl` file in one pass. NLLB-600M loads
-once, then each input is back-translated and the official StrongREJECT
-rubric runs (which calls OpenAI under the hood, hence `OPENAI_API_KEY`).
+Score every `outputs/generations/*.jsonl` file in one pass. NLLB-600M
+loads once, then each input is back-translated and the official
+StrongREJECT rubric runs (which calls OpenAI under the hood, hence
+`OPENAI_API_KEY`).
 
 ```powershell
 # Make sure the scored output dir exists.
@@ -91,6 +52,7 @@ $ScoreArgs = Get-ChildItem outputs/generations/*.jsonl | ForEach-Object {
 uv run thesis-eval-gpu score-strongreject `
   @ScoreArgs `
   --evaluator strongreject_rubric `
+  --judge-model gpt-5.4 `
   --backtranslate-engine nllb `
   --checkpoint assets/models/nllb-200-distilled-600M `
   --device cuda `
@@ -107,17 +69,16 @@ Write-Host "generations=$gen, scored=$score"
 Expected wall time: ~2–4 hours for ~50k scored rows total (NLLB
 back-translation + per-row OpenAI rubric call).
 
-Bump to NLLB-3.3B for thesis-grade back-translation if you've downloaded it
-to `assets/models/nllb-200-3.3B` — change `--checkpoint` accordingly. The
-600M is fine for a first complete pass.
+Bump to NLLB-3.3B for thesis-grade back-translation if you've downloaded
+it to `assets/models/nllb-200-3.3B` — change `--checkpoint` accordingly.
+The 600M is fine for a first complete pass.
 
 ---
 
 ## §3 — Hand off to laptop
 
-When §2 finishes, copy the new `outputs/scored/` and (if needed) the
-`outputs/generations/` for `gpt_sw3` + `bggpt_7b` over to the laptop, then
-follow [`RECONVERGE.md`](RECONVERGE.md).
+When §2 finishes, copy the new `outputs/scored/` to the laptop and follow
+[`RECONVERGE.md`](RECONVERGE.md).
 
 ```powershell
 # Quick file-count summary before handing off:
@@ -135,7 +96,9 @@ Expected counts:
 - `translations/audit`: 13 (one per language)
 - `generations`: 104 (8 models × 13 langs); 117 if you ran the reference baseline
 - `scored`: equals `generations`
-- `spec`: 9 × 13 = 117 (8 paired models + the reference baseline if you ran it; subtract 13 if you skipped it). Sabiá-3 already contributes 13 from before.
+- `spec`: 8 × 13 = 104 (or 117 with reference). `llamantino_2_ultrachat_7b`
+  already contributes 13 from the local + repaired run; Sabiá-3 contributes
+  13 from the Maritaca API run.
 
-If anything's off, find which model/language is missing and rerun the
-matching §1 or §2 block — both are idempotent (`--force` re-overwrites).
+If anything's off, find which model/language is missing and rerun §2 —
+it's idempotent (existing scored files are skipped; `--force` re-overwrites).
