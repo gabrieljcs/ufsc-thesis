@@ -155,7 +155,7 @@ uv sync --extra mac --python /usr/bin/python3.12
 # `torch_xla` 2.9.0 is built against torch 2.9.0; if you let `~=2.8` resolve
 # you get torch 2.8.0 + torch_xla 2.9.0 → ABI mismatch → undefined symbol
 # at import time. So pin both to the same exact version.
-uv pip install --reinstall --force-reinstall \
+uv pip install --force-reinstall \
   'torch==2.8.0' 'torch_xla[tpu]==2.8.0' \
   -f https://storage.googleapis.com/libtpu-releases/index.html
 
@@ -195,6 +195,7 @@ uv run thesis-eval verify-assets --name belebele
 >   --model sagui_7b \
 >   --backend transformers --profile trc_tpu \
 >   --gpu-batch-size 32 \
+>   --max-input-length 1024 \
 >   --output-dir outputs/spec_validation \
 >   --output-template "{model}_{lang}.belebele.jsonl"
 >
@@ -215,6 +216,16 @@ each other. Each block runs ~10–13 hours (down from ~6–9 since all §9 now
 runs on TPU). predict-belebele and generate-targets write per-language
 `*.partial.jsonl` checkpoints, so a Ctrl-C or spot preemption is
 recoverable.
+
+> **Why `--max-input-length`?** XLA needs fixed-shape inputs to avoid HLO
+> recompiles, and the prefill attention tensor is `f32[batch, heads, seq,
+> seq] × 4 B`, so doubling `seq` quadruples HBM. On v6e-1 (32 GB HBM) with
+> an 8B bf16 model (~16 GB resident), `seq=4096 × batch=32` is a 64 GB
+> attention OOM. The settings below are the safe sweet spot:
+> - `--max-input-length 1024` for BELEBELE (`max_tokens=8`, prompts cap at
+>   ~700 tokens)
+> - `--max-input-length 2048` for §9 (`max_tokens=512`, prompts cap at
+>   ~1500 tokens post-audit)
 
 > **Run inside `tmux`** so the block survives SSH disconnects (which WILL
 > happen over a 10+ hour window). Per VM:
@@ -256,6 +267,7 @@ PJRT_DEVICE=TPU uv run thesis-eval predict-belebele \
   --model llamantino_anita_8b \
   --backend transformers --profile trc_tpu \
   --gpu-batch-size 32 \
+  --max-input-length 1024 \
   --output-dir outputs/spec \
   --output-template "{model}_{lang}.belebele.jsonl"
 
@@ -264,6 +276,7 @@ PJRT_DEVICE=TPU uv run thesis-eval generate-targets \
   --model llamantino_anita_8b \
   --backend transformers --profile trc_tpu \
   --gpu-batch-size 8 \
+  --max-input-length 2048 \
   --max-tokens 512 --temperature 0.0 --trust-remote-code \
   --output-dir outputs/generations \
   --output-template "{model}_{lang}.jsonl"
@@ -286,6 +299,7 @@ PJRT_DEVICE=TPU uv run thesis-eval predict-belebele \
   --model ai_sweden_llama3_8b \
   --backend transformers --profile trc_tpu \
   --gpu-batch-size 32 \
+  --max-input-length 1024 \
   --output-dir outputs/spec \
   --output-template "{model}_{lang}.belebele.jsonl"
 
@@ -294,6 +308,7 @@ PJRT_DEVICE=TPU uv run thesis-eval generate-targets \
   --model ai_sweden_llama3_8b \
   --backend transformers --profile trc_tpu \
   --gpu-batch-size 8 \
+  --max-input-length 2048 \
   --max-tokens 512 --temperature 0.0 --trust-remote-code \
   --output-dir outputs/generations \
   --output-template "{model}_{lang}.jsonl"
@@ -308,6 +323,7 @@ PJRT_DEVICE=TPU uv run thesis-eval predict-belebele \
   --model gpt_sw3 \
   --backend transformers --profile trc_tpu \
   --gpu-batch-size 32 --trust-remote-code \
+  --max-input-length 1024 \
   --output-dir outputs/spec \
   --output-template "{model}_{lang}.belebele.jsonl"
 
@@ -316,6 +332,7 @@ PJRT_DEVICE=TPU uv run thesis-eval generate-targets \
   --model gpt_sw3 \
   --backend transformers --profile trc_tpu \
   --gpu-batch-size 8 \
+  --max-input-length 2048 \
   --max-tokens 512 --temperature 0.0 --trust-remote-code \
   --output-dir outputs/generations \
   --output-template "{model}_{lang}.jsonl"
@@ -338,6 +355,7 @@ PJRT_DEVICE=TPU uv run thesis-eval predict-belebele \
   --model bggpt_gemma_9b \
   --backend transformers --profile trc_tpu \
   --gpu-batch-size 32 \
+  --max-input-length 1024 \
   --output-dir outputs/spec \
   --output-template "{model}_{lang}.belebele.jsonl"
 
@@ -346,6 +364,7 @@ PJRT_DEVICE=TPU uv run thesis-eval generate-targets \
   --model bggpt_gemma_9b \
   --backend transformers --profile trc_tpu \
   --gpu-batch-size 8 \
+  --max-input-length 2048 \
   --max-tokens 512 --temperature 0.0 --trust-remote-code \
   --output-dir outputs/generations \
   --output-template "{model}_{lang}.jsonl"
@@ -360,6 +379,7 @@ PJRT_DEVICE=TPU uv run thesis-eval predict-belebele \
   --model bggpt_7b \
   --backend transformers --profile trc_tpu \
   --gpu-batch-size 32 --trust-remote-code \
+  --max-input-length 1024 \
   --output-dir outputs/spec \
   --output-template "{model}_{lang}.belebele.jsonl"
 
@@ -368,6 +388,7 @@ PJRT_DEVICE=TPU uv run thesis-eval generate-targets \
   --model bggpt_7b \
   --backend transformers --profile trc_tpu \
   --gpu-batch-size 8 \
+  --max-input-length 2048 \
   --max-tokens 512 --temperature 0.0 --trust-remote-code \
   --output-dir outputs/generations \
   --output-template "{model}_{lang}.jsonl"
@@ -391,6 +412,7 @@ PJRT_DEVICE=TPU uv run thesis-eval predict-belebele \
   --model llama3_1_8b_reference \
   --backend transformers --profile trc_tpu \
   --gpu-batch-size 32 \
+  --max-input-length 1024 \
   --output-dir outputs/spec \
   --output-template "{model}_{lang}.belebele.jsonl"
 
@@ -399,6 +421,7 @@ PJRT_DEVICE=TPU uv run thesis-eval generate-targets \
   --model llama3_1_8b_reference \
   --backend transformers --profile trc_tpu \
   --gpu-batch-size 8 \
+  --max-input-length 2048 \
   --max-tokens 512 --temperature 0.0 --trust-remote-code \
   --output-dir outputs/generations \
   --output-template "{model}_{lang}.jsonl"

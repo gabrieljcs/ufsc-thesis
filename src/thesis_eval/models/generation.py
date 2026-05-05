@@ -599,13 +599,26 @@ def _build_transformers_runner(
     # Resolve fixed input length. On XLA, dynamic padded shapes trigger HLO
     # recompiles per unique length, which is catastrophic for throughput. Lock
     # to a fixed length when XLA is active and the caller did not specify one.
+    #
+    # Tier the default by max_tokens so we don't blow up the prefill attention
+    # matrix. The attention scores tensor is f32[batch, heads, seq, seq] × 4 B
+    # during prefill, so doubling seq quadruples the allocation. On a v6e-1
+    # (32 GB HBM) running an 8B bf16 model (~16 GB weights), batch=32 +
+    # seq=4096 lands a 64 GB allocation → OOM. BELEBELE prompts cap at ~700
+    # tokens, so 1024 is plenty.
     effective_max_input_length = max_input_length
     if effective_max_input_length is None and xla_model is not None:
+        if max_tokens <= 16:
+            auto_default = 1024  # short-output (BELEBELE)
+        elif max_tokens <= 128:
+            auto_default = 2048
+        else:
+            auto_default = 2048  # §9 long-output stays at 2048; raise via --max-input-length if needed
         config_max = getattr(getattr(model, "config", None), "max_position_embeddings", None)
         if isinstance(config_max, int) and config_max > max_tokens:
-            effective_max_input_length = min(config_max - max_tokens, 4096)
+            effective_max_input_length = min(config_max - max_tokens, auto_default)
         else:
-            effective_max_input_length = 2048
+            effective_max_input_length = auto_default
         info(f"XLA shape-stability: fixing input length to {effective_max_input_length} tokens")
 
     def _tokenize_batch(input_texts: list[str]) -> dict[str, Any]:
