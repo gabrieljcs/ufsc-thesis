@@ -244,8 +244,11 @@ recoverable.
 >   hundred MB; halving batch is the conservative path with no prompt
 >   truncation.
 > - **9B Gemma exception** (`bggpt_gemma_9b`): the program block is
->   ~20 GB instead of ~16 GB, so even batch=4 is tight. If it OOMs, drop
->   to `--gpu-batch-size 2` for that one model.
+>   ~19 GB instead of ~16 GB, leaving only ~12 GB for arguments. batch=4
+>   + seq=2048 needs ~13.6 GB and OOMs by ~1.5 GB. Tab 2's
+>   `bggpt_gemma_9b` §9 command therefore uses `--gpu-batch-size 2`
+>   (~6.8 GB arguments, total ~26 GB, comfortable). bggpt_7b stays at
+>   batch=4.
 
 > **Run inside `tmux`** so the block survives SSH disconnects (which WILL
 > happen over a 10+ hour window). Per VM:
@@ -379,11 +382,15 @@ PJRT_DEVICE=TPU uv run thesis-eval predict-belebele \
   --output-dir outputs/spec \
   --output-template "{model}_{lang}.belebele.jsonl"
 
+# bggpt_gemma_9b §9: gpu-batch-size=2 (NOT 4 like the other models). Gemma-2-9B's
+# program block is ~19 GB (vs ~16 GB for the 8B Llamas), leaving only ~12 GB for
+# arguments — batch=4 + seq=2048 needs ~13.6 GB and OOMs by 1.5 GB. Halving
+# the batch to 2 brings arguments down to ~6.8 GB, total ~26 GB, comfortable.
 PJRT_DEVICE=TPU uv run thesis-eval generate-targets \
   "${AUDIT_ARGS[@]}" \
   --model bggpt_gemma_9b \
   --backend transformers --profile trc_tpu \
-  --gpu-batch-size 4 \
+  --gpu-batch-size 2 \
   --max-input-length 2048 \
   --max-tokens 512 --temperature 0.0 --trust-remote-code \
   --output-dir outputs/generations \
