@@ -235,9 +235,13 @@ recoverable.
 > heads, seq, seq] × 4 B`), KV cache, and layer activations
 > ("arguments"). XLA needs fixed shapes to avoid HLO recompiles. The
 > settings below are the safe sweet spot found by retrying through OOMs:
-> - **BELEBELE**: `--gpu-batch-size 32 --max-input-length 1024` →
->   attention 4 GB, total ~24 GB. Prompts cap at ~700 tokens; no
->   truncation risk.
+> - **BELEBELE** on 8B Llama / 7B Mistral / 6.7B GPT-SW3:
+>   `--gpu-batch-size 16 --max-input-length 1024` → ~22–24 GB total.
+>   Earlier batch=32 occasionally tripped 31+ GB peaks during HLO compile;
+>   16 leaves 7+ GB margin and the wall-time hit is small (max_tokens=8,
+>   ~5 min/lang).
+> - **BELEBELE on Gemma-2 9B** (`bggpt_gemma_9b`): batch=8 (the program
+>   is 19 GB; halving keeps total ~24 GB).
 > - **§9 generation, per-model tuned** (longest §9 prompt measured at
 >   283 tokens post-audit + chat template against Gemma's tokenizer; we
 >   keep ~3× margin via `--max-input-length 1024` since other tokenizers
@@ -293,7 +297,7 @@ uv run thesis-eval verify-assets  --name llamantino_anita_8b
 PJRT_DEVICE=TPU uv run thesis-eval predict-belebele \
   --model llamantino_anita_8b \
   --backend transformers --profile trc_tpu \
-  --gpu-batch-size 32 \
+  --gpu-batch-size 16 \
   --max-input-length 1024 \
   --output-dir outputs/spec \
   --output-template "{model}_{lang}.belebele.jsonl"
@@ -325,7 +329,7 @@ uv run thesis-eval verify-assets  --name ai_sweden_llama3_8b
 PJRT_DEVICE=TPU uv run thesis-eval predict-belebele \
   --model ai_sweden_llama3_8b \
   --backend transformers --profile trc_tpu \
-  --gpu-batch-size 32 \
+  --gpu-batch-size 16 \
   --max-input-length 1024 \
   --output-dir outputs/spec \
   --output-template "{model}_{lang}.belebele.jsonl"
@@ -349,7 +353,7 @@ uv run thesis-eval verify-assets  --name gpt_sw3
 PJRT_DEVICE=TPU uv run thesis-eval predict-belebele \
   --model gpt_sw3 \
   --backend transformers --profile trc_tpu \
-  --gpu-batch-size 32 --trust-remote-code \
+  --gpu-batch-size 16 --trust-remote-code \
   --max-input-length 1024 \
   --output-dir outputs/spec \
   --output-template "{model}_{lang}.belebele.jsonl"
@@ -382,10 +386,13 @@ AUDIT_ARGS=(); for L in "${LANGS[@]}"; do AUDIT_ARGS+=(--translations "outputs/t
 uv run thesis-eval download-assets --name bggpt_gemma_9b
 uv run thesis-eval verify-assets  --name bggpt_gemma_9b
 
+# bggpt_gemma_9b BELEBELE: batch=8 (NOT 16 like the other models). Gemma-2-9B's
+# program is ~19 GB vs ~16 GB for the 8B Llamas, so the same batch puts us
+# closer to the 31.25 GB cap.
 PJRT_DEVICE=TPU uv run thesis-eval predict-belebele \
   --model bggpt_gemma_9b \
   --backend transformers --profile trc_tpu \
-  --gpu-batch-size 32 \
+  --gpu-batch-size 8 \
   --max-input-length 1024 \
   --output-dir outputs/spec \
   --output-template "{model}_{lang}.belebele.jsonl"
@@ -422,7 +429,7 @@ uv run thesis-eval verify-assets  --name bggpt_7b
 PJRT_DEVICE=TPU uv run thesis-eval predict-belebele \
   --model bggpt_7b \
   --backend transformers --profile trc_tpu \
-  --gpu-batch-size 32 --trust-remote-code \
+  --gpu-batch-size 16 --trust-remote-code \
   --max-input-length 1024 \
   --output-dir outputs/spec \
   --output-template "{model}_{lang}.belebele.jsonl"
@@ -455,7 +462,7 @@ uv run thesis-eval verify-assets  --name llama3_1_8b_reference
 PJRT_DEVICE=TPU uv run thesis-eval predict-belebele \
   --model llama3_1_8b_reference \
   --backend transformers --profile trc_tpu \
-  --gpu-batch-size 32 \
+  --gpu-batch-size 16 \
   --max-input-length 1024 \
   --output-dir outputs/spec \
   --output-template "{model}_{lang}.belebele.jsonl"
