@@ -676,17 +676,46 @@ def _build_transformers_runner(
 
         return _run_stream
 
+    # On XLA, a trailing partial batch (e.g. 900 % 32 = 4 items in the last
+    # call) has a different shape than the steady-state full batch and
+    # forces a fresh HLO compile. The new compile may pick a layout that
+    # bumps peak HBM over the cap (we saw "Used 34.23G of 31.25G hbm" on
+    # the 4-item tail). Pad partial batches with duplicates of the first
+    # prompt to keep the shape stable across the whole run, and slice the
+    # extras off the decoded outputs. The duplicate prompts cost a few
+    # extra forward passes per partial batch but stay inside the cached
+    # HLO, which is far cheaper than recompiling.
+    pad_partial_batches = xla_model is not None
+
     def _run(prompts: list[str]) -> list[str]:
         outputs: list[str] = []
         total = len(prompts)
         for batch_start in range(0, total, batch_size):
             batch_prompts = prompts[batch_start : batch_start + batch_size]
+            actual_size = len(batch_prompts)
             batch_index = batch_start // batch_size + 1
             num_batches = (total + batch_size - 1) // batch_size
-            info(
-                f"Generating batch {batch_index}/{num_batches} "
-                f"({len(batch_prompts)} prompt(s), max_tokens={max_tokens})"
-            )
+            if (
+                pad_partial_batches
+                and actual_size < batch_size
+                and total >= batch_size
+            ):
+                pad_count = batch_size - actual_size
+                # The pad source is the first prompt of this partial batch
+                # (or the very first prompt overall as a fallback). We
+                # only use the outputs from the first `actual_size` rows.
+                pad_source = batch_prompts[0] if batch_prompts else prompts[0]
+                batch_prompts = batch_prompts + [pad_source] * pad_count
+                info(
+                    f"Generating batch {batch_index}/{num_batches} "
+                    f"({actual_size} prompt(s) + {pad_count} XLA shape-padding "
+                    f"duplicate(s), max_tokens={max_tokens})"
+                )
+            else:
+                info(
+                    f"Generating batch {batch_index}/{num_batches} "
+                    f"({actual_size} prompt(s), max_tokens={max_tokens})"
+                )
             input_texts = [_format_prompt(tokenizer, prompt) for prompt in batch_prompts]
             encoded = _tokenize_batch(input_texts)
             generation_kwargs = {
@@ -703,7 +732,9 @@ def _build_transformers_runner(
                 xla_model.mark_step()
                 generated = generated.cpu()
             input_length = encoded["input_ids"].shape[1]
-            for row in generated:
+            # Only consume the first `actual_size` rows; any padding rows
+            # we appended for shape-stability are discarded.
+            for row in generated[:actual_size]:
                 new_tokens = row[input_length:]
                 outputs.append(str(tokenizer.decode(new_tokens, skip_special_tokens=True)).strip())
         return outputs

@@ -119,6 +119,16 @@ class TestBatchedTransformersRunner(unittest.TestCase):
         single_batch = self._run(batch_size=len(self.prompts))
         self.assertEqual(sequential, single_batch)
 
+    def test_partial_trailing_batch_returns_one_output_per_prompt(self) -> None:
+        # Regression: with batch_size=3 and 4 prompts, the trailing batch is
+        # 1 prompt — smaller than batch_size. Output count must still equal
+        # input count and ordering must match the full-batch baseline.
+        outputs_full = self._run(batch_size=4)
+        outputs_partial = self._run(batch_size=3)
+        self.assertEqual(len(outputs_full), len(self.prompts))
+        self.assertEqual(len(outputs_partial), len(self.prompts))
+        self.assertEqual(outputs_full, outputs_partial)
+
     def test_streaming_with_batch_size_gt_one_is_rejected(self) -> None:
         from thesis_eval.models.generation import _build_transformers_runner
 
