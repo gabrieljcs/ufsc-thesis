@@ -205,9 +205,9 @@ uv run thesis-eval verify-assets  --name "$MODEL"
 
 uv run thesis-eval predict-belebele \
   --model "$MODEL" \
+  --backend vllm \
   --profile runpod_a100 \
-  --output-dir outputs/spec \
-  --output-template "{model}_{lang}.belebele.jsonl"
+  --output "outputs/spec/${MODEL}.belebele.jsonl"
 
 uv run thesis-eval generate-targets \
   "${AUDIT_ARGS[@]}" \
@@ -224,14 +224,14 @@ rm -rf "assets/models/$LOCAL_DIR"
 
 Repeat with:
 
-| MODEL | LOCAL_DIR | `--trust-remote-code` |
-| --- | --- | --- |
-| `llamantino_anita_8b` | `llamantino-3-anita-8b-inst-dpo-ita` | yes |
-| `ai_sweden_llama3_8b` | `ai-sweden-llama-3-8b-instruct` | no |
-| `gpt_sw3` | `gpt-sw3-6.7b-v2-instruct` | yes |
-| `bggpt_gemma_9b` | `bggpt-gemma-2-9b-it-v1.0` | no |
-| `bggpt_7b` | `bggpt-7b-instruct-v0.2` | yes |
-| `llama3_1_8b_reference` | `llama-3.1-8b-instruct` | no |
+| MODEL | LOCAL_DIR | `--trust-remote-code` | Status |
+| --- | --- | --- | --- |
+| `llamantino_anita_8b` | `llamantino-3-anita-8b-inst-dpo-ita` | yes | done |
+| `ai_sweden_llama3_8b` | `ai-sweden-llama-3-8b-instruct` | no | done |
+| `gpt_sw3` | `gpt-sw3-6.7b-v2-instruct` | yes | running targets |
+| `bggpt_gemma_9b` | `bggpt-gemma-2-9b-it-v1.0` | no | todo |
+| `bggpt_7b` | `bggpt-7b-instruct-v0.2` | yes | todo |
+| `llama3_1_8b_reference` | `llama-3.1-8b-instruct` | no | todo |
 
 If a model does not require remote code, omit `--trust-remote-code` from the
 generation command. Keeping it for a model that does not need it is usually
