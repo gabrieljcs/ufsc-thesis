@@ -621,6 +621,40 @@ def _build_transformers_runner(
             effective_max_input_length = auto_default
         info(f"XLA shape-stability: fixing input length to {effective_max_input_length} tokens")
 
+    # Mistral-style models set config.sliding_window (e.g. Mistral-7B and its
+    # bggpt_7b derivative use sliding_window=4096). The HF SlidingWindowCache
+    # path does `full_key_states[:, :, -self.sliding_window + 1 :, :]`, which
+    # raises "Value out of range" when the actual sequence dim is shorter
+    # than the configured window. We always pad to a length we know is
+    # shorter than that window for HBM reasons, so the sliding cache offers
+    # no functional benefit (full attention within a sub-window equals
+    # sliding attention with the same data). Disable it and let the model
+    # use the default DynamicCache instead.
+    cfg = getattr(model, "config", None)
+    sliding_window = getattr(cfg, "sliding_window", None)
+    if (
+        cfg is not None
+        and sliding_window
+        and effective_max_input_length is not None
+        and sliding_window > effective_max_input_length
+    ):
+        info(
+            f"Disabling sliding_window={sliding_window} > max_input_length="
+            f"{effective_max_input_length} to avoid SlidingWindowCache index "
+            f"errors on this model"
+        )
+        cfg.sliding_window = None
+        # Some models also expose it on a nested text_config (multi-modal).
+        text_cfg = getattr(cfg, "text_config", None)
+        if text_cfg is not None and getattr(text_cfg, "sliding_window", None):
+            text_cfg.sliding_window = None
+        # GenerationConfig sometimes carries a cache_implementation hint
+        # that re-selects the sliding cache; clear it so generate() falls
+        # back to the dynamic default.
+        gen_cfg = getattr(model, "generation_config", None)
+        if gen_cfg is not None and getattr(gen_cfg, "cache_implementation", None) == "sliding_window":
+            gen_cfg.cache_implementation = None
+
     def _tokenize_batch(input_texts: list[str]) -> dict[str, Any]:
         kwargs: dict[str, Any] = {"return_tensors": "pt", "truncation": True}
         if effective_max_input_length is not None:
