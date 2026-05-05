@@ -238,17 +238,21 @@ recoverable.
 > - **BELEBELE**: `--gpu-batch-size 32 --max-input-length 1024` →
 >   attention 4 GB, total ~24 GB. Prompts cap at ~700 tokens; no
 >   truncation risk.
-> - **§9 generation**: `--gpu-batch-size 4 --max-input-length 2048` →
->   attention 2 GB, arguments ~7.5 GB, total ~24 GB. Doubling batch to 8
->   pushes arguments to ~15 GB and crosses the 31.25 GB cap by a few
->   hundred MB; halving batch is the conservative path with no prompt
->   truncation.
-> - **9B Gemma exception** (`bggpt_gemma_9b`): the program block is
->   ~19 GB instead of ~16 GB, leaving only ~12 GB for arguments. batch=4
->   + seq=2048 needs ~13.6 GB and OOMs by ~1.5 GB. Tab 2's
->   `bggpt_gemma_9b` §9 command therefore uses `--gpu-batch-size 2`
->   (~6.8 GB arguments, total ~26 GB, comfortable). bggpt_7b stays at
->   batch=4.
+> - **§9 generation, per-model tuned** (longest §9 prompt measured at
+>   283 tokens post-audit + chat template against Gemma's tokenizer; we
+>   keep ~3× margin via `--max-input-length 1024` since other tokenizers
+>   may differ):
+>   - 8B Llama-3 / 7B Mistral with GQA (`llamantino_anita_8b`,
+>     `ai_sweden_llama3_8b`, `bggpt_7b`, `llama3_1_8b_reference`):
+>     `--gpu-batch-size 16 --max-input-length 1024` → ~22 GB total,
+>     ~4.5 h wall.
+>   - 6.7B GPT-SW3 **without GQA** (`gpt_sw3`): KV cache is ~8× bigger
+>     per batch element. `--gpu-batch-size 8 --max-input-length 1024`
+>     → ~22 GB total, ~9 h wall.
+>   - 9B Gemma (`bggpt_gemma_9b`): program ~19 GB, less room for
+>     arguments. `--gpu-batch-size 16 --max-input-length 512` (verified
+>     fits the 283-token longest prompt with 1.8× margin) → ~28 GB
+>     total, ~3.5 h wall.
 
 > **Run inside `tmux`** so the block survives SSH disconnects (which WILL
 > happen over a 10+ hour window). Per VM:
@@ -298,8 +302,8 @@ PJRT_DEVICE=TPU uv run thesis-eval generate-targets \
   "${AUDIT_ARGS[@]}" \
   --model llamantino_anita_8b \
   --backend transformers --profile trc_tpu \
-  --gpu-batch-size 4 \
-  --max-input-length 2048 \
+  --gpu-batch-size 16 \
+  --max-input-length 1024 \
   --max-tokens 512 --temperature 0.0 --trust-remote-code \
   --output-dir outputs/generations \
   --output-template "{model}_{lang}.jsonl"
@@ -330,8 +334,8 @@ PJRT_DEVICE=TPU uv run thesis-eval generate-targets \
   "${AUDIT_ARGS[@]}" \
   --model ai_sweden_llama3_8b \
   --backend transformers --profile trc_tpu \
-  --gpu-batch-size 4 \
-  --max-input-length 2048 \
+  --gpu-batch-size 16 \
+  --max-input-length 1024 \
   --max-tokens 512 --temperature 0.0 --trust-remote-code \
   --output-dir outputs/generations \
   --output-template "{model}_{lang}.jsonl"
@@ -350,12 +354,16 @@ PJRT_DEVICE=TPU uv run thesis-eval predict-belebele \
   --output-dir outputs/spec \
   --output-template "{model}_{lang}.belebele.jsonl"
 
+# gpt_sw3 has GPT-2 architecture (no GQA), so its KV cache is ~8x bigger
+# than the Llama/Mistral/Gemma paths at the same batch. Halve the batch
+# (16→8) to keep total under 31.25 GB cap. Memory: program 13.4 GB +
+# KV cache ~8 GB at batch=8/seq=1024 + activations ~1 GB ≈ 22 GB.
 PJRT_DEVICE=TPU uv run thesis-eval generate-targets \
   "${AUDIT_ARGS[@]}" \
   --model gpt_sw3 \
   --backend transformers --profile trc_tpu \
-  --gpu-batch-size 4 \
-  --max-input-length 2048 \
+  --gpu-batch-size 8 \
+  --max-input-length 1024 \
   --max-tokens 512 --temperature 0.0 --trust-remote-code \
   --output-dir outputs/generations \
   --output-template "{model}_{lang}.jsonl"
@@ -382,16 +390,25 @@ PJRT_DEVICE=TPU uv run thesis-eval predict-belebele \
   --output-dir outputs/spec \
   --output-template "{model}_{lang}.belebele.jsonl"
 
-# bggpt_gemma_9b §9: gpu-batch-size=2 (NOT 4 like the other models). Gemma-2-9B's
-# program block is ~19 GB (vs ~16 GB for the 8B Llamas), leaving only ~12 GB for
-# arguments — batch=4 + seq=2048 needs ~13.6 GB and OOMs by 1.5 GB. Halving
-# the batch to 2 brings arguments down to ~6.8 GB, total ~26 GB, comfortable.
+# bggpt_gemma_9b §9: tuned for the 9B program size + measured prompt length.
+# The longest StrongREJECT prompt post-audit + chat template is 283 tokens
+# (measured against the BgGPT-Gemma-2-9B tokenizer — see comment below for the
+# one-liner), so seq=512 is comfortably safe (~2x margin) and lets us bump
+# batch back up. Memory at batch=16 + seq=512: program 19 GB + KV cache 5.6 GB
+# + activations/transients ~3 GB = ~28 GB on the 31.25 GB cap. ~3.5 h wall.
+#
+# Re-measure after future audit changes:
+#   uv run python -c '
+# import json, glob
+# from transformers import AutoTokenizer
+# tok = AutoTokenizer.from_pretrained("INSAIT-Institute/BgGPT-Gemma-2-9B-IT-v1.0")
+# print(max(len(tok.apply_chat_template([{"role":"user","content":json.loads(l)["translated_text"]}], add_generation_prompt=True, tokenize=True)) for f in glob.glob("outputs/translations/*.audit.jsonl") for l in open(f) if not json.loads(l).get("translation_excluded")))'
 PJRT_DEVICE=TPU uv run thesis-eval generate-targets \
   "${AUDIT_ARGS[@]}" \
   --model bggpt_gemma_9b \
   --backend transformers --profile trc_tpu \
-  --gpu-batch-size 2 \
-  --max-input-length 2048 \
+  --gpu-batch-size 16 \
+  --max-input-length 512 \
   --max-tokens 512 --temperature 0.0 --trust-remote-code \
   --output-dir outputs/generations \
   --output-template "{model}_{lang}.jsonl"
@@ -414,8 +431,8 @@ PJRT_DEVICE=TPU uv run thesis-eval generate-targets \
   "${AUDIT_ARGS[@]}" \
   --model bggpt_7b \
   --backend transformers --profile trc_tpu \
-  --gpu-batch-size 4 \
-  --max-input-length 2048 \
+  --gpu-batch-size 16 \
+  --max-input-length 1024 \
   --max-tokens 512 --temperature 0.0 --trust-remote-code \
   --output-dir outputs/generations \
   --output-template "{model}_{lang}.jsonl"
@@ -447,8 +464,8 @@ PJRT_DEVICE=TPU uv run thesis-eval generate-targets \
   "${AUDIT_ARGS[@]}" \
   --model llama3_1_8b_reference \
   --backend transformers --profile trc_tpu \
-  --gpu-batch-size 4 \
-  --max-input-length 2048 \
+  --gpu-batch-size 16 \
+  --max-input-length 1024 \
   --max-tokens 512 --temperature 0.0 --trust-remote-code \
   --output-dir outputs/generations \
   --output-template "{model}_{lang}.jsonl"
