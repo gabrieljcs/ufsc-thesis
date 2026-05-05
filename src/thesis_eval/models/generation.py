@@ -5,7 +5,9 @@ import os
 import re
 import sys
 import gc
+import importlib.util
 from collections.abc import Callable, Iterator
+from contextlib import contextmanager
 from pathlib import Path
 from typing import Any
 
@@ -40,6 +42,8 @@ _VLLM_RETRY_MAX_MODEL_LEN_MARGIN = 64
 _VLLM_GENERIC_RETRY_REDUCTION_FRACTION = 0.20
 _VLLM_GENERIC_RETRY_REDUCTION_MIN = 256
 _MAX_VLLM_INIT_ATTEMPTS = 3
+_VLLM_ATTENTION_BACKEND_ENV = "VLLM_ATTENTION_BACKEND"
+_VLLM_ATTENTION_BACKEND_SOFTCAP_FALLBACK = "FLASHINFER"
 
 
 def build_generation_rows(translations: list[dict[str, Any]], model: str, aligned_language: str, benchmark: str = "strongreject") -> list[dict[str, Any]]:
@@ -409,9 +413,21 @@ def _build_vllm_runner(
 ) -> Callable[[list[str]], list[str]]:
     try:
         from vllm import LLM, SamplingParams
-        from transformers import AutoTokenizer
+        from transformers import AutoConfig, AutoTokenizer
     except ImportError as exc:
         raise RuntimeError("vLLM is not installed. Use the Docker GPU profile or run with --mock-output.") from exc
+    model_config = _load_transformers_config(
+        AutoConfig,
+        model_ref,
+        trust_remote_code=trust_remote_code,
+    )
+    explicit_attention_backend = os.environ.get(_VLLM_ATTENTION_BACKEND_ENV)
+    attention_backend_override, attention_backend_note = _select_vllm_attention_backend_override(
+        model_config,
+        explicit_backend=explicit_attention_backend,
+    )
+    if attention_backend_note:
+        info(attention_backend_note)
     tokenizer = AutoTokenizer.from_pretrained(model_ref, trust_remote_code=trust_remote_code, local_files_only=_is_local_model_ref(model_ref))
     prompt_metadata = prompt_format_metadata_for_tokenizer(tokenizer)
     info(
@@ -436,14 +452,22 @@ def _build_vllm_runner(
     last_error: Exception | None = None
     for attempt in range(1, _MAX_VLLM_INIT_ATTEMPTS + 1):
         try:
-            llm = LLM(
-                model=model_ref,
-                trust_remote_code=trust_remote_code,
-                max_model_len=effective_max_model_len,
-                gpu_memory_utilization=effective_gpu_memory_utilization,
-            )
+            with _temporary_env_var(_VLLM_ATTENTION_BACKEND_ENV, attention_backend_override):
+                llm = LLM(
+                    model=model_ref,
+                    trust_remote_code=trust_remote_code,
+                    max_model_len=effective_max_model_len,
+                    gpu_memory_utilization=effective_gpu_memory_utilization,
+                )
             break
         except Exception as exc:
+            wrapped = _maybe_wrap_vllm_attention_backend_error(
+                exc,
+                explicit_backend=explicit_attention_backend,
+                auto_backend_override=attention_backend_override,
+            )
+            if wrapped is not None:
+                raise wrapped from exc
             last_error = exc
             if attempt == _MAX_VLLM_INIT_ATTEMPTS:
                 raise
@@ -502,7 +526,17 @@ def _build_vllm_runner(
 
     def _run(prompts: list[str]) -> list[str]:
         formatted_prompts = [_format_prompt(tokenizer, prompt) for prompt in prompts]
-        outputs = llm.generate(formatted_prompts, sampling, use_tqdm=False)
+        try:
+            outputs = llm.generate(formatted_prompts, sampling, use_tqdm=False)
+        except Exception as exc:
+            wrapped = _maybe_wrap_vllm_attention_backend_error(
+                exc,
+                explicit_backend=explicit_attention_backend,
+                auto_backend_override=attention_backend_override,
+            )
+            if wrapped is not None:
+                raise wrapped from exc
+            raise
         return [output.outputs[0].text for output in outputs]
 
     return _run
@@ -851,6 +885,129 @@ def _resolve_dtype(dtype: str, device: str) -> Any:
 
 def _is_local_model_ref(model_ref: str) -> bool:
     return Path(model_ref).exists()
+
+
+def _load_transformers_config(auto_config_cls: Any, model_ref: str, *, trust_remote_code: bool) -> Any | None:
+    try:
+        return auto_config_cls.from_pretrained(
+            model_ref,
+            trust_remote_code=trust_remote_code,
+            local_files_only=_is_local_model_ref(model_ref),
+        )
+    except Exception as exc:
+        info(
+            "Could not inspect model config for vLLM attention backend selection "
+            f"({exc}); leaving the backend on auto"
+        )
+        return None
+
+
+def _model_attention_softcap(config: Any) -> float | None:
+    for candidate in (config, _config_get(config, "text_config")):
+        if candidate is None:
+            continue
+        for key in ("attn_logit_softcapping", "attention_logit_softcapping"):
+            raw_value = _config_get(candidate, key)
+            if raw_value is None:
+                continue
+            try:
+                value = float(raw_value)
+            except (TypeError, ValueError):
+                continue
+            if value > 0:
+                return value
+    return None
+
+
+def _config_get(config: Any, key: str) -> Any:
+    if isinstance(config, dict):
+        return config.get(key)
+    return getattr(config, key, None)
+
+
+def _flashinfer_available() -> bool:
+    return importlib.util.find_spec("flashinfer") is not None
+
+
+def _select_vllm_attention_backend_override(
+    model_config: Any,
+    *,
+    explicit_backend: str | None,
+) -> tuple[str | None, str | None]:
+    softcap = _model_attention_softcap(model_config)
+    if softcap is None:
+        return None, None
+    if explicit_backend:
+        return (
+            None,
+            "Model config uses attention tanh softcapping "
+            f"(attn_logit_softcapping={softcap:g}); respecting pre-set "
+            f"{_VLLM_ATTENTION_BACKEND_ENV}={explicit_backend}.",
+        )
+    if _flashinfer_available():
+        return (
+            _VLLM_ATTENTION_BACKEND_SOFTCAP_FALLBACK,
+            "Model config uses attention tanh softcapping "
+            f"(attn_logit_softcapping={softcap:g}); forcing "
+            f"{_VLLM_ATTENTION_BACKEND_ENV}={_VLLM_ATTENTION_BACKEND_SOFTCAP_FALLBACK} "
+            "to avoid unsupported FlashAttention kernels.",
+        )
+    return (
+        None,
+        "Model config uses attention tanh softcapping "
+        f"(attn_logit_softcapping={softcap:g}), but flashinfer is not installed; "
+        "vLLM auto-backend selection may fail. Switch to the transformers backend "
+        "or install flashinfer.",
+    )
+
+
+@contextmanager
+def _temporary_env_var(name: str, value: str | None) -> Iterator[None]:
+    if value is None:
+        yield
+        return
+    had_original = name in os.environ
+    original = os.environ.get(name)
+    os.environ[name] = value
+    try:
+        yield
+    finally:
+        if had_original and original is not None:
+            os.environ[name] = original
+        else:
+            os.environ.pop(name, None)
+
+
+def _looks_like_vllm_tanh_softcap_failure(error: BaseException) -> bool:
+    return any("tanh softcapping" in message.lower() for message in _iter_exception_messages(error))
+
+
+def _maybe_wrap_vllm_attention_backend_error(
+    error: BaseException,
+    *,
+    explicit_backend: str | None,
+    auto_backend_override: str | None,
+) -> RuntimeError | None:
+    if not _looks_like_vllm_tanh_softcap_failure(error):
+        return None
+    selected_backend = explicit_backend or auto_backend_override or "auto"
+    parts = [
+        "vLLM hit an attention-backend compatibility error: this model uses tanh attention softcapping,",
+        f"but the selected backend ({_VLLM_ATTENTION_BACKEND_ENV}={selected_backend}) does not support it.",
+    ]
+    if explicit_backend:
+        parts.append(
+            f"Unset {_VLLM_ATTENTION_BACKEND_ENV} to let thesis-eval auto-select "
+            f"{_VLLM_ATTENTION_BACKEND_SOFTCAP_FALLBACK},"
+        )
+    else:
+        parts.append(
+            f"Set {_VLLM_ATTENTION_BACKEND_ENV}={_VLLM_ATTENTION_BACKEND_SOFTCAP_FALLBACK},"
+        )
+    parts.append("or switch to the transformers backend.")
+    if not _flashinfer_available():
+        parts.append("FlashInfer does not appear to be installed in this environment.")
+    return RuntimeError(" ".join(parts))
 
 
 def _xla_available() -> bool:

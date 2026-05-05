@@ -3,6 +3,7 @@ from __future__ import annotations
 import tempfile
 import unittest
 from pathlib import Path
+from types import SimpleNamespace
 from unittest.mock import patch
 
 from thesis_eval.assets import AssetSpec, asset_status, download_asset, load_assets, select_assets, verify_asset
@@ -39,8 +40,11 @@ from thesis_eval.metrics.asr import summarize_labels
 from thesis_eval.metrics.spec import add_spec_scores, z_scores
 from thesis_eval.metrics.tokenizer import attach_tokenizer_metrics
 from thesis_eval.models.generation import (
+    _maybe_wrap_vllm_attention_backend_error,
+    _model_attention_softcap,
     _parse_vllm_estimated_max_model_len,
     _retry_vllm_max_model_len_from_error,
+    _select_vllm_attention_backend_override,
     build_generation_runner,
     build_prompt_messages,
     describe_prompt_format,
@@ -370,6 +374,38 @@ class GenerationTests(unittest.TestCase):
                 longest_prompt_tokens=1184,
                 requested_max_model_len=1256,
             )
+
+    def test_model_attention_softcap_reads_nested_text_config(self) -> None:
+        cfg = SimpleNamespace(text_config=SimpleNamespace(attn_logit_softcapping=50.0))
+        self.assertEqual(_model_attention_softcap(cfg), 50.0)
+
+    def test_select_vllm_attention_backend_override_prefers_flashinfer(self) -> None:
+        cfg = SimpleNamespace(attn_logit_softcapping=50.0)
+        with patch("thesis_eval.models.generation._flashinfer_available", return_value=True):
+            backend, note = _select_vllm_attention_backend_override(cfg, explicit_backend=None)
+        self.assertEqual(backend, "FLASHINFER")
+        self.assertIsNotNone(note)
+        self.assertIn("forcing VLLM_ATTENTION_BACKEND=FLASHINFER", str(note))
+
+    def test_select_vllm_attention_backend_override_respects_explicit_env(self) -> None:
+        cfg = SimpleNamespace(attn_logit_softcapping=50.0)
+        with patch("thesis_eval.models.generation._flashinfer_available", return_value=True):
+            backend, note = _select_vllm_attention_backend_override(cfg, explicit_backend="FLASH_ATTN")
+        self.assertIsNone(backend)
+        self.assertIsNotNone(note)
+        self.assertIn("respecting pre-set VLLM_ATTENTION_BACKEND=FLASH_ATTN", str(note))
+
+    def test_wrap_vllm_attention_backend_error_adds_actionable_guidance(self) -> None:
+        error = RuntimeError("This flash attention build does not support tanh softcapping.")
+        with patch("thesis_eval.models.generation._flashinfer_available", return_value=True):
+            wrapped = _maybe_wrap_vllm_attention_backend_error(
+                error,
+                explicit_backend="FLASH_ATTN",
+                auto_backend_override=None,
+            )
+        self.assertIsNotNone(wrapped)
+        self.assertIn("FLASHINFER", str(wrapped))
+        self.assertIn("transformers backend", str(wrapped))
 
     def test_model_status_reports_chat_template(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
