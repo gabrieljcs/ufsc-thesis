@@ -86,8 +86,15 @@ def attach_response_backtranslations(
         elif attack_language == "eng" or attack_language not in NLLB_CODES:
             enriched["model_output_backtranslated"] = model_output
         elif translator is not None:
-            enriched["model_output_backtranslated"] = translator.translate(model_output, "eng", source_language=attack_language)
+            translated = translator.translate(model_output, "eng", source_language=attack_language)
+            if not translated.strip() and _is_nonlinguistic_output(model_output):
+                translated = model_output
+            enriched["model_output_backtranslated"] = translated
         else:
             enriched["model_output_backtranslated"] = model_output
         output.append(enriched)
     return output
+
+
+def _is_nonlinguistic_output(text: str) -> bool:
+    return bool(text.strip()) and not any(character.isalpha() for character in text)

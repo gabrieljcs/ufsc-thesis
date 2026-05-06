@@ -77,6 +77,15 @@ def parse_choice_from_options(text: str, options: dict[str, str]) -> str | None:
     return None
 
 
+def _row_predicted_choice(row: dict[str, Any]) -> str | None:
+    predicted_choice = row.get("predicted_choice")
+    if predicted_choice is not None:
+        parsed = parse_choice(str(predicted_choice))
+        if parsed is not None:
+            return parsed
+    return parse_choice(str(row.get("prediction", "")))
+
+
 def compute_if_cons(predictions: list[dict[str, Any]], aligned_language: dict[str, str]) -> list[dict[str, Any]]:
     by_model_lang: dict[tuple[str, str], list[dict[str, Any]]] = defaultdict(list)
     by_model_item_lang: dict[tuple[str, str, str], str | None] = {}
@@ -84,7 +93,7 @@ def compute_if_cons(predictions: list[dict[str, Any]], aligned_language: dict[st
         model = str(row["model"])
         language = str(row["language"])
         item_id = str(row["item_id"])
-        predicted = parse_choice(str(row.get("prediction", "")))
+        predicted = _row_predicted_choice(row)
         normalized = dict(row)
         normalized["predicted_choice"] = predicted
         by_model_lang[(model, language)].append(normalized)
@@ -156,7 +165,8 @@ def build_belebele_prompt(row: dict[str, Any]) -> str:
         f"B. {row['mc_answer2']}\n"
         f"C. {row['mc_answer3']}\n"
         f"D. {row['mc_answer4']}\n\n"
-        "Reply with only A, B, C, or D."
+        "Choose the correct option. Reply with only one letter: A, B, C, or D.\n"
+        "Answer:"
     )
 
 
@@ -167,17 +177,18 @@ def build_belebele_prediction_rows(
     language: str,
 ) -> list[dict[str, Any]]:
     output: list[dict[str, Any]] = []
-    for row in dataset_rows:
+    for row_index, row in enumerate(dataset_rows, start=1):
         answer_number = str(row["correct_answer_num"])
         if answer_number not in ANSWER_BY_NUMBER:
             raise ValueError(f"Unexpected BELEBELE correct_answer_num={answer_number!r}")
-        item_id = f"belebele_{int(row['question_number']):04d}"
+        item_id = f"belebele_{row_index:04d}"
         output.append(
             {
                 "model": model,
                 "language": language,
                 "dataset_dialect": str(row["dialect"]),
                 "item_id": item_id,
+                "belebele_row_index": row_index,
                 "question_number": int(row["question_number"]),
                 "gold": ANSWER_BY_NUMBER[answer_number],
                 "choice_a": str(row["mc_answer1"]),
@@ -230,15 +241,26 @@ def repair_belebele_predictions(
     *,
     dataset_dir: Path,
 ) -> list[dict[str, Any]]:
-    by_language: dict[str, dict[int, dict[str, Any]]] = {}
+    by_language: dict[str, list[dict[str, Any]]] = {}
     for language in sorted({str(row["language"]) for row in predictions}):
         dataset_rows = load_belebele_rows(dataset_dir, language)
-        by_language[language] = {int(row["question_number"]): row for row in dataset_rows}
+        by_language[language] = dataset_rows
+    language_offsets: dict[str, int] = defaultdict(int)
     repaired: list[dict[str, Any]] = []
     for row in predictions:
         language = str(row["language"])
-        question_number = int(row["question_number"])
-        dataset_row = by_language[language][question_number]
+        if row.get("belebele_row_index") is not None:
+            row_index = int(row["belebele_row_index"])
+        else:
+            language_offsets[language] += 1
+            row_index = language_offsets[language]
+        dataset_rows = by_language[language]
+        if row_index < 1 or row_index > len(dataset_rows):
+            raise ValueError(
+                f"BELEBELE row index {row_index} out of range for language={language} "
+                f"(n={len(dataset_rows)})"
+            )
+        dataset_row = dataset_rows[row_index - 1]
         choice_map = {
             "A": str(dataset_row["mc_answer1"]),
             "B": str(dataset_row["mc_answer2"]),
@@ -248,6 +270,11 @@ def repair_belebele_predictions(
         raw_output = str(row.get("raw_output", row.get("prediction", "")))
         predicted = parse_choice_from_options(raw_output, choice_map)
         updated = dict(row)
+        updated["item_id"] = f"belebele_{row_index:04d}"
+        updated["belebele_row_index"] = row_index
+        updated["question_number"] = int(dataset_row["question_number"])
+        updated["gold"] = ANSWER_BY_NUMBER[str(dataset_row["correct_answer_num"])]
+        updated["dataset_dialect"] = str(dataset_row["dialect"])
         updated["choice_a"] = choice_map["A"]
         updated["choice_b"] = choice_map["B"]
         updated["choice_c"] = choice_map["C"]

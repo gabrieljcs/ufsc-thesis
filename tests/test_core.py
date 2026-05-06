@@ -57,6 +57,7 @@ from thesis_eval.models.generation import (
 from thesis_eval.openai_batch import retrieve_batch
 from thesis_eval.runtime import load_runtime_profiles
 from thesis_eval.schema import validate_analysis_rows, validate_translation_log
+from thesis_eval.translation.backtranslate import attach_response_backtranslations
 from thesis_eval.translation.audit import apply_audit_decisions, build_audit_queue
 from thesis_eval.translation.calibration import calibrate_blaser_thresholds
 from thesis_eval.translation.llm_audit import build_xsts_prompt, judge_audit_rows
@@ -843,6 +844,24 @@ class StrongRejectScoringTests(unittest.TestCase):
         self.assertEqual(por_rows[0]["model_output_backtranslated"], "resposta em portugues")
         self.assertEqual(ara_rows[0]["model_output_backtranslated"], "arabic output")
 
+    def test_nllb_backtranslation_falls_back_for_nonlinguistic_output(self) -> None:
+        class EmptyTranslator:
+            def translate(self, text, target_language, source_language=None):
+                return ""
+
+        rows = attach_response_backtranslations(
+            [
+                {
+                    "attack_language": "ukr",
+                    "model_output": "🚗💩💩",
+                }
+            ],
+            engine="nllb",
+            translator=EmptyTranslator(),
+        )
+
+        self.assertEqual(rows[0]["model_output_backtranslated"], "🚗💩💩")
+
     def test_score_strongreject_preserves_existing_backtranslation(self) -> None:
         rows = [
             {
@@ -1322,8 +1341,10 @@ class BelebeleTests(unittest.TestCase):
         self.assertEqual(len(rows), 1)
         self.assertIn("Passage:", prompt)
         self.assertIn("Pergunta?", prompt)
+        self.assertIn("Answer:", prompt)
         self.assertEqual(predictions[0]["gold"], "B")
         self.assertEqual(predictions[0]["item_id"], "belebele_0001")
+        self.assertEqual(predictions[0]["belebele_row_index"], 1)
         self.assertEqual(predictions[0]["choice_b"], "A2")
 
     def test_cli_predict_belebele_writes_predictions(self) -> None:
@@ -1532,18 +1553,31 @@ class BelebeleTests(unittest.TestCase):
             tmp_path = Path(tmp)
             data_dir = tmp_path / "data"
             data_dir.mkdir()
-            dataset_row = {
-                "question_number": 1,
-                "flores_passage": "Passage",
-                "question": "Question?",
-                "mc_answer1": "Paris",
-                "mc_answer2": "Rome",
-                "mc_answer3": "Madrid",
-                "mc_answer4": "Berlin",
-                "correct_answer_num": "1",
-                "dialect": "eng_Latn",
-            }
-            write_jsonl(data_dir / "eng_Latn.jsonl", [dataset_row])
+            dataset_rows = [
+                {
+                    "question_number": 1,
+                    "flores_passage": "Passage",
+                    "question": "Question?",
+                    "mc_answer1": "Paris",
+                    "mc_answer2": "Rome",
+                    "mc_answer3": "Madrid",
+                    "mc_answer4": "Berlin",
+                    "correct_answer_num": "1",
+                    "dialect": "eng_Latn",
+                },
+                {
+                    "question_number": 1,
+                    "flores_passage": "Second passage",
+                    "question": "Second question?",
+                    "mc_answer1": "Lisbon",
+                    "mc_answer2": "Dublin",
+                    "mc_answer3": "Vienna",
+                    "mc_answer4": "Prague",
+                    "correct_answer_num": "2",
+                    "dialect": "eng_Latn",
+                },
+            ]
+            write_jsonl(data_dir / "eng_Latn.jsonl", dataset_rows)
             repaired = repair_belebele_predictions(
                 [
                     {
@@ -1554,6 +1588,15 @@ class BelebeleTests(unittest.TestCase):
                         "gold": "A",
                         "raw_output": "Rome",
                         "prediction": "Rome",
+                    },
+                    {
+                        "model": "llamantino_2_ultrachat_7b",
+                        "language": "eng",
+                        "item_id": "belebele_0001",
+                        "question_number": 1,
+                        "gold": "A",
+                        "raw_output": "Dublin",
+                        "prediction": "Dublin",
                     }
                 ],
                 dataset_dir=tmp_path,
@@ -1561,6 +1604,9 @@ class BelebeleTests(unittest.TestCase):
         self.assertEqual(repaired[0]["prediction"], "B")
         self.assertEqual(repaired[0]["predicted_choice"], "B")
         self.assertEqual(repaired[0]["choice_b"], "Rome")
+        self.assertEqual(repaired[1]["item_id"], "belebele_0002")
+        self.assertEqual(repaired[1]["gold"], "B")
+        self.assertEqual(repaired[1]["predicted_choice"], "B")
 
     def test_cli_repair_belebele_predictions_writes_reparsed_output(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
