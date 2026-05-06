@@ -4,9 +4,11 @@ import json
 import os
 import re
 import time
+from typing import TYPE_CHECKING
 from typing import Any
 
-import requests
+if TYPE_CHECKING:  # pragma: no cover
+    import requests
 
 
 OPENAI_CHAT_COMPLETIONS_URL = "https://api.openai.com/v1/chat/completions"
@@ -72,6 +74,8 @@ def build_xsts_prompt(row: dict[str, Any]) -> str:
 
 
 def _openai_judgement(row: dict[str, Any], model: str) -> dict[str, Any]:
+    import requests
+
     api_key = os.environ.get("OPENAI_API_KEY")
     if not api_key:
         raise RuntimeError("OPENAI_API_KEY is required for --provider openai.")

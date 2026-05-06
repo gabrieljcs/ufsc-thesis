@@ -47,6 +47,10 @@ from thesis_eval.benchmarks.uriel import (
 from thesis_eval.config import load_config
 from thesis_eval.evaluation.benign import score_benign_rows
 from thesis_eval.evaluation.strongreject import score_generation_rows
+from thesis_eval.evaluation.strongreject_batch import (
+    ingest_strongreject_batch_results,
+    prepare_strongreject_batch_entries,
+)
 from thesis_eval.io import append_jsonl, read_csv_dicts, read_jsonl, write_csv_dicts, write_jsonl
 from thesis_eval.metrics.tokenizer import attach_tokenizer_metrics, load_tokenizer
 from thesis_eval.models.generation import (
@@ -58,6 +62,7 @@ from thesis_eval.models.generation import (
     generate_outputs,
     iter_generate_with_maritaca,
 )
+from thesis_eval.openai_batch import create_batch, download_file_content, retrieve_batch, upload_batch_input_file
 from thesis_eval.paths import DATA_DIR, OUTPUT_DIR, THESIS_ROOT, ensure_dir
 from thesis_eval.pipeline import run_mock_pilot
 from thesis_eval.progress import info, step
@@ -291,6 +296,39 @@ def _skip_existing(output_path: Path, force: bool, what: str) -> bool:
         info(f"skip {what}: {output_path} already exists (use --force to overwrite)")
         return True
     return False
+
+
+def _parse_metadata_pairs(items: list[str] | None) -> dict[str, str]:
+    metadata: dict[str, str] = {}
+    for item in items or []:
+        if "=" not in item:
+            raise ValueError(f"--metadata expects key=value entries, got {item!r}")
+        key, value = item.split("=", 1)
+        metadata[key] = value
+    return metadata
+
+
+def _batch_request_file_endpoint(path: Path) -> str:
+    endpoint: str | None = None
+    with path.open("r", encoding="utf-8") as handle:
+        for line_number, raw_line in enumerate(handle, start=1):
+            line = raw_line.strip()
+            if not line:
+                continue
+            payload = json.loads(line)
+            current = str(payload.get("url") or "")
+            if not current:
+                raise ValueError(f"{path} line {line_number} is missing a Batch request url.")
+            if endpoint is None:
+                endpoint = current
+            elif endpoint != current:
+                raise ValueError(
+                    f"{path} mixes Batch endpoints ({endpoint!r} and {current!r}); "
+                    "OpenAI Batch requires one endpoint per input file."
+                )
+    if endpoint is None:
+        raise ValueError(f"{path} does not contain any Batch requests.")
+    return endpoint
 
 
 def cmd_translation_qc(args: argparse.Namespace) -> None:
@@ -804,16 +842,199 @@ def cmd_attach_tokenizer_metrics(args: argparse.Namespace) -> None:
 
 
 def cmd_backtranslate_responses(args: argparse.Namespace) -> None:
-    rows = read_jsonl(Path(args.generations))
-    output = attach_response_backtranslations(
-        rows,
-        engine=args.engine,
-        checkpoint=args.checkpoint,
-        device=args.device,
-        dtype=args.dtype,
+    generation_paths = [Path(path) for path in args.generations]
+    if not args.output and not args.output_dir:
+        raise ValueError("backtranslate-responses requires --output or --output-dir.")
+    if len(generation_paths) > 1 and args.output:
+        raise ValueError(
+            "Use --output-dir for multi-file back-translation; --output is only for a single input file."
+        )
+
+    pending: list[tuple[Path, Path, list[dict[str, Any]]]] = []
+    for generation_path in generation_paths:
+        rows = read_jsonl(generation_path)
+        if args.output_dir:
+            output_dir = ensure_dir(Path(args.output_dir))
+            filename = str(args.output_template).format(stem=generation_path.stem)
+            output_path = output_dir / filename
+        else:
+            output_path = Path(args.output)
+        if _skip_existing(output_path, args.force, f"backtranslate {generation_path.name}"):
+            continue
+        pending.append((generation_path, output_path, rows))
+    if not pending:
+        info("backtranslate-responses: all outputs already exist; nothing to do.")
+        return
+
+    translator = None
+    if args.engine == "nllb" and any(
+        str(row.get("attack_language")) != "eng" for _, _, group_rows in pending for row in group_rows
+    ):
+        translator = NllbTranslator(checkpoint=args.checkpoint, device=args.device, dtype=args.dtype)
+
+    written: dict[str, str] = {}
+    for generation_path, output_path, rows in pending:
+        with step(f"backtranslate {generation_path.name} ({len(rows)} rows)"):
+            output = attach_response_backtranslations(
+                rows,
+                engine=args.engine,
+                checkpoint=args.checkpoint,
+                device=args.device,
+                dtype=args.dtype,
+                translator=translator,
+            )
+        write_jsonl(output_path, output)
+        written[str(output_path)] = str(len(output))
+        print(f"Wrote {len(output)} generation rows with response back-translations to {output_path}")
+    if len(written) > 1:
+        print(json.dumps(written, ensure_ascii=False, indent=2, sort_keys=True))
+
+
+def cmd_prepare_strongreject_batch(args: argparse.Namespace) -> None:
+    generation_paths = [Path(path) for path in args.generations]
+    requests_output = Path(args.requests_output)
+    manifest_output = Path(args.manifest_output)
+    scored_output_dir = ensure_dir(Path(args.scored_output_dir))
+
+    for artifact_path in (requests_output, manifest_output):
+        if artifact_path.exists():
+            if not args.force:
+                raise RuntimeError(
+                    f"{artifact_path} already exists. Use --force to overwrite or pick a new path."
+                )
+            artifact_path.unlink()
+
+    pending: list[tuple[Path, Path, list[dict[str, Any]]]] = []
+    for generation_path in generation_paths:
+        group_rows = read_jsonl(generation_path)
+        output_path = scored_output_dir / str(args.scored_output_template).format(stem=generation_path.stem)
+        if _skip_existing(output_path, args.force, f"prepare batch {generation_path.name}"):
+            continue
+        pending.append((generation_path, output_path, group_rows))
+    if not pending:
+        info("prepare-strongreject-batch: all scored outputs already exist; nothing to do.")
+        return
+
+    translator = None
+    if args.backtranslate_engine == "nllb" and any(
+        str(row.get("attack_language")) != "eng" and not str(row.get("model_output_backtranslated") or "").strip()
+        for _, _, group_rows in pending
+        for row in group_rows
+    ):
+        translator = NllbTranslator(checkpoint=args.checkpoint, device=args.device, dtype=args.dtype)
+
+    next_request_index = 0
+    request_count = 0
+    preset_count = 0
+    manifest_count = 0
+    for generation_path, output_path, group_rows in pending:
+        with step(f"prepare batch {generation_path.name} ({len(group_rows)} rows)"):
+            request_rows, manifest_rows, next_request_index = prepare_strongreject_batch_entries(
+                group_rows,
+                input_path=generation_path,
+                output_path=output_path,
+                judge_model=args.judge_model,
+                custom_id_prefix=args.custom_id_prefix,
+                next_request_index=next_request_index,
+                backtranslate_engine=args.backtranslate_engine,
+                translator=translator,
+            )
+        if request_rows:
+            append_jsonl(requests_output, request_rows)
+        append_jsonl(manifest_output, manifest_rows)
+        request_count += len(request_rows)
+        manifest_count += len(manifest_rows)
+        preset_count += sum(1 for row in manifest_rows if row.get("custom_id") is None)
+
+    summary = {
+        "generation_files": len(pending),
+        "manifest_rows": manifest_count,
+        "prepared_requests": request_count,
+        "preset_rows": preset_count,
+        "requests_output": str(requests_output),
+        "manifest_output": str(manifest_output),
+    }
+    if requests_output.exists():
+        size_bytes = requests_output.stat().st_size
+        summary["requests_bytes"] = size_bytes
+        if size_bytes > 200 * 1024 * 1024:
+            raise RuntimeError(
+                "Prepared Batch input exceeds OpenAI's 200 MB Batch file limit. "
+                "Split the generation files into multiple batch prepares."
+            )
+    print(json.dumps(summary, ensure_ascii=False, indent=2, sort_keys=True))
+
+
+def cmd_submit_openai_batch(args: argparse.Namespace) -> None:
+    input_path = Path(args.input)
+    endpoint = _batch_request_file_endpoint(input_path)
+    upload = upload_batch_input_file(input_path, api_base=args.api_base)
+    metadata = _parse_metadata_pairs(args.metadata)
+    batch = create_batch(
+        input_file_id=str(upload["id"]),
+        endpoint=endpoint,
+        completion_window=args.completion_window,
+        metadata=metadata or None,
+        api_base=args.api_base,
     )
-    write_jsonl(Path(args.output), output)
-    print(f"Wrote {len(output)} generation rows with response back-translations to {args.output}")
+    payload = {
+        "input_path": str(input_path),
+        "input_file": upload,
+        "batch": batch,
+    }
+    output_path = Path(args.output)
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    output_path.write_text(json.dumps(payload, ensure_ascii=False, indent=2, sort_keys=True), encoding="utf-8")
+    print(json.dumps(payload, ensure_ascii=False, indent=2, sort_keys=True))
+
+
+def cmd_fetch_openai_batch(args: argparse.Namespace) -> None:
+    batch = retrieve_batch(args.batch_id, api_base=args.api_base)
+    output_path = Path(args.output)
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    output_path.write_text(json.dumps(batch, ensure_ascii=False, indent=2, sort_keys=True), encoding="utf-8")
+
+    downloads: dict[str, str] = {}
+    if args.download_output and batch.get("output_file_id"):
+        download_path = download_file_content(
+            str(batch["output_file_id"]),
+            Path(args.download_output),
+            api_base=args.api_base,
+        )
+        downloads["batch_output"] = str(download_path)
+    if args.download_errors and batch.get("error_file_id"):
+        download_path = download_file_content(
+            str(batch["error_file_id"]),
+            Path(args.download_errors),
+            api_base=args.api_base,
+        )
+        downloads["batch_errors"] = str(download_path)
+
+    payload: dict[str, Any] = {"batch": batch, "downloads": downloads}
+    print(json.dumps(payload, ensure_ascii=False, indent=2, sort_keys=True))
+
+
+def cmd_ingest_strongreject_batch(args: argparse.Namespace) -> None:
+    manifest_rows = read_jsonl(Path(args.manifest))
+    batch_output_rows = read_jsonl(Path(args.batch_output))
+    batch_error_rows = read_jsonl(Path(args.batch_errors)) if args.batch_errors else None
+    grouped = ingest_strongreject_batch_results(
+        manifest_rows,
+        batch_output_rows,
+        batch_error_rows=batch_error_rows,
+    )
+    written: dict[str, str] = {}
+    for output_path_str, rows in grouped.items():
+        output_path = Path(output_path_str)
+        if output_path.exists() and not args.force:
+            raise RuntimeError(
+                f"{output_path} already exists. Use --force to overwrite ingested StrongREJECT outputs."
+            )
+        write_jsonl(output_path, rows)
+        written[str(output_path)] = str(len(rows))
+        print(f"Wrote {len(rows)} StrongREJECT-scored rows to {output_path}")
+    if len(written) > 1:
+        print(json.dumps(written, ensure_ascii=False, indent=2, sort_keys=True))
 
 
 def _resolve_model_ref(model: str, model_path: str | None = None) -> str:
@@ -1693,13 +1914,54 @@ def build_parser() -> argparse.ArgumentParser:
     token_metrics.set_defaults(func=cmd_attach_tokenizer_metrics)
 
     response_bt = sub.add_parser("backtranslate-responses")
-    response_bt.add_argument("--generations", required=True)
-    response_bt.add_argument("--output", required=True)
+    response_bt.add_argument("--generations", action="append", required=True)
+    response_bt.add_argument("--output")
+    response_bt.add_argument("--output-dir")
+    response_bt.add_argument("--output-template", default="{stem}.backtranslated.jsonl")
     response_bt.add_argument("--engine", choices=["placeholder", "nllb"], default="placeholder")
     response_bt.add_argument("--checkpoint", default="facebook/nllb-200-distilled-600M")
     response_bt.add_argument("--device", choices=["auto", "cpu", "mps", "cuda"], default="auto")
     response_bt.add_argument("--dtype", choices=["auto", "float16", "bfloat16", "float32"], default="auto")
+    response_bt.add_argument("--force", action="store_true", help="Overwrite outputs that already exist.")
     response_bt.set_defaults(func=cmd_backtranslate_responses)
+
+    sr_prepare = sub.add_parser("prepare-strongreject-batch")
+    sr_prepare.add_argument("--generations", action="append", required=True)
+    sr_prepare.add_argument("--requests-output", required=True)
+    sr_prepare.add_argument("--manifest-output", required=True)
+    sr_prepare.add_argument("--scored-output-dir", required=True)
+    sr_prepare.add_argument("--scored-output-template", default="{stem}.strongreject.jsonl")
+    sr_prepare.add_argument("--judge-model", required=True)
+    sr_prepare.add_argument("--backtranslate-engine", choices=["reuse", "placeholder", "nllb"], default="reuse")
+    sr_prepare.add_argument("--checkpoint", default="facebook/nllb-200-distilled-600M")
+    sr_prepare.add_argument("--device", choices=["auto", "cpu", "mps", "cuda"], default="auto")
+    sr_prepare.add_argument("--dtype", choices=["auto", "float16", "bfloat16", "float32"], default="auto")
+    sr_prepare.add_argument("--custom-id-prefix", default="strongreject")
+    sr_prepare.add_argument("--force", action="store_true", help="Overwrite batch prep artifacts and scored outputs.")
+    sr_prepare.set_defaults(func=cmd_prepare_strongreject_batch)
+
+    submit_batch = sub.add_parser("submit-openai-batch")
+    submit_batch.add_argument("--input", required=True)
+    submit_batch.add_argument("--output", required=True)
+    submit_batch.add_argument("--completion-window", default="24h")
+    submit_batch.add_argument("--metadata", action="append")
+    submit_batch.add_argument("--api-base", default="https://api.openai.com/v1")
+    submit_batch.set_defaults(func=cmd_submit_openai_batch)
+
+    fetch_batch = sub.add_parser("fetch-openai-batch")
+    fetch_batch.add_argument("--batch-id", required=True)
+    fetch_batch.add_argument("--output", required=True)
+    fetch_batch.add_argument("--download-output")
+    fetch_batch.add_argument("--download-errors")
+    fetch_batch.add_argument("--api-base", default="https://api.openai.com/v1")
+    fetch_batch.set_defaults(func=cmd_fetch_openai_batch)
+
+    ingest_batch = sub.add_parser("ingest-strongreject-batch")
+    ingest_batch.add_argument("--manifest", required=True)
+    ingest_batch.add_argument("--batch-output", required=True)
+    ingest_batch.add_argument("--batch-errors")
+    ingest_batch.add_argument("--force", action="store_true", help="Overwrite scored outputs that already exist.")
+    ingest_batch.set_defaults(func=cmd_ingest_strongreject_batch)
 
     model_status = sub.add_parser("model-status")
     model_status.add_argument("--model", default="sagui_7b")

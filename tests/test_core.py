@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import json
+import shutil
 import tempfile
 import unittest
 from pathlib import Path
@@ -505,6 +507,16 @@ class GenerationTests(unittest.TestCase):
 
 
 class StrongRejectScoringTests(unittest.TestCase):
+    def _make_workspace_tmp(self, name: str) -> Path:
+        root = Path.cwd() / ".tmp_strongreject_tests"
+        root.mkdir(exist_ok=True)
+        path = root / name
+        if path.exists():
+            shutil.rmtree(path, ignore_errors=True)
+        path.mkdir(parents=True, exist_ok=True)
+        self.addCleanup(shutil.rmtree, path, True)
+        return path
+
     def test_mock_strongreject_scoring_preserves_subscores(self) -> None:
         rows = [
             {
@@ -562,6 +574,341 @@ class StrongRejectScoringTests(unittest.TestCase):
         self.assertIsNone(scored[0]["unsafe_binary"])
         self.assertTrue(scored[0]["scoring_failed"])
         self.assertTrue(scored[0]["excluded"])
+
+    def test_cli_backtranslate_responses_output_dir_batches_multiple_files(self) -> None:
+        tmp_path = self._make_workspace_tmp("backtranslate_multi")
+        por = tmp_path / "por.jsonl"
+        ara = tmp_path / "ara.jsonl"
+        output_dir = tmp_path / "backtranslated"
+        write_jsonl(
+            por,
+            [
+                {
+                    "attack_language": "por",
+                    "model_output": "resposta em portugues",
+                }
+            ],
+        )
+        write_jsonl(
+            ara,
+            [
+                {
+                    "attack_language": "ara",
+                    "model_output": "arabic output",
+                }
+            ],
+        )
+
+        main(
+            [
+                "backtranslate-responses",
+                "--generations",
+                str(por),
+                "--generations",
+                str(ara),
+                "--output-dir",
+                str(output_dir),
+                "--engine",
+                "placeholder",
+            ]
+        )
+
+        por_rows = read_jsonl(output_dir / "por.backtranslated.jsonl")
+        ara_rows = read_jsonl(output_dir / "ara.backtranslated.jsonl")
+        self.assertEqual(por_rows[0]["model_output_backtranslated"], "resposta em portugues")
+        self.assertEqual(ara_rows[0]["model_output_backtranslated"], "arabic output")
+
+    def test_cli_prepare_strongreject_batch_reuses_existing_backtranslations(self) -> None:
+        tmp_path = self._make_workspace_tmp("prepare_batch_reuse")
+        generations = tmp_path / "generations.jsonl"
+        requests_output = tmp_path / "requests.jsonl"
+        manifest_output = tmp_path / "manifest.jsonl"
+        scored_dir = tmp_path / "scored"
+        write_jsonl(
+            generations,
+            [
+                {
+                    "model": "sagui_7b",
+                    "aligned_language": "por",
+                    "attack_language": "ara",
+                    "prompt_id": "p1",
+                    "run_id": "r1",
+                    "prompt_text": "arabic prompt",
+                    "source_prompt_text": "source prompt",
+                    "model_output": "original output",
+                    "model_output_backtranslated": "english backtranslation",
+                    "generation_completed": True,
+                    "api_failure": False,
+                    "provider_block": False,
+                },
+                {
+                    "model": "sagui_7b",
+                    "aligned_language": "por",
+                    "attack_language": "ara",
+                    "prompt_id": "p2",
+                    "run_id": "r2",
+                    "prompt_text": "arabic prompt 2",
+                    "source_prompt_text": "source prompt 2",
+                    "model_output": "timeout output",
+                    "generation_completed": False,
+                    "api_failure": True,
+                    "provider_block": False,
+                },
+                {
+                    "model": "sagui_7b",
+                    "aligned_language": "por",
+                    "attack_language": "ara",
+                    "prompt_id": "p3",
+                    "run_id": "r3",
+                    "prompt_text": "arabic prompt 3",
+                    "source_prompt_text": "source prompt 3",
+                    "model_output": "",
+                    "generation_completed": True,
+                    "api_failure": False,
+                    "provider_block": False,
+                },
+            ],
+        )
+
+        main(
+            [
+                "prepare-strongreject-batch",
+                "--generations",
+                str(generations),
+                "--requests-output",
+                str(requests_output),
+                "--manifest-output",
+                str(manifest_output),
+                "--scored-output-dir",
+                str(scored_dir),
+                "--judge-model",
+                "gpt-5.4",
+            ]
+        )
+
+        requests = read_jsonl(requests_output)
+        manifest = read_jsonl(manifest_output)
+        self.assertEqual(len(requests), 1)
+        self.assertEqual(len(manifest), 3)
+        self.assertIn("english backtranslation", requests[0]["body"]["messages"][1]["content"])
+        preset_reasons = {
+            row["row"]["scoring_failure_reason"]
+            for row in manifest
+            if row.get("custom_id") is None
+        }
+        self.assertEqual(preset_reasons, {"api_failure", "empty_model_output"})
+
+    def test_cli_prepare_strongreject_batch_reuse_mode_requires_backtranslations(self) -> None:
+        tmp_path = self._make_workspace_tmp("prepare_batch_missing_bt")
+        generations = tmp_path / "generations.jsonl"
+        requests_output = tmp_path / "requests.jsonl"
+        manifest_output = tmp_path / "manifest.jsonl"
+        scored_dir = tmp_path / "scored"
+        write_jsonl(
+            generations,
+            [
+                {
+                    "model": "sagui_7b",
+                    "aligned_language": "por",
+                    "attack_language": "ara",
+                    "prompt_id": "p1",
+                    "run_id": "r1",
+                    "prompt_text": "arabic prompt",
+                    "source_prompt_text": "source prompt",
+                    "model_output": "original output",
+                    "generation_completed": True,
+                    "api_failure": False,
+                    "provider_block": False,
+                }
+            ],
+        )
+
+        with self.assertRaisesRegex(ValueError, "missing model_output_backtranslated"):
+            main(
+                [
+                    "prepare-strongreject-batch",
+                    "--generations",
+                    str(generations),
+                    "--requests-output",
+                    str(requests_output),
+                    "--manifest-output",
+                    str(manifest_output),
+                    "--scored-output-dir",
+                    str(scored_dir),
+                    "--judge-model",
+                    "gpt-5.4",
+                ]
+            )
+
+    def test_cli_ingest_strongreject_batch_writes_scored_outputs(self) -> None:
+        tmp_path = self._make_workspace_tmp("ingest_batch")
+        output_path = tmp_path / "scored" / "demo.strongreject.jsonl"
+        manifest_path = tmp_path / "manifest.jsonl"
+        batch_output = tmp_path / "batch_output.jsonl"
+        manifest_rows = [
+            {
+                "custom_id": "strongreject-00000000",
+                "input_path": str(tmp_path / "generations.jsonl"),
+                "output_path": str(output_path),
+                "row_index": 0,
+                "row_sha256": "ignored",
+                "row": {
+                    "model": "sagui_7b",
+                    "aligned_language": "por",
+                    "attack_language": "ara",
+                    "prompt_id": "p1",
+                    "run_id": "r1",
+                    "prompt_text": "prompt",
+                    "source_prompt_text": "source",
+                    "model_output": "unsafe answer",
+                    "model_output_backtranslated": "unsafe answer in english",
+                    "generation_completed": True,
+                    "api_failure": False,
+                    "provider_block": False,
+                    "excluded": False,
+                    "exclusion_reason": None,
+                    "scoring_failed": False,
+                    "scoring_failure_reason": None,
+                },
+            },
+            {
+                "custom_id": None,
+                "input_path": str(tmp_path / "generations.jsonl"),
+                "output_path": str(output_path),
+                "row_index": 1,
+                "row_sha256": "ignored",
+                "row": {
+                    "model": "sagui_7b",
+                    "aligned_language": "por",
+                    "attack_language": "ara",
+                    "prompt_id": "p2",
+                    "run_id": "r2",
+                    "prompt_text": "prompt",
+                    "source_prompt_text": "source",
+                    "model_output": "",
+                    "model_output_backtranslated": None,
+                    "generation_completed": False,
+                    "api_failure": True,
+                    "provider_block": False,
+                    "excluded": True,
+                    "exclusion_reason": "api_failure",
+                    "scoring_failed": True,
+                    "scoring_failure_reason": "api_failure",
+                },
+            },
+        ]
+        batch_rows = [
+            {
+                "custom_id": "strongreject-00000000",
+                "error": None,
+                "response": {
+                    "status_code": 200,
+                    "body": {
+                        "choices": [
+                            {
+                                "message": {
+                                    "content": (
+                                        "#overall_reasoning\nfine\n#scores\n"
+                                        "1.a no\n1.b 0\n2.a very\n2.b 5\n3.a specific\n3.b 5"
+                                    )
+                                }
+                            }
+                        ]
+                    },
+                },
+            }
+        ]
+        write_jsonl(manifest_path, manifest_rows)
+        write_jsonl(batch_output, batch_rows)
+
+        main(
+            [
+                "ingest-strongreject-batch",
+                "--manifest",
+                str(manifest_path),
+                "--batch-output",
+                str(batch_output),
+            ]
+        )
+
+        rows = read_jsonl(output_path)
+        self.assertEqual(len(rows), 2)
+        self.assertEqual(rows[0]["unsafe_binary"], 1)
+        self.assertEqual(rows[0]["strongreject_score"], 1.0)
+        self.assertTrue(rows[1]["excluded"])
+        self.assertEqual(rows[1]["scoring_failure_reason"], "api_failure")
+
+    def test_cli_submit_openai_batch_derives_endpoint_from_requests_file(self) -> None:
+        tmp_path = self._make_workspace_tmp("submit_batch")
+        requests_path = tmp_path / "requests.jsonl"
+        output_path = tmp_path / "submission.json"
+        write_jsonl(
+            requests_path,
+            [
+                {
+                    "custom_id": "strongreject-00000000",
+                    "method": "POST",
+                    "url": "/v1/chat/completions",
+                    "body": {"model": "gpt-5.4", "messages": [{"role": "user", "content": "hi"}]},
+                }
+            ],
+        )
+
+        with (
+            patch("thesis_eval.cli.upload_batch_input_file", return_value={"id": "file-123"}),
+            patch(
+                "thesis_eval.cli.create_batch",
+                return_value={"id": "batch-123", "endpoint": "/v1/chat/completions", "status": "validating"},
+            ) as create_batch_mock,
+        ):
+            main(
+                [
+                    "submit-openai-batch",
+                    "--input",
+                    str(requests_path),
+                    "--output",
+                    str(output_path),
+                ]
+            )
+
+        payload = json.loads(output_path.read_text(encoding="utf-8"))
+        self.assertEqual(payload["input_file"]["id"], "file-123")
+        self.assertEqual(payload["batch"]["id"], "batch-123")
+        self.assertEqual(create_batch_mock.call_args.kwargs["endpoint"], "/v1/chat/completions")
+
+    def test_cli_fetch_openai_batch_downloads_available_files(self) -> None:
+        tmp_path = self._make_workspace_tmp("fetch_batch")
+        output_path = tmp_path / "batch.json"
+        batch_output = tmp_path / "batch_output.jsonl"
+        batch_errors = tmp_path / "batch_errors.jsonl"
+        batch_payload = {
+            "id": "batch-123",
+            "status": "completed",
+            "output_file_id": "file-out",
+            "error_file_id": "file-err",
+        }
+
+        with (
+            patch("thesis_eval.cli.retrieve_batch", return_value=batch_payload),
+            patch("thesis_eval.cli.download_file_content") as download_mock,
+        ):
+            main(
+                [
+                    "fetch-openai-batch",
+                    "--batch-id",
+                    "batch-123",
+                    "--output",
+                    str(output_path),
+                    "--download-output",
+                    str(batch_output),
+                    "--download-errors",
+                    str(batch_errors),
+                ]
+            )
+
+        payload = json.loads(output_path.read_text(encoding="utf-8"))
+        self.assertEqual(payload["id"], "batch-123")
+        self.assertEqual(download_mock.call_count, 2)
 
 
 class DatasetBuilderTests(unittest.TestCase):
