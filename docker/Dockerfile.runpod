@@ -34,6 +34,8 @@ RUN uv pip install -e . \
       torch --index-url https://download.pytorch.org/whl/cu128 \
     && uv pip install \
       vllm \
+      flashinfer-python \
+      flashinfer-cubin \
       transformers \
       accelerate \
       sentencepiece \

@@ -283,6 +283,56 @@ finish scoring before terminating the pod, run the scoring block from
 [`RTX_RUN.md`](RTX_RUN.md) directly inside the pod with plain
 `uv run thesis-eval` instead of `uv run thesis-eval-gpu`.
 
+## 7§2 — StrongREJECT scoring on Runpod
+
+Score every `outputs/generations/*.jsonl` file in one pass. NLLB-600M
+loads once, then each input is back-translated and the official
+StrongREJECT rubric runs (which calls OpenAI under the hood, hence
+`OPENAI_API_KEY`).
+
+Quick local checks before launching the full pass:
+
+```powershell
+uv run thesis-eval validate-config
+uv run thesis-eval runtime-profiles
+uv run thesis-eval download-assets --name nllb_200_3_3b
+uv run thesis-eval verify-assets --name nllb_200_3_3b
+```
+
+```bash
+mkdir -p outputs/scored
+
+shopt -s nullglob
+SCORE_ARGS=()
+for f in outputs/generations/*.jsonl; do
+  SCORE_ARGS+=(--generations "$f")
+done
+
+echo "generation files: ${#SCORE_ARGS[@]}"
+
+uv run thesis-eval score-strongreject \
+  "${SCORE_ARGS[@]}" \
+  --evaluator strongreject_rubric \
+  --judge-model gpt-5.4 \
+  --backtranslate-engine nllb \
+  --checkpoint assets/models/nllb-200-3.3B \
+  --device cuda \
+  --output-dir outputs/scored \
+  --output-template "{stem}.strongreject.jsonl"
+  
+# Sanity check
+gen=$(find outputs/generations -maxdepth 1 -name '*.jsonl' | wc -l)
+score=$(find outputs/scored -maxdepth 1 -name '*.strongreject.jsonl' | wc -l)
+echo "generations=$gen, scored=$score"
+```
+
+Expected wall time: ~2–4 hours for ~50k scored rows total (NLLB
+back-translation + per-row OpenAI rubric call).
+
+Bump to NLLB-3.3B for thesis-grade back-translation if you've downloaded
+it to `assets/models/nllb-200-3.3B` — change `--checkpoint` accordingly.
+The 600M is fine for a first complete pass.
+
 ## 8. Tear down
 
 After the generation and BELEBELE files are verified on the laptop or RTX rig,

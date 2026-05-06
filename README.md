@@ -38,6 +38,11 @@ eval/
 └── tests/                 # unit tests
 ```
 
+Additional runtime artifacts created by the StrongREJECT batch workflow:
+
+- `outputs/backtranslated/` stores response back-translations reused for OpenAI Batch judging.
+- `outputs/batches/` stores Batch request files, manifests, status payloads, and downloaded result files.
+
 ## Models
 
 The thesis evaluates eight paired target models. Seven are open-weight Hugging Face models that are downloaded into `assets/models/`. Sabiá-3 is served through Maritaca and is configured as an API target.
@@ -710,9 +715,117 @@ uv run thesis-eval generate-targets `
 
 ## 10. Score Responses With StrongREJECT
 
-Scoring back-translates non-English model outputs to English with NLLB-200, then runs the official StrongREJECT rubric. Each scored file preserves the original response, the English back-translation, the continuous StrongREJECT score, refusal status, sub-scores, API metadata, and failure metadata. `score-strongreject` accepts multiple `--generations` paths and `--output-dir`/`--output-template`, so NLLB-200 loads once and each input file's scored output is written as soon as it finishes.
+The recommended thesis workflow is now two-stage: back-translate responses once with NLLB-200, then reuse those saved English back-translations to judge with OpenAI Batch. Each scored file preserves the original response, the English back-translation, the continuous StrongREJECT score, refusal status, sub-scores, API metadata, and failure metadata.
 
-Full run:
+### 10.1 Recommended RunPod + OpenAI Batch Flow
+
+Inside the RunPod shell, load `.env` into the current shell first. `OPENAI_API_KEY` is required for the Batch submission step.
+
+```bash
+set -a && source .env && set +a
+mkdir -p outputs/backtranslated outputs/scored outputs/batches/strongreject
+```
+
+Back-translate every generation file once on the GPU. This is the only StrongREJECT stage that still needs NLLB/GPU inference.
+
+```bash
+shopt -s nullglob
+GEN_ARGS=()
+for f in outputs/generations/*.jsonl; do
+  GEN_ARGS+=(--generations "$f")
+done
+
+uv run thesis-eval backtranslate-responses \
+  "${GEN_ARGS[@]}" \
+  --engine nllb \
+  --checkpoint assets/models/nllb-200-distilled-600M \
+  --device cuda \
+  --output-dir outputs/backtranslated
+```
+
+After the `outputs/backtranslated/*.backtranslated.jsonl` files exist, the rest of the workflow is CPU/network-only. Prepare the OpenAI Batch request file plus a manifest that maps Batch `custom_id` values back to per-file scored outputs:
+
+```bash
+BT_ARGS=()
+for f in outputs/backtranslated/*.backtranslated.jsonl; do
+  BT_ARGS+=(--generations "$f")
+done
+
+uv run thesis-eval prepare-strongreject-batch \
+  "${BT_ARGS[@]}" \
+  --requests-output outputs/batches/strongreject/requests.jsonl \
+  --manifest-output outputs/batches/strongreject/manifest.jsonl \
+  --scored-output-dir outputs/scored \
+  --judge-model gpt-5.4
+```
+
+Submit the prepared JSONL to OpenAI Batch:
+
+```bash
+uv run thesis-eval submit-openai-batch \
+  --input outputs/batches/strongreject/requests.jsonl \
+  --output outputs/batches/strongreject/submission.json
+```
+
+Fetch Batch status and download results when the job completes:
+
+```bash
+uv run thesis-eval fetch-openai-batch \
+  --batch-id batch_... \
+  --output outputs/batches/strongreject/status.json \
+  --download-output outputs/batches/strongreject/batch_output.jsonl \
+  --download-errors outputs/batches/strongreject/batch_errors.jsonl
+```
+
+Ingest the downloaded Batch results back into one `outputs/scored/*.strongreject.jsonl` file per input generation file:
+
+```bash
+uv run thesis-eval ingest-strongreject-batch \
+  --manifest outputs/batches/strongreject/manifest.jsonl \
+  --batch-output outputs/batches/strongreject/batch_output.jsonl \
+  --batch-errors outputs/batches/strongreject/batch_errors.jsonl
+```
+
+Optional overnight watcher: launch this in a second shell after starting `backtranslate-responses`. It waits for every expected `*.backtranslated.jsonl` file, then stages and pushes only the backtranslated artifacts. Use it only if git auth is already configured in the pod.
+
+```bash
+nohup bash -lc '
+set -euo pipefail
+cd /app/ufsc-thesis
+
+mapfile -t EXPECTED < <(
+  find outputs/generations -maxdepth 1 -name "*.jsonl" -printf "%f\n" |
+  sed "s/\.jsonl$/.backtranslated.jsonl/" |
+  sort
+)
+
+while true; do
+  MISSING=0
+  for f in "${EXPECTED[@]}"; do
+    if [ ! -f "outputs/backtranslated/$f" ]; then
+      MISSING=1
+      break
+    fi
+  done
+
+  if [ "$MISSING" -eq 0 ]; then
+    break
+  fi
+
+  sleep 60
+done
+
+git add -f -- outputs/backtranslated
+if ! git diff --cached --quiet; then
+  git commit -m "Add backtranslated outputs"
+  git push
+fi
+' >/tmp/backtranslate-autocommit.log 2>&1 &
+```
+
+### 10.2 Serial Fallback
+
+If you want the old one-shot scorer, `score-strongreject` is still available. It back-translates and judges inside one command:
 
 ```powershell
 New-Item -ItemType Directory -Force outputs/scored | Out-Null
