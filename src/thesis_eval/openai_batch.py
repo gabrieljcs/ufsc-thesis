@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import os
+import re
+import math
 from pathlib import Path
 from typing import TYPE_CHECKING
 from typing import Any
@@ -9,6 +11,8 @@ if TYPE_CHECKING:  # pragma: no cover
     import requests
 
 OPENAI_API_BASE = "https://api.openai.com/v1"
+_OPENAI_BATCH_ID_RE = re.compile(r"^[A-Za-z0-9_-]+$")
+_DEFAULT_BATCH_REQUEST_OVERHEAD_TOKENS = 64
 
 
 def _resolve_api_key(api_key: str | None = None) -> str:
@@ -22,6 +26,74 @@ def _resolve_api_key(api_key: str | None = None) -> str:
 
 def _normalize_api_base(api_base: str) -> str:
     return api_base.rstrip("/")
+
+
+def _validate_batch_id(batch_id: str) -> None:
+    if not _OPENAI_BATCH_ID_RE.fullmatch(batch_id):
+        raise RuntimeError(
+            "Invalid OpenAI batch id. Use the exact id returned by submit-openai-batch "
+            "or stored under batch.id in the submission JSON; do not pass placeholders "
+            f"such as 'batch_...'. Got: {batch_id!r}"
+        )
+
+
+def estimate_batch_request_input_tokens(request: dict[str, Any]) -> int:
+    """Conservative token estimate for sharding before OpenAI Batch upload.
+
+    The API enforces an organization-level enqueued-token limit before a Batch
+    starts. We do not need tokenizer-perfect accounting here; a stable upper-ish
+    estimate is enough to keep shards comfortably below that cap.
+    """
+
+    body = request.get("body")
+    serialized_body = json_dumps_compact(body if isinstance(body, dict) else request)
+    return math.ceil(len(serialized_body) / 4) + _DEFAULT_BATCH_REQUEST_OVERHEAD_TOKENS
+
+
+def json_dumps_compact(value: Any) -> str:
+    import json
+
+    return json.dumps(value, ensure_ascii=False, sort_keys=True, separators=(",", ":"))
+
+
+def shard_batch_requests(
+    requests: list[dict[str, Any]],
+    *,
+    max_estimated_input_tokens: int,
+    max_requests: int | None = None,
+) -> list[dict[str, Any]]:
+    if max_estimated_input_tokens < 1:
+        raise ValueError(f"max_estimated_input_tokens must be >= 1; got {max_estimated_input_tokens}")
+    if max_requests is not None and max_requests < 1:
+        raise ValueError(f"max_requests must be >= 1; got {max_requests}")
+
+    shards: list[dict[str, Any]] = []
+    current_rows: list[dict[str, Any]] = []
+    current_estimated_tokens = 0
+
+    def flush() -> None:
+        nonlocal current_rows, current_estimated_tokens
+        if current_rows:
+            shards.append(
+                {
+                    "rows": current_rows,
+                    "request_count": len(current_rows),
+                    "estimated_input_tokens": current_estimated_tokens,
+                }
+            )
+        current_rows = []
+        current_estimated_tokens = 0
+
+    for request in requests:
+        estimated_tokens = estimate_batch_request_input_tokens(request)
+        would_exceed_tokens = current_rows and current_estimated_tokens + estimated_tokens > max_estimated_input_tokens
+        would_exceed_count = max_requests is not None and len(current_rows) >= max_requests
+        if would_exceed_tokens or would_exceed_count:
+            flush()
+        current_rows.append(request)
+        current_estimated_tokens += estimated_tokens
+    flush()
+    return shards
 
 
 def _json_or_raise(response: requests.Response, context: str) -> dict[str, Any]:
@@ -97,6 +169,7 @@ def retrieve_batch(
 ) -> dict[str, Any]:
     import requests
 
+    _validate_batch_id(batch_id)
     key = _resolve_api_key(api_key)
     base = _normalize_api_base(api_base)
     response = requests.get(

@@ -74,6 +74,11 @@ def attach_response_backtranslations(
     output: list[dict[str, Any]] = []
     for row in rows:
         enriched = dict(row)
+        existing_backtranslation = enriched.get("model_output_backtranslated")
+        if existing_backtranslation is not None:
+            enriched["model_output_backtranslated"] = str(existing_backtranslation)
+            output.append(enriched)
+            continue
         attack_language = str(enriched.get("attack_language", "eng"))
         model_output = str(enriched.get("model_output") or "")
         if not model_output:

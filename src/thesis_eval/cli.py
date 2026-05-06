@@ -4,6 +4,7 @@ import argparse
 import gc
 import json
 import sys
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from collections.abc import Callable
 from time import perf_counter
 from pathlib import Path
@@ -46,7 +47,7 @@ from thesis_eval.benchmarks.uriel import (
 )
 from thesis_eval.config import load_config
 from thesis_eval.evaluation.benign import score_benign_rows
-from thesis_eval.evaluation.strongreject import score_generation_rows
+from thesis_eval.evaluation.strongreject import repair_strongreject_parse_failures, score_generation_rows
 from thesis_eval.evaluation.strongreject_batch import (
     ingest_strongreject_batch_results,
     prepare_strongreject_batch_entries,
@@ -62,7 +63,13 @@ from thesis_eval.models.generation import (
     generate_outputs,
     iter_generate_with_maritaca,
 )
-from thesis_eval.openai_batch import create_batch, download_file_content, retrieve_batch, upload_batch_input_file
+from thesis_eval.openai_batch import (
+    create_batch,
+    download_file_content,
+    retrieve_batch,
+    shard_batch_requests,
+    upload_batch_input_file,
+)
 from thesis_eval.paths import DATA_DIR, OUTPUT_DIR, THESIS_ROOT, ensure_dir
 from thesis_eval.pipeline import run_mock_pilot
 from thesis_eval.progress import info, step
@@ -988,6 +995,48 @@ def cmd_submit_openai_batch(args: argparse.Namespace) -> None:
     print(json.dumps(payload, ensure_ascii=False, indent=2, sort_keys=True))
 
 
+def cmd_shard_openai_batch_requests(args: argparse.Namespace) -> None:
+    input_path = Path(args.input)
+    output_dir = Path(args.output_dir)
+    requests = read_jsonl(input_path)
+    shards = shard_batch_requests(
+        requests,
+        max_estimated_input_tokens=args.max_estimated_input_tokens,
+        max_requests=args.max_requests,
+    )
+
+    output_dir.mkdir(parents=True, exist_ok=True)
+    prefix = args.output_prefix or input_path.stem
+    shard_summaries: list[dict[str, Any]] = []
+    for index, shard in enumerate(shards):
+        shard_path = output_dir / f"{prefix}-{index:03d}.jsonl"
+        if shard_path.exists() and not args.force:
+            raise RuntimeError(f"{shard_path} already exists. Use --force to overwrite shard files.")
+        write_jsonl(shard_path, shard["rows"])
+        shard_summaries.append(
+            {
+                "path": str(shard_path),
+                "request_count": shard["request_count"],
+                "estimated_input_tokens": shard["estimated_input_tokens"],
+            }
+        )
+
+    summary = {
+        "input": str(input_path),
+        "total_requests": len(requests),
+        "shard_count": len(shards),
+        "max_estimated_input_tokens": args.max_estimated_input_tokens,
+        "max_requests": args.max_requests,
+        "shards": shard_summaries,
+    }
+    index_path = Path(args.index_output) if args.index_output else output_dir / f"{prefix}-shards.json"
+    if index_path.exists() and not args.force:
+        raise RuntimeError(f"{index_path} already exists. Use --force to overwrite the shard index.")
+    index_path.parent.mkdir(parents=True, exist_ok=True)
+    index_path.write_text(json.dumps(summary, ensure_ascii=False, indent=2, sort_keys=True), encoding="utf-8")
+    print(json.dumps(summary, ensure_ascii=False, indent=2, sort_keys=True))
+
+
 def cmd_fetch_openai_batch(args: argparse.Namespace) -> None:
     batch = retrieve_batch(args.batch_id, api_base=args.api_base)
     output_path = Path(args.output)
@@ -1534,13 +1583,15 @@ def cmd_model_status(args: argparse.Namespace) -> None:
 
 
 def cmd_score_strongreject(args: argparse.Namespace) -> None:
+    if args.workers < 1:
+        raise ValueError(f"--workers must be >= 1; got {args.workers}")
     generation_paths = [Path(path) for path in args.generations]
     if not args.output and not args.output_dir:
         raise ValueError("score-strongreject requires --output or --output-dir.")
     if len(generation_paths) > 1 and args.output:
         raise ValueError("Use --output-dir for multi-file scoring; --output is only for a single input file.")
 
-    pending: list[tuple[Path, Path, list[dict[str, Any]]]] = []
+    pending: list[tuple[Path, Path, list[dict[str, Any]], int]] = []
     for generation_path in generation_paths:
         group_rows = read_jsonl(generation_path)
         if args.output_dir:
@@ -1549,37 +1600,252 @@ def cmd_score_strongreject(args: argparse.Namespace) -> None:
             output_path = output_dir / filename
         else:
             output_path = Path(args.output)
-        if _skip_existing(output_path, args.force, f"score {generation_path.name}"):
-            continue
-        pending.append((generation_path, output_path, group_rows))
+        completed_count = 0
+        if args.resume and output_path.exists() and not args.force:
+            completed_count = len(read_jsonl(output_path))
+            if completed_count > len(group_rows):
+                raise RuntimeError(
+                    f"{output_path} has {completed_count} rows but {generation_path} has only {len(group_rows)}."
+                )
+            group_rows = group_rows[completed_count:]
+            if not group_rows:
+                info(f"score {generation_path.name}: already complete via {output_path}")
+                continue
+        else:
+            if _skip_existing(output_path, args.force, f"score {generation_path.name}"):
+                continue
+        pending.append((generation_path, output_path, group_rows, completed_count))
     if not pending:
         info("score-strongreject: all outputs already exist; nothing to do.")
         return
 
     translator = None
     if args.backtranslate_engine == "nllb" and any(
-        str(row.get("attack_language")) != "eng" for _, _, group_rows in pending for row in group_rows
+        str(row.get("attack_language")) != "eng" for _, _, group_rows, _ in pending for row in group_rows
     ):
         translator = NllbTranslator(checkpoint=args.checkpoint, device=args.device, dtype=args.dtype)
 
     written: dict[str, str] = {}
-    for generation_path, output_path, group_rows in pending:
+    for generation_path, output_path, group_rows, completed_count in pending:
         with step(f"score {generation_path.name} ({len(group_rows)} rows)"):
-            scored = score_generation_rows(
-                group_rows,
-                evaluator=args.evaluator,
-                backtranslate_engine=args.backtranslate_engine,
-                checkpoint=args.checkpoint,
-                device=args.device,
-                dtype=args.dtype,
-                translator=translator,
-                judge_model=args.judge_model,
-            )
-        write_jsonl(output_path, scored)
-        written[str(output_path)] = str(len(scored))
-        print(f"Wrote {len(scored)} StrongREJECT-scored rows to {output_path}")
+            if args.resume:
+                if args.force and output_path.exists():
+                    output_path.unlink()
+                    completed_count = 0
+                scored_count = completed_count
+                total_count = completed_count + len(group_rows)
+                if args.workers == 1:
+                    for row in group_rows:
+                        scored = score_generation_rows(
+                            [row],
+                            evaluator=args.evaluator,
+                            backtranslate_engine=args.backtranslate_engine,
+                            checkpoint=args.checkpoint,
+                            device=args.device,
+                            dtype=args.dtype,
+                            translator=translator,
+                            judge_model=args.judge_model,
+                            api_base=args.api_base,
+                            max_retries=args.max_retries,
+                            retry_initial_delay=args.retry_initial_delay,
+                        )
+                        append_jsonl(output_path, scored)
+                        scored_count += len(scored)
+                        if scored_count % 25 == 0:
+                            info(f"score {generation_path.name}: checkpointed {scored_count}/{total_count} rows")
+                else:
+                    if args.backtranslate_engine == "nllb":
+                        raise RuntimeError(
+                            "Parallel score-strongreject is only supported when response backtranslations already "
+                            "exist or --backtranslate-engine is placeholder. Run backtranslate-responses first."
+                        )
+                    scored_count = _score_rows_parallel_resume(
+                        group_rows,
+                        output_path=output_path,
+                        completed_count=completed_count,
+                        total_count=total_count,
+                        generation_name=generation_path.name,
+                        workers=args.workers,
+                        evaluator=args.evaluator,
+                        checkpoint=args.checkpoint,
+                        device=args.device,
+                        dtype=args.dtype,
+                        judge_model=args.judge_model,
+                        api_base=args.api_base,
+                        max_retries=args.max_retries,
+                        retry_initial_delay=args.retry_initial_delay,
+                    )
+                written[str(output_path)] = str(scored_count)
+                print(f"Wrote/resumed {scored_count} StrongREJECT-scored rows to {output_path}")
+            else:
+                if args.workers > 1:
+                    if args.backtranslate_engine == "nllb":
+                        raise RuntimeError(
+                            "Parallel score-strongreject is only supported when response backtranslations already "
+                            "exist or --backtranslate-engine is placeholder. Run backtranslate-responses first."
+                        )
+                    scored = _score_rows_parallel_collect(
+                        group_rows,
+                        workers=args.workers,
+                        evaluator=args.evaluator,
+                        checkpoint=args.checkpoint,
+                        device=args.device,
+                        dtype=args.dtype,
+                        judge_model=args.judge_model,
+                        api_base=args.api_base,
+                        max_retries=args.max_retries,
+                        retry_initial_delay=args.retry_initial_delay,
+                    )
+                else:
+                    scored = score_generation_rows(
+                        group_rows,
+                        evaluator=args.evaluator,
+                        backtranslate_engine=args.backtranslate_engine,
+                        checkpoint=args.checkpoint,
+                        device=args.device,
+                        dtype=args.dtype,
+                        translator=translator,
+                        judge_model=args.judge_model,
+                        api_base=args.api_base,
+                        max_retries=args.max_retries,
+                        retry_initial_delay=args.retry_initial_delay,
+                    )
+                write_jsonl(output_path, scored)
+                written[str(output_path)] = str(len(scored))
+                print(f"Wrote {len(scored)} StrongREJECT-scored rows to {output_path}")
     if len(written) > 1:
         print(json.dumps(written, ensure_ascii=False, indent=2, sort_keys=True))
+
+
+def cmd_repair_strongreject_scores(args: argparse.Namespace) -> None:
+    scored_paths = [Path(path) for path in args.scored]
+    if not args.output and not args.output_dir and not args.in_place:
+        raise ValueError("repair-strongreject-scores requires --output, --output-dir, or --in-place.")
+    if len(scored_paths) > 1 and args.output:
+        raise ValueError("Use --output-dir or --in-place for multiple scored files.")
+    if args.in_place and (args.output or args.output_dir):
+        raise ValueError("--in-place cannot be combined with --output or --output-dir.")
+
+    summary: dict[str, dict[str, int | str]] = {}
+    for scored_path in scored_paths:
+        rows = read_jsonl(scored_path)
+        repaired_rows, repaired_count = repair_strongreject_parse_failures(rows)
+        if args.in_place:
+            output_path = scored_path
+        elif args.output_dir:
+            output_dir = ensure_dir(Path(args.output_dir))
+            filename = str(args.output_template).format(stem=scored_path.stem)
+            output_path = output_dir / filename
+        else:
+            output_path = Path(args.output)
+        if output_path.exists() and not args.force and output_path != scored_path:
+            raise RuntimeError(f"{output_path} already exists. Use --force to overwrite repaired scores.")
+        if output_path == scored_path and not args.force:
+            raise RuntimeError(f"{output_path} would be overwritten in place. Use --force to confirm.")
+        write_jsonl(output_path, repaired_rows)
+        summary[str(scored_path)] = {
+            "rows": len(rows),
+            "repaired": repaired_count,
+            "output": str(output_path),
+        }
+        print(f"Repaired {repaired_count}/{len(rows)} StrongREJECT rows into {output_path}")
+    if len(summary) > 1:
+        print(json.dumps(summary, ensure_ascii=False, indent=2, sort_keys=True))
+
+
+def _score_rows_parallel_resume(
+    rows: list[dict[str, Any]],
+    *,
+    output_path: Path,
+    completed_count: int,
+    total_count: int,
+    generation_name: str,
+    workers: int,
+    evaluator: str,
+    checkpoint: str,
+    device: str,
+    dtype: str,
+    judge_model: str | None,
+    api_base: str,
+    max_retries: int,
+    retry_initial_delay: float,
+) -> int:
+    next_to_write = 0
+    buffered: dict[int, dict[str, Any]] = {}
+    scored_count = completed_count
+
+    def score_one(index_and_row: tuple[int, dict[str, Any]]) -> tuple[int, dict[str, Any]]:
+        index, row = index_and_row
+        scored = score_generation_rows(
+            [row],
+            evaluator=evaluator,
+            backtranslate_engine="placeholder",
+            checkpoint=checkpoint,
+            device=device,
+            dtype=dtype,
+            translator=None,
+            judge_model=judge_model,
+            api_base=api_base,
+            max_retries=max_retries,
+            retry_initial_delay=retry_initial_delay,
+        )
+        return index, scored[0]
+
+    with ThreadPoolExecutor(max_workers=workers) as executor:
+        futures = [executor.submit(score_one, item) for item in enumerate(rows)]
+        for future in as_completed(futures):
+            index, scored_row = future.result()
+            buffered[index] = scored_row
+            ready_rows: list[dict[str, Any]] = []
+            while next_to_write in buffered:
+                ready_rows.append(buffered.pop(next_to_write))
+                next_to_write += 1
+            if ready_rows:
+                append_jsonl(output_path, ready_rows)
+                scored_count += len(ready_rows)
+                if scored_count % 25 == 0 or scored_count == total_count:
+                    info(f"score {generation_name}: checkpointed {scored_count}/{total_count} rows")
+    return scored_count
+
+
+def _score_rows_parallel_collect(
+    rows: list[dict[str, Any]],
+    *,
+    workers: int,
+    evaluator: str,
+    checkpoint: str,
+    device: str,
+    dtype: str,
+    judge_model: str | None,
+    api_base: str,
+    max_retries: int,
+    retry_initial_delay: float,
+) -> list[dict[str, Any]]:
+    output: list[dict[str, Any] | None] = [None] * len(rows)
+
+    def score_one(index_and_row: tuple[int, dict[str, Any]]) -> tuple[int, dict[str, Any]]:
+        index, row = index_and_row
+        scored = score_generation_rows(
+            [row],
+            evaluator=evaluator,
+            backtranslate_engine="placeholder",
+            checkpoint=checkpoint,
+            device=device,
+            dtype=dtype,
+            translator=None,
+            judge_model=judge_model,
+            api_base=api_base,
+            max_retries=max_retries,
+            retry_initial_delay=retry_initial_delay,
+        )
+        return index, scored[0]
+
+    with ThreadPoolExecutor(max_workers=workers) as executor:
+        futures = [executor.submit(score_one, item) for item in enumerate(rows)]
+        for future in as_completed(futures):
+            index, scored_row = future.result()
+            output[index] = scored_row
+    return [row for row in output if row is not None]
 
 
 def cmd_compute_spec(args: argparse.Namespace) -> None:
@@ -1948,6 +2214,16 @@ def build_parser() -> argparse.ArgumentParser:
     submit_batch.add_argument("--api-base", default="https://api.openai.com/v1")
     submit_batch.set_defaults(func=cmd_submit_openai_batch)
 
+    shard_batch = sub.add_parser("shard-openai-batch-requests")
+    shard_batch.add_argument("--input", required=True)
+    shard_batch.add_argument("--output-dir", required=True)
+    shard_batch.add_argument("--output-prefix")
+    shard_batch.add_argument("--index-output")
+    shard_batch.add_argument("--max-estimated-input-tokens", type=int, default=750_000)
+    shard_batch.add_argument("--max-requests", type=int)
+    shard_batch.add_argument("--force", action="store_true", help="Overwrite existing shard files and shard index.")
+    shard_batch.set_defaults(func=cmd_shard_openai_batch_requests)
+
     fetch_batch = sub.add_parser("fetch-openai-batch")
     fetch_batch.add_argument("--batch-id", required=True)
     fetch_batch.add_argument("--output", required=True)
@@ -1986,8 +2262,35 @@ def build_parser() -> argparse.ArgumentParser:
             "audit decisions for cross-stage consistency."
         ),
     )
+    sr_score.add_argument("--api-base", default="https://api.openai.com/v1")
+    sr_score.add_argument("--max-retries", type=int, default=6)
+    sr_score.add_argument("--retry-initial-delay", type=float, default=2.0)
+    sr_score.add_argument(
+        "--workers",
+        type=int,
+        default=1,
+        help="Parallel normal-API scoring workers. Use with --resume for checkpointed long runs.",
+    )
+    sr_score.add_argument(
+        "--resume",
+        action="store_true",
+        help="Append scored rows and resume from an existing partial output file.",
+    )
     sr_score.add_argument("--force", action="store_true", help="Overwrite outputs that already exist.")
     sr_score.set_defaults(func=cmd_score_strongreject)
+
+    sr_repair = sub.add_parser("repair-strongreject-scores")
+    sr_repair.add_argument("--scored", action="append", required=True)
+    sr_repair.add_argument("--output")
+    sr_repair.add_argument("--output-dir")
+    sr_repair.add_argument("--output-template", default="{stem}.repaired.jsonl")
+    sr_repair.add_argument(
+        "--in-place",
+        action="store_true",
+        help="Rewrite scored files in place. Requires --force.",
+    )
+    sr_repair.add_argument("--force", action="store_true", help="Overwrite repaired score outputs.")
+    sr_repair.set_defaults(func=cmd_repair_strongreject_scores)
 
     spec = sub.add_parser("compute-spec")
     spec.add_argument("--predictions", required=True)

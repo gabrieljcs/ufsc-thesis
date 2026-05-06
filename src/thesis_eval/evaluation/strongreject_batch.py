@@ -175,9 +175,9 @@ def _resolve_backtranslation(
     if enriched.get("api_failure") or enriched.get("provider_block") or not enriched.get("generation_completed", True):
         return enriched
 
-    existing = str(enriched.get("model_output_backtranslated") or "")
-    if existing.strip():
-        enriched["model_output_backtranslated"] = existing
+    existing_backtranslation = enriched.get("model_output_backtranslated")
+    if existing_backtranslation is not None:
+        enriched["model_output_backtranslated"] = str(existing_backtranslation)
         return enriched
 
     model_output = str(enriched.get("model_output") or "")

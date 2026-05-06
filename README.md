@@ -759,12 +759,146 @@ uv run thesis-eval prepare-strongreject-batch \
   --judge-model gpt-5.4
 ```
 
+If Batch queue limits are too slow, score through the normal Chat Completions
+API instead. This uses the same in-repo StrongREJECT rubric and parser as the
+Batch requests, preserves existing NLLB `model_output_backtranslated` fields,
+and appends progress with `--resume` so interrupted runs can continue.
+
+```bash
+BT_ARGS=()
+for f in outputs/backtranslated/*.backtranslated.jsonl; do
+  BT_ARGS+=(--generations "$f")
+done
+
+uv run thesis-eval score-strongreject \
+  "${BT_ARGS[@]}" \
+  --output-dir outputs/scored \
+  --output-template "{stem}.strongreject.jsonl" \
+  --evaluator openai_rubric \
+  --judge-model gpt-5.4 \
+  --workers 8 \
+  --resume
+```
+
+Tune `--workers` to the account's normal API rate limit. If many rows end up
+with `strongreject_error` rate-limit failures after retries, lower it.
+
+If a previous run failed because the judge returned numeric answers under
+`1.a`/`2.a`/`3.a` and the local parser expected `*.b`, recover the saved judge
+responses without another API call:
+
+```bash
+uv run thesis-eval repair-strongreject-scores \
+  --scored outputs/scored/sagui_7b_ara.backtranslated.strongreject.jsonl \
+  --output outputs/scored/sagui_7b_ara.backtranslated.strongreject.repaired.jsonl
+```
+
+For in-place repair, first stop any active scorer writing those files, then add
+`--in-place --force`.
+
 Submit the prepared JSONL to OpenAI Batch:
 
 ```bash
 uv run thesis-eval submit-openai-batch \
   --input outputs/batches/strongreject/requests.jsonl \
   --output outputs/batches/strongreject/submission.json
+```
+
+If the API reports the organization enqueued-token limit, split the request file
+into shards and submit only one or two shards at a time. Keep the original full
+`manifest.jsonl`; after all shard outputs are downloaded, concatenate the shard
+result files and ingest once with the full manifest.
+
+```bash
+uv run thesis-eval shard-openai-batch-requests \
+  --input outputs/batches/strongreject/requests.jsonl \
+  --output-dir outputs/batches/strongreject/shards \
+  --index-output outputs/batches/strongreject/shards/index.json \
+  --max-estimated-input-tokens 750000
+
+uv run thesis-eval submit-openai-batch \
+  --input outputs/batches/strongreject/shards/requests-000.jsonl \
+  --output outputs/batches/strongreject/shards/requests-000.submission.json
+```
+
+With the default shard size above, each shard is close to 750k estimated input
+tokens. Under a 900k organization enqueued-token cap, submitting all 46 shards at
+once will fail after the first one or two submissions because the API counts
+queued/in-progress Batch tokens against the cap. To stay under that cap, use
+this serial loop. It submits the next shard only after the previous shard reaches
+a terminal status, then combines downloaded shard outputs for the normal ingest
+step.
+
+```bash
+for shard in outputs/batches/strongreject/shards/requests-[0-9][0-9][0-9].jsonl; do
+  stem="${shard%.jsonl}"
+  submission="${stem}.submission.json"
+  status_json="${stem}.status.json"
+  batch_output="${stem}.batch_output.jsonl"
+  batch_errors="${stem}.batch_errors.jsonl"
+
+  if [[ ! -s "$submission" ]]; then
+    uv run thesis-eval submit-openai-batch \
+      --input "$shard" \
+      --output "$submission"
+  fi
+
+  batch_id="$(
+    python3 -c 'import json,sys; print(json.load(open(sys.argv[1]))["batch"]["id"])' "$submission"
+  )"
+
+  while true; do
+    uv run thesis-eval fetch-openai-batch \
+      --batch-id "$batch_id" \
+      --output "$status_json" \
+      --download-output "$batch_output" \
+      --download-errors "$batch_errors"
+
+    batch_status="$(
+      python3 -c 'import json,sys; print(json.load(open(sys.argv[1]))["status"])' "$status_json"
+    )"
+
+    case "$batch_status" in
+      completed)
+        break
+        ;;
+      failed|expired|cancelled)
+        echo "Shard failed with status ${batch_status}: ${shard}" >&2
+        exit 1
+        ;;
+      *)
+        sleep 300
+        ;;
+    esac
+  done
+done
+
+: > outputs/batches/strongreject/batch_output.jsonl
+for f in outputs/batches/strongreject/shards/requests-[0-9][0-9][0-9].batch_output.jsonl; do
+  [[ -s "$f" ]] && cat "$f" >> outputs/batches/strongreject/batch_output.jsonl
+done
+
+: > outputs/batches/strongreject/batch_errors.jsonl
+for f in outputs/batches/strongreject/shards/requests-[0-9][0-9][0-9].batch_errors.jsonl; do
+  [[ -s "$f" ]] && cat "$f" >> outputs/batches/strongreject/batch_errors.jsonl
+done
+```
+
+If the organization cap is raised high enough, or if the request file is
+re-sharded to much smaller batches, this submit-only loop can enqueue all
+currently unsubmitted shards. Do not use it with the default 750k-token shards
+under a 900k cap.
+
+```bash
+for shard in outputs/batches/strongreject/shards/requests-[0-9][0-9][0-9].jsonl; do
+  stem="${shard%.jsonl}"
+  submission="${stem}.submission.json"
+  [[ -s "$submission" ]] && continue
+
+  uv run thesis-eval submit-openai-batch \
+    --input "$shard" \
+    --output "$submission"
+done
 ```
 
 Fetch Batch status and download results when the job completes:
