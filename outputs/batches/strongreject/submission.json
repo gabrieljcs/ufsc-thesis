@@ -1,0 +1,52 @@
+{
+  "batch": {
+    "cancelled_at": null,
+    "cancelling_at": null,
+    "completed_at": null,
+    "completion_window": "24h",
+    "created_at": 1778064341,
+    "endpoint": "/v1/chat/completions",
+    "error_file_id": null,
+    "errors": null,
+    "expired_at": null,
+    "expires_at": 1778150741,
+    "failed_at": null,
+    "finalizing_at": null,
+    "id": "batch_69fb1bd5388c81909fea5e4448d181e0",
+    "in_progress_at": null,
+    "input_file_id": "file-6M4k7MgTraR312VR6tWvu2",
+    "metadata": null,
+    "model": null,
+    "object": "batch",
+    "output_file_id": null,
+    "request_counts": {
+      "completed": 0,
+      "failed": 0,
+      "total": 0
+    },
+    "status": "validating",
+    "usage": {
+      "input_tokens": 0,
+      "input_tokens_details": {
+        "cached_tokens": 0
+      },
+      "output_tokens": 0,
+      "output_tokens_details": {
+        "reasoning_tokens": 0
+      },
+      "total_tokens": 0
+    }
+  },
+  "input_file": {
+    "bytes": 130775498,
+    "created_at": 1778064337,
+    "expires_at": 1780656337,
+    "filename": "requests.jsonl",
+    "id": "file-6M4k7MgTraR312VR6tWvu2",
+    "object": "file",
+    "purpose": "batch",
+    "status": "processed",
+    "status_details": null
+  },
+  "input_path": "outputs/batches/strongreject/requests.jsonl"
+}

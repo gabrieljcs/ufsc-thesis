@@ -1,0 +1,239 @@
+{
+  "input": "outputs/batches/strongreject/requests.jsonl",
+  "max_estimated_input_tokens": 750000,
+  "max_requests": null,
+  "shard_count": 46,
+  "shards": [
+    {
+      "estimated_input_tokens": 749558,
+      "path": "outputs/batches/strongreject/shards/requests-000.jsonl",
+      "request_count": 881
+    },
+    {
+      "estimated_input_tokens": 749587,
+      "path": "outputs/batches/strongreject/shards/requests-001.jsonl",
+      "request_count": 862
+    },
+    {
+      "estimated_input_tokens": 749967,
+      "path": "outputs/batches/strongreject/shards/requests-002.jsonl",
+      "request_count": 869
+    },
+    {
+      "estimated_input_tokens": 749125,
+      "path": "outputs/batches/strongreject/shards/requests-003.jsonl",
+      "request_count": 904
+    },
+    {
+      "estimated_input_tokens": 749267,
+      "path": "outputs/batches/strongreject/shards/requests-004.jsonl",
+      "request_count": 839
+    },
+    {
+      "estimated_input_tokens": 749107,
+      "path": "outputs/batches/strongreject/shards/requests-005.jsonl",
+      "request_count": 707
+    },
+    {
+      "estimated_input_tokens": 749153,
+      "path": "outputs/batches/strongreject/shards/requests-006.jsonl",
+      "request_count": 738
+    },
+    {
+      "estimated_input_tokens": 749010,
+      "path": "outputs/batches/strongreject/shards/requests-007.jsonl",
+      "request_count": 738
+    },
+    {
+      "estimated_input_tokens": 749997,
+      "path": "outputs/batches/strongreject/shards/requests-008.jsonl",
+      "request_count": 764
+    },
+    {
+      "estimated_input_tokens": 749883,
+      "path": "outputs/batches/strongreject/shards/requests-009.jsonl",
+      "request_count": 757
+    },
+    {
+      "estimated_input_tokens": 749765,
+      "path": "outputs/batches/strongreject/shards/requests-010.jsonl",
+      "request_count": 661
+    },
+    {
+      "estimated_input_tokens": 749225,
+      "path": "outputs/batches/strongreject/shards/requests-011.jsonl",
+      "request_count": 612
+    },
+    {
+      "estimated_input_tokens": 749732,
+      "path": "outputs/batches/strongreject/shards/requests-012.jsonl",
+      "request_count": 640
+    },
+    {
+      "estimated_input_tokens": 748895,
+      "path": "outputs/batches/strongreject/shards/requests-013.jsonl",
+      "request_count": 629
+    },
+    {
+      "estimated_input_tokens": 749441,
+      "path": "outputs/batches/strongreject/shards/requests-014.jsonl",
+      "request_count": 628
+    },
+    {
+      "estimated_input_tokens": 749461,
+      "path": "outputs/batches/strongreject/shards/requests-015.jsonl",
+      "request_count": 695
+    },
+    {
+      "estimated_input_tokens": 749876,
+      "path": "outputs/batches/strongreject/shards/requests-016.jsonl",
+      "request_count": 847
+    },
+    {
+      "estimated_input_tokens": 749601,
+      "path": "outputs/batches/strongreject/shards/requests-017.jsonl",
+      "request_count": 773
+    },
+    {
+      "estimated_input_tokens": 749508,
+      "path": "outputs/batches/strongreject/shards/requests-018.jsonl",
+      "request_count": 775
+    },
+    {
+      "estimated_input_tokens": 749755,
+      "path": "outputs/batches/strongreject/shards/requests-019.jsonl",
+      "request_count": 802
+    },
+    {
+      "estimated_input_tokens": 749269,
+      "path": "outputs/batches/strongreject/shards/requests-020.jsonl",
+      "request_count": 823
+    },
+    {
+      "estimated_input_tokens": 749825,
+      "path": "outputs/batches/strongreject/shards/requests-021.jsonl",
+      "request_count": 895
+    },
+    {
+      "estimated_input_tokens": 749948,
+      "path": "outputs/batches/strongreject/shards/requests-022.jsonl",
+      "request_count": 924
+    },
+    {
+      "estimated_input_tokens": 749112,
+      "path": "outputs/batches/strongreject/shards/requests-023.jsonl",
+      "request_count": 925
+    },
+    {
+      "estimated_input_tokens": 749921,
+      "path": "outputs/batches/strongreject/shards/requests-024.jsonl",
+      "request_count": 884
+    },
+    {
+      "estimated_input_tokens": 749444,
+      "path": "outputs/batches/strongreject/shards/requests-025.jsonl",
+      "request_count": 855
+    },
+    {
+      "estimated_input_tokens": 749349,
+      "path": "outputs/batches/strongreject/shards/requests-026.jsonl",
+      "request_count": 754
+    },
+    {
+      "estimated_input_tokens": 749677,
+      "path": "outputs/batches/strongreject/shards/requests-027.jsonl",
+      "request_count": 752
+    },
+    {
+      "estimated_input_tokens": 749767,
+      "path": "outputs/batches/strongreject/shards/requests-028.jsonl",
+      "request_count": 756
+    },
+    {
+      "estimated_input_tokens": 749894,
+      "path": "outputs/batches/strongreject/shards/requests-029.jsonl",
+      "request_count": 772
+    },
+    {
+      "estimated_input_tokens": 749398,
+      "path": "outputs/batches/strongreject/shards/requests-030.jsonl",
+      "request_count": 776
+    },
+    {
+      "estimated_input_tokens": 749313,
+      "path": "outputs/batches/strongreject/shards/requests-031.jsonl",
+      "request_count": 907
+    },
+    {
+      "estimated_input_tokens": 749411,
+      "path": "outputs/batches/strongreject/shards/requests-032.jsonl",
+      "request_count": 889
+    },
+    {
+      "estimated_input_tokens": 749071,
+      "path": "outputs/batches/strongreject/shards/requests-033.jsonl",
+      "request_count": 862
+    },
+    {
+      "estimated_input_tokens": 749701,
+      "path": "outputs/batches/strongreject/shards/requests-034.jsonl",
+      "request_count": 814
+    },
+    {
+      "estimated_input_tokens": 749234,
+      "path": "outputs/batches/strongreject/shards/requests-035.jsonl",
+      "request_count": 898
+    },
+    {
+      "estimated_input_tokens": 749860,
+      "path": "outputs/batches/strongreject/shards/requests-036.jsonl",
+      "request_count": 856
+    },
+    {
+      "estimated_input_tokens": 749561,
+      "path": "outputs/batches/strongreject/shards/requests-037.jsonl",
+      "request_count": 843
+    },
+    {
+      "estimated_input_tokens": 749599,
+      "path": "outputs/batches/strongreject/shards/requests-038.jsonl",
+      "request_count": 854
+    },
+    {
+      "estimated_input_tokens": 749300,
+      "path": "outputs/batches/strongreject/shards/requests-039.jsonl",
+      "request_count": 785
+    },
+    {
+      "estimated_input_tokens": 749556,
+      "path": "outputs/batches/strongreject/shards/requests-040.jsonl",
+      "request_count": 817
+    },
+    {
+      "estimated_input_tokens": 749190,
+      "path": "outputs/batches/strongreject/shards/requests-041.jsonl",
+      "request_count": 737
+    },
+    {
+      "estimated_input_tokens": 749964,
+      "path": "outputs/batches/strongreject/shards/requests-042.jsonl",
+      "request_count": 778
+    },
+    {
+      "estimated_input_tokens": 749377,
+      "path": "outputs/batches/strongreject/shards/requests-043.jsonl",
+      "request_count": 727
+    },
+    {
+      "estimated_input_tokens": 749763,
+      "path": "outputs/batches/strongreject/shards/requests-044.jsonl",
+      "request_count": 806
+    },
+    {
+      "estimated_input_tokens": 288649,
+      "path": "outputs/batches/strongreject/shards/requests-045.jsonl",
+      "request_count": 303
+    }
+  ],
+  "total_requests": 36113
+}
