@@ -163,7 +163,7 @@ uv run thesis-eval list-assets
 
 ## Pipeline
 
-Each stage writes per-language or per-model files, so reruns of the same command skip completed inputs. Pass `--force` to redo a step.
+Each stage writes per-language or per-model files, so reruns of the same command skip completed inputs. Pass `--force` to redo a step. The command examples below assume a bash/zsh shell from the `eval/` directory.
 
 | # | Stage | Command(s) |
 | --- | --- | --- |
@@ -182,6 +182,307 @@ Each stage writes per-language or per-model files, so reruns of the same command
 | 13 | Tokenizer diagnostics | `attach-tokenizer-metrics` |
 | 14 | Freeze | `build-dataset`, `export-results` |
 | 15 | Tables | `export-report-tables`, `fit-glmm` |
+
+### Restore Archived JSONL Artifacts
+
+The GitHub release keeps the largest JSONL files zipped. To work from the
+checked artifact without rerunning model inference:
+
+```sh
+unzip -n outputs/frozen_jsonl_artifacts.zip
+unzip -n outputs/belebele_predictions_jsonl.zip
+
+uv run thesis-eval export-report-tables \
+  --rows outputs/dataset_frozen.jsonl \
+  --output-dir outputs/tables
+uv run thesis-eval fit-glmm \
+  --rows outputs/dataset_frozen.jsonl \
+  --output outputs/tables/glmm_main_effects.csv
+
+# The LaTeX exporter expects the full outputs/tables bundle listed below.
+uv run python scripts/write_uriel_latex_assets.py
+uv run python scripts/write_thesis_results_latex_assets.py
+```
+
+### Full Command Skeleton
+
+Set the panel once:
+
+```sh
+LANGS=(ara bul dan eng fin ita nor por rus spa swa swe ukr)
+MODELS=(sagui_7b sabia_3 llamantino_2_ultrachat_7b llamantino_anita_8b gpt_sw3 ai_sweden_llama3_8b bggpt_7b bggpt_gemma_9b llama3_1_8b_reference)
+OPEN_WEIGHT_MODELS=(sagui_7b llamantino_2_ultrachat_7b llamantino_anita_8b gpt_sw3 ai_sweden_llama3_8b bggpt_7b bggpt_gemma_9b llama3_1_8b_reference)
+```
+
+Prepare configs, datasets, assets, and URIEL+ distances:
+
+```sh
+uv run thesis-eval validate-config
+uv run thesis-eval import-strongreject --source github --pilot-size 2
+uv run thesis-eval download-assets --name belebele --name multijail
+uv run thesis-eval verify-assets --name strongreject --name belebele --name multijail
+
+uv run thesis-eval-gpu download-assets --name nllb_200_3_3b --name blaser_2_0_qe
+uv run thesis-eval-gpu verify-assets --name nllb_200_3_3b --name blaser_2_0_qe
+uv run thesis-eval-gpu prewarm-sonar
+
+for model in "${OPEN_WEIGHT_MODELS[@]}"; do
+  uv run thesis-eval-gpu download-assets --name "$model"
+  uv run thesis-eval model-status --model "$model"
+done
+
+uv run thesis-eval prepare-uriel --from-csv
+```
+
+Translate prompts, attach round-trip diagnostics, and run BLASER QC:
+
+```sh
+TARGET_ARGS=()
+for lang in "${LANGS[@]}"; do
+  TARGET_ARGS+=(--target-language "$lang")
+done
+
+uv run thesis-eval-gpu translate \
+  --prompts data/raw/strongreject/prompts.jsonl \
+  "${TARGET_ARGS[@]}" \
+  --output-dir outputs/translations \
+  --output-template '{lang}.raw.jsonl' \
+  --engine nllb \
+  --checkpoint assets/models/nllb-200-3.3B \
+  --device cuda
+
+RAW_ARGS=()
+for lang in "${LANGS[@]}"; do
+  RAW_ARGS+=(--translations "outputs/translations/${lang}.raw.jsonl")
+done
+
+uv run thesis-eval-gpu prompt-roundtrip \
+  "${RAW_ARGS[@]}" \
+  --output-dir outputs/translations \
+  --output-template '{lang}.roundtrip.jsonl' \
+  --engine nllb \
+  --checkpoint assets/models/nllb-200-3.3B \
+  --device cuda
+
+ROUNDTRIP_ARGS=()
+for lang in "${LANGS[@]}"; do
+  ROUNDTRIP_ARGS+=(--translations "outputs/translations/${lang}.roundtrip.jsonl")
+done
+
+uv run thesis-eval-gpu translation-qc \
+  "${ROUNDTRIP_ARGS[@]}" \
+  --output-dir outputs/translations \
+  --output-template '{lang}.qc.jsonl' \
+  --scorer blaser \
+  --device cuda
+```
+
+Create and import the translation audit decisions. The command below is the
+Plan B LLM-judge path; for Plan A, edit the exported CSVs with human XSTS
+decisions before `import-audit`.
+
+```sh
+for lang in "${LANGS[@]}"; do
+  uv run thesis-eval export-audit-queue \
+    --translations "outputs/translations/${lang}.qc.jsonl" \
+    --output "outputs/audit/${lang}.xsts_queue.csv" \
+    --audit-plan plan_b
+
+  uv run thesis-eval judge-audit-queue \
+    --audit-queue "outputs/audit/${lang}.xsts_queue.csv" \
+    --output "outputs/audit/${lang}.xsts_decisions.csv" \
+    --model gpt-4o
+
+  uv run thesis-eval import-audit \
+    --translations "outputs/translations/${lang}.qc.jsonl" \
+    --audit-csv "outputs/audit/${lang}.xsts_decisions.csv" \
+    --output "outputs/translations/${lang}.audit.jsonl"
+done
+
+cat outputs/translations/*.audit.jsonl > outputs/translations/all_audited_translations.jsonl
+uv run thesis-eval calibrate-blaser \
+  --audit-csv outputs/audit/ara.xsts_decisions.csv \
+  --audit-csv outputs/audit/bul.xsts_decisions.csv \
+  --audit-csv outputs/audit/dan.xsts_decisions.csv \
+  --audit-csv outputs/audit/eng.xsts_decisions.csv \
+  --audit-csv outputs/audit/fin.xsts_decisions.csv \
+  --audit-csv outputs/audit/ita.xsts_decisions.csv \
+  --audit-csv outputs/audit/nor.xsts_decisions.csv \
+  --audit-csv outputs/audit/por.xsts_decisions.csv \
+  --audit-csv outputs/audit/rus.xsts_decisions.csv \
+  --audit-csv outputs/audit/spa.xsts_decisions.csv \
+  --audit-csv outputs/audit/swa.xsts_decisions.csv \
+  --audit-csv outputs/audit/swe.xsts_decisions.csv \
+  --audit-csv outputs/audit/ukr.xsts_decisions.csv \
+  --output outputs/audit/blaser_calibration.json
+```
+
+Generate target responses. Sabiá-3 uses the Maritaca API; all other models use
+the GPU container and the selected runtime profile.
+
+```sh
+AUDIT_ARGS=()
+for lang in "${LANGS[@]}"; do
+  AUDIT_ARGS+=(--translations "outputs/translations/${lang}.audit.jsonl")
+done
+
+for model in "${MODELS[@]}"; do
+  if [ "$model" = "sabia_3" ]; then
+    uv run thesis-eval generate-targets \
+      "${AUDIT_ARGS[@]}" \
+      --model "$model" \
+      --backend maritaca \
+      --max-tokens 512 \
+      --temperature 0.0 \
+      --output-dir outputs/generations \
+      --output-template '{model}_{lang}.jsonl'
+  else
+    uv run thesis-eval-gpu generate-targets \
+      "${AUDIT_ARGS[@]}" \
+      --model "$model" \
+      --profile runpod_a100 \
+      --backend vllm \
+      --max-tokens 512 \
+      --temperature 0.0 \
+      --trust-remote-code \
+      --output-dir outputs/generations \
+      --output-template '{model}_{lang}.jsonl'
+  fi
+done
+```
+
+Back-translate responses and score with StrongREJECT. The serial scoring path
+is simpler; the Batch path is better for a full run.
+
+```sh
+GEN_ARGS=()
+for file in outputs/generations/*.jsonl; do
+  GEN_ARGS+=(--generations "$file")
+done
+
+uv run thesis-eval-gpu backtranslate-responses \
+  "${GEN_ARGS[@]}" \
+  --output-dir outputs/backtranslated \
+  --output-template '{stem}.backtranslated.jsonl' \
+  --engine nllb \
+  --checkpoint assets/models/nllb-200-3.3B \
+  --device cuda
+
+BT_ARGS=()
+for file in outputs/backtranslated/*.jsonl; do
+  BT_ARGS+=(--generations "$file")
+done
+
+uv run thesis-eval score-strongreject \
+  "${BT_ARGS[@]}" \
+  --output-dir outputs/scored \
+  --output-template '{stem}.strongreject.jsonl' \
+  --evaluator strongreject_rubric \
+  --judge-model gpt-4o \
+  --workers 4 \
+  --resume
+
+cat outputs/scored/*.backtranslated.strongreject.jsonl > outputs/scored/all_strongreject_scores.jsonl
+```
+
+For OpenAI Batch scoring instead of serial scoring:
+
+```sh
+mkdir -p outputs/batches/strongreject
+uv run thesis-eval prepare-strongreject-batch \
+  "${BT_ARGS[@]}" \
+  --requests-output outputs/batches/strongreject/requests.jsonl \
+  --manifest-output outputs/batches/strongreject/manifest.jsonl \
+  --scored-output-dir outputs/scored \
+  --scored-output-template '{stem}.strongreject.jsonl' \
+  --judge-model gpt-4o
+
+uv run thesis-eval shard-openai-batch-requests \
+  --input outputs/batches/strongreject/requests.jsonl \
+  --output-dir outputs/batches/strongreject/shards \
+  --index-output outputs/batches/strongreject/shards/index.jsonl
+
+uv run thesis-eval submit-openai-batch \
+  --input outputs/batches/strongreject/shards/requests-000.jsonl \
+  --output outputs/batches/strongreject/shards/requests-000.submit.json
+uv run thesis-eval fetch-openai-batch \
+  --batch-id <batch_id_from_submit_json> \
+  --output outputs/batches/strongreject/shards/requests-000.status.json \
+  --download-output outputs/batches/strongreject/shards/requests-000.output.jsonl \
+  --download-errors outputs/batches/strongreject/shards/requests-000.errors.jsonl
+uv run thesis-eval ingest-strongreject-batch \
+  --manifest outputs/batches/strongreject/manifest.jsonl \
+  --batch-output outputs/batches/strongreject/shards/requests-000.output.jsonl \
+  --batch-errors outputs/batches/strongreject/shards/requests-000.errors.jsonl
+```
+
+Repeat the `submit-openai-batch`, `fetch-openai-batch`, and
+`ingest-strongreject-batch` pattern for each shard, or concatenate downloaded
+Batch output files before one ingest pass.
+
+Run BELEBELE IF/CONS/SPEC:
+
+```sh
+for model in "${MODELS[@]}"; do
+  if [ "$model" = "sabia_3" ]; then
+    uv run thesis-eval predict-belebele \
+      --model "$model" \
+      --backend maritaca \
+      --output "outputs/spec/${model}.belebele.jsonl"
+  else
+    uv run thesis-eval-gpu predict-belebele \
+      --model "$model" \
+      --profile runpod_a100 \
+      --backend vllm \
+      --trust-remote-code \
+      --output "outputs/spec/${model}.belebele.jsonl"
+  fi
+done
+
+cat outputs/spec/*.belebele.jsonl > outputs/spec/all_belebele_predictions.raw.jsonl
+uv run thesis-eval repair-belebele-predictions \
+  --predictions outputs/spec/all_belebele_predictions.raw.jsonl \
+  --output outputs/spec/all_belebele_predictions.jsonl
+uv run thesis-eval compute-spec \
+  --predictions outputs/spec/all_belebele_predictions.jsonl \
+  --output outputs/spec/belebele_spec.jsonl
+```
+
+Freeze the analysis dataset, export tables, and refresh the LaTeX assets:
+
+```sh
+uv run thesis-eval build-dataset \
+  --scored outputs/scored/all_strongreject_scores.jsonl \
+  --translations outputs/translations/all_audited_translations.jsonl \
+  --spec-scores outputs/spec/belebele_spec.jsonl \
+  --output outputs/dataset_frozen.jsonl \
+  --allow-frozen-overwrite
+
+uv run thesis-eval export-results \
+  --rows outputs/dataset_frozen.jsonl \
+  --output outputs/dataset_frozen.parquet \
+  --allow-frozen-overwrite
+
+uv run thesis-eval export-report-tables \
+  --rows outputs/dataset_frozen.jsonl \
+  --output-dir outputs/tables
+uv run thesis-eval fit-glmm \
+  --rows outputs/dataset_frozen.jsonl \
+  --output outputs/tables/glmm_main_effects.csv
+
+# The LaTeX exporter expects the full outputs/tables bundle listed below.
+uv run python scripts/write_uriel_latex_assets.py
+uv run python scripts/write_thesis_results_latex_assets.py
+
+zip -9 outputs/frozen_jsonl_artifacts.zip \
+  outputs/dataset_frozen.jsonl \
+  outputs/scored/all_strongreject_scores.jsonl
+zip -9 outputs/belebele_predictions_jsonl.zip \
+  outputs/spec/all_belebele_predictions.jsonl
+```
+
+If generation was run with `--skip-tokenizer-metrics`, repair each generation
+file with `attach-tokenizer-metrics` before response back-translation.
 
 ## Audit plans
 
@@ -212,6 +513,7 @@ outputs/
 ├── audit/                {lang}.xsts_queue.csv, .xsts_decisions.csv
 ├── generations/          {model}_{lang}.jsonl
 ├── backtranslated/       {model}_{lang}.backtranslated.jsonl
+├── batches/strongreject/ optional OpenAI Batch requests and downloads
 ├── scored/               {model}_{lang}.backtranslated.strongreject.jsonl
 ├── spec/                 {model}.belebele.jsonl, belebele_spec.jsonl
 ├── tables/               CSV inputs for the thesis Results chapter
@@ -225,8 +527,7 @@ original repository paths.
 `outputs/dataset_frozen.parquet` is an optional local mirror of the JSONL
 dataset and is ignored by Git.
 
-The Results-chapter table set produced by `export-report-tables` and
-`fit-glmm`:
+The thesis Results chapter consumes this table bundle:
 
 ```text
 results_coverage.csv
