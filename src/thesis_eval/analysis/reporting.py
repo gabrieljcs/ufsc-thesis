@@ -210,6 +210,24 @@ def tokenizer_diagnostics(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
     return output
 
 
+def belebele_scores(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    by_key: dict[tuple[str, str], dict[str, Any]] = {}
+    for row in rows:
+        if row.get("if_score") is None and row.get("cons_score") is None and row.get("spec_score") is None:
+            continue
+        key = (str(row["model"]), str(row["attack_language"]))
+        if key in by_key:
+            continue
+        by_key[key] = {
+            "model": key[0],
+            "attack_language": key[1],
+            "if_score": row.get("if_score"),
+            "cons_score": row.get("cons_score"),
+            "spec_score": row.get("spec_score"),
+        }
+    return [by_key[key] for key in sorted(by_key)]
+
+
 def collinearity_diagnostics(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
     rows = paired_design_rows(rows)
     pairs = [
@@ -357,14 +375,14 @@ def _sign(value: float | None) -> int | None:
 
 def _prereg_interpretation(retained: int, panel_complete: bool) -> str:
     if not panel_complete:
-        return "incomplete_panel_preregistered_four_pair_denominator_not_met"
+        return "h1_panel_incomplete"
     if retained >= 4:
-        return "strong_support_distance_effect_robust_across_alignment_recipes"
+        return "h1_supported_in_all_four_pairs"
     if retained == 3:
-        return "moderate_support_failure_pair_requires_detailed_discussion"
+        return "h1_supported_in_three_of_four_pairs"
     if retained == 2:
-        return "mixed_evidence_effect_contingent_on_alignment_recipe_class"
-    return "h1_not_supported_in_strong_alignment_regime"
+        return "h1_supported_in_two_of_four_pairs"
+    return "h1_not_supported"
 
 
 def _correlation_row(model: str, predictor: str, pairs: list[tuple[float, float]]) -> dict[str, Any]:

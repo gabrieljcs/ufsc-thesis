@@ -5,23 +5,26 @@ __pycache__/
 .DS_Store
 .ipynb_checkpoints/
 *.parquet
+.tmp_strongreject_tests/
+TODO.md
+runbooks/
+usage/raw/
+usage/*unredacted*
+usage/*private*
 
-# Ignore generated artifacts and downloaded data, but keep the directory
-# structure via .gitkeep sentinels. Per-leaf patterns are used because git
-# negations can't re-include files inside an excluded directory.
+# Ignore generated artifacts and downloaded data. Per-leaf patterns are used
+# because git negations can't re-include files inside an excluded directory.
 data/raw/strongreject/*
-!data/raw/strongreject/.gitkeep
 data/raw/multijail/*
-!data/raw/multijail/.gitkeep
 data/raw/belebele/*
-!data/raw/belebele/.gitkeep
 data/translations/*
-!data/translations/.gitkeep
 outputs/tables/*
-!outputs/tables/.gitkeep
 outputs/figures/*
-!outputs/figures/.gitkeep
 outputs/pilot/*
-!outputs/pilot/.gitkeep
+outputs/retry/
+outputs/dataset_frozen.jsonl
+outputs/scored/redo/
+outputs/scored/all_strongreject_scores.jsonl
+outputs/scored/*.strongreject.strongreject.jsonl
+outputs/spec/all_belebele_predictions.jsonl
 assets/*
-!assets/.gitkeep

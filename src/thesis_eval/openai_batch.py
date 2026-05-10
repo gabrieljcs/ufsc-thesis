@@ -38,13 +38,9 @@ def _validate_batch_id(batch_id: str) -> None:
 
 
 def estimate_batch_request_input_tokens(request: dict[str, Any]) -> int:
-    """Conservative token estimate for sharding before OpenAI Batch upload.
-
-    The API enforces an organization-level enqueued-token limit before a Batch
-    starts. We do not need tokenizer-perfect accounting here; a stable upper-ish
-    estimate is enough to keep shards comfortably below that cap.
-    """
-
+    # OpenAI enforces an organization-level enqueued-token limit before a Batch
+    # starts. Tokenizer-perfect accounting is unnecessary; a stable upper-ish
+    # estimate keeps shards comfortably below the cap.
     body = request.get("body")
     serialized_body = json_dumps_compact(body if isinstance(body, dict) else request)
     return math.ceil(len(serialized_body) / 4) + _DEFAULT_BATCH_REQUEST_OVERHEAD_TOKENS
@@ -99,7 +95,7 @@ def shard_batch_requests(
 def _json_or_raise(response: requests.Response, context: str) -> dict[str, Any]:
     try:
         payload = response.json()
-    except ValueError as exc:  # pragma: no cover - defensive: API should return JSON
+    except ValueError as exc:  # pragma: no cover - API should return JSON
         raise RuntimeError(
             f"{context} failed with HTTP {response.status_code}: {response.text[:500]}"
         ) from exc

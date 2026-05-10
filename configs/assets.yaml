@@ -9,7 +9,7 @@ assets:
     pilot_size: 2
     required_files: [data/raw/strongreject/prompts.jsonl, data/raw/strongreject/pilot_prompts.jsonl]
     required_columns: [prompt_id, text, harmful_goal, expected_output_form, fixed_constraints, allowed_adaptation, benchmark]
-    description: "Primary forbidden-prompt source. Imports the prompt list only; never uses StrongREJECT's evaluator."
+    description: "Primary forbidden-prompt source. The prompt list is imported here; StrongREJECT response scoring is implemented in the evaluation module."
   multijail:
     kind: hf_dataset
     group: datasets

@@ -37,16 +37,16 @@ def append_jsonl(path: Path, rows: Iterable[dict[str, Any]]) -> None:
 
 
 def read_csv_dicts(path: Path) -> list[dict[str, str]]:
-    # utf-8-sig transparently strips a leading BOM if present and behaves
-    # identically to utf-8 for files without one — handles both flavors.
+    # utf-8-sig handles both BOM and BOM-less inputs; identical to utf-8 when
+    # the BOM is absent.
     with path.open("r", encoding="utf-8-sig", newline="") as handle:
         return list(csv.DictReader(handle))
 
 
 def write_csv_dicts(path: Path, rows: list[dict[str, Any]], fieldnames: list[str]) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
-    # utf-8-sig writes a UTF-8 BOM so Excel on Windows auto-detects encoding
-    # instead of falling back to cp1252 and mangling Cyrillic / Arabic / accents.
+    # utf-8-sig writes a BOM so Excel auto-detects encoding instead of falling
+    # back to cp1252 and mangling Cyrillic, Arabic, or accented characters.
     with path.open("w", encoding="utf-8-sig", newline="") as handle:
         writer = csv.DictWriter(handle, fieldnames=fieldnames)
         writer.writeheader()

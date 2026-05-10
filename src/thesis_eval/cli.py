@@ -14,6 +14,7 @@ from thesis_eval.assets import asset_status, download_asset, load_assets, select
 from thesis_eval.analysis.dataset import build_frozen_rows
 from thesis_eval.analysis.reporting import (
     asr_by_model_language,
+    belebele_scores,
     closest_farthest_by_model,
     collinearity_diagnostics,
     counterfactual_safety_by_aligned_language,
@@ -296,7 +297,7 @@ def _translation_output_path(args: argparse.Namespace, target_language: str) -> 
 
 
 def _skip_existing(output_path: Path, force: bool, what: str) -> bool:
-    """Resume helper: True if output already exists non-empty and force is False."""
+    # Returns True when a non-empty output already exists and --force was not set.
     if force:
         return False
     if output_path.exists() and output_path.stat().st_size > 0:
@@ -1893,6 +1894,7 @@ def cmd_export_report_tables(args: argparse.Namespace) -> None:
     write_csv_dicts(output_dir / "distance_asr_correlation.csv", distance_corr, ["model", "predictor", "n", "spearman_rho", "p_value", "interpretation"])
     write_csv_dicts(output_dir / "spec_asr_correlation.csv", spec_corr, ["model", "predictor", "n", "spearman_rho", "p_value", "interpretation"])
     write_csv_dicts(output_dir / "tokenizer_diagnostics.csv", tokenizer_diagnostics(rows), ["model", "attack_language", "n", "mean_token_inflation", "mean_tokens_per_char", "truncation_risk_rate"])
+    write_csv_dicts(output_dir / "belebele_scores.csv", belebele_scores(rows), ["model", "attack_language", "if_score", "cons_score", "spec_score"])
     write_csv_dicts(output_dir / "reference_distance_curve.csv", reference_distance_curve(rows), ["reference_model", "attack_language", "distance_from_english", "n", "unsafe", "asr", "mean_strongreject_score", "refusal_rate"])
     write_csv_dicts(output_dir / "counterfactual_safety_by_aligned_language.csv", counterfactual_safety_by_aligned_language(rows), ["aligned_language", "model", "model_alignment_pole", "model_asr", "reference_model", "reference_asr_same_language", "asr_gap_model_minus_reference", "model_n", "reference_n"])
     write_csv_dicts(output_dir / "glmm_collinearity.csv", collinearity_diagnostics(rows), ["diagnostic", "value"])

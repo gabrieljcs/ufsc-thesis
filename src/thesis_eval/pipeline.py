@@ -35,7 +35,6 @@ def enrich_generation_rows(rows: list[dict[str, Any]], distance_csv: Path) -> li
         enriched = dict(row)
         aligned = str(row["aligned_language"])
         attack = str(row["attack_language"])
-        prompt_text = str(row["prompt_text"])
         enriched.update(
             {
                 "distance": matrix[aligned][attack],
@@ -49,8 +48,6 @@ def enrich_generation_rows(rows: list[dict[str, Any]], distance_csv: Path) -> li
                 "exclusion_reason": None,
             }
         )
-        if prompt_text:
-            enriched["tokens_per_char"] = None
         output.append(enriched)
     return output
 

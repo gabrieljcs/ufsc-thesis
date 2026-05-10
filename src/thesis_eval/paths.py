@@ -39,7 +39,8 @@ def _parse_scalar(value: str) -> Any:
 
 
 def _read_simple_yaml(path: Path) -> dict[str, Any]:
-    """Small fallback parser for this repo's simple config YAML files."""
+    # Fallback parser for the simple YAML shapes used by this repo's configs,
+    # active when PyYAML is not importable.
     root: dict[str, Any] = {}
     stack: list[tuple[int, dict[str, Any] | list[Any]]] = [(-1, root)]
     with path.open("r", encoding="utf-8") as handle:

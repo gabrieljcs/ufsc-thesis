@@ -1,8 +1,0 @@
-project_id       = "mestrado-495311"
-region           = "europe-west4"
-zone             = "europe-west4-a"
-accelerator_type = "v6e-1"
-runtime_version  = "v2-alpha-tpuv6e"
-vm_count         = 4
-use_spot         = true
-vm_name_prefix   = "thesis-belebele"

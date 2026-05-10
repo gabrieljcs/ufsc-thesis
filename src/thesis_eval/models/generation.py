@@ -497,7 +497,7 @@ def _build_vllm_runner(
                     "Retrying vLLM engine init "
                     f"attempt={attempt + 1}/{_MAX_VLLM_INIT_ATTEMPTS} "
                     f"with bumped gpu_memory_utilization={effective_gpu_memory_utilization:.2f} "
-                    f"(max_model_len={effective_max_model_len} unchanged) — "
+                    f"(max_model_len={effective_max_model_len} unchanged); "
                     "model reload incoming, this will be slow"
                 )
                 continue
@@ -516,7 +516,7 @@ def _build_vllm_runner(
                 f"with reduced max_model_len={effective_max_model_len} "
                 f"and effective max_new_tokens={effective_sampling_max_tokens} "
                 f"gpu_memory_utilization={effective_gpu_memory_utilization:.2f} "
-                f"(requested {max_tokens}) — model reload incoming, this will be slow"
+                f"(requested {max_tokens}); model reload incoming, this will be slow"
             )
     else:
         if last_error is not None:
@@ -630,16 +630,16 @@ def _build_transformers_runner(
     if stream and xla_model is not None:
         raise RuntimeError("Streaming generation is not supported on XLA/TPU devices.")
 
-    # Resolve fixed input length. On XLA, dynamic padded shapes trigger HLO
-    # recompiles per unique length, which is catastrophic for throughput. Lock
-    # to a fixed length when XLA is active and the caller did not specify one.
+    # On XLA, dynamic padded shapes trigger HLO recompiles per unique length,
+    # which kills throughput. When XLA is active and the caller did not pin a
+    # length, lock to a fixed one.
     #
-    # Tier the default by max_tokens so we don't blow up the prefill attention
-    # matrix. The attention scores tensor is f32[batch, heads, seq, seq] × 4 B
+    # The default is tiered by max_tokens to bound the prefill attention
+    # matrix. The attention scores tensor is f32[batch, heads, seq, seq] x 4 B
     # during prefill, so doubling seq quadruples the allocation. On a v6e-1
-    # (32 GB HBM) running an 8B bf16 model (~16 GB weights), batch=32 +
-    # seq=4096 lands a 64 GB allocation → OOM. BELEBELE prompts cap at ~700
-    # tokens, so 1024 is plenty.
+    # (32 GB HBM) with an 8B bf16 model (~16 GB resident), batch=32 +
+    # seq=4096 demands a 64 GB allocation and OOMs. BELEBELE prompts cap at
+    # ~700 tokens, so 1024 is sufficient.
     effective_max_input_length = max_input_length
     if effective_max_input_length is None and xla_model is not None:
         if max_tokens <= 16:
@@ -655,27 +655,25 @@ def _build_transformers_runner(
             effective_max_input_length = auto_default
         info(f"XLA shape-stability: fixing input length to {effective_max_input_length} tokens")
 
-    # Models with sliding-window attention need careful handling because two
-    # different cache implementations live in transformers:
+    # Sliding-window attention has two cache implementations in transformers,
+    # and each needs different handling.
     #
-    #   - Mistral-style (Mistral-7B, bggpt_7b, etc.) uses SlidingWindowCache.
-    #     Its update() does `full_key_states[:, :, -sliding_window + 1 :, :]`
-    #     unconditionally, which raises "Value out of range" when the actual
-    #     sequence dim is shorter than the configured window. We pad to a
-    #     length below the window for HBM reasons, so this path always
-    #     trips. Setting `config.sliding_window = None` forces generate() to
-    #     pick the default DynamicCache instead, which has no such slice.
+    # Mistral-style (Mistral-7B, bggpt_7b, ...) uses SlidingWindowCache. Its
+    # update() runs `full_key_states[:, :, -sliding_window + 1 :, :]`
+    # unconditionally, which raises "Value out of range" when the sequence
+    # dim is shorter than the configured window. The HBM padding here always
+    # produces shorter sequences, so this path always trips. Setting
+    # `config.sliding_window = None` forces generate() onto the default
+    # DynamicCache, which has no such slice.
     #
-    #   - Gemma-2/3 uses HybridCache (alternating local/global layers). The
-    #     global layers' get_mask_sizes() does `cumulative_length >=
-    #     sliding_window`, which crashes with TypeError when sliding_window
-    #     is None. Gemma also REQUIRES sliding_window to be an int because
-    #     local layers genuinely apply sliding attention. The good news:
-    #     when our seq (max_input_length + max_tokens) is shorter than the
-    #     window, `is_full` stays False and the buggy slice path never
-    #     fires. So for Gemma we leave sliding_window alone — the original
-    #     value (e.g. 4096 on Gemma-2) is fine for our short BELEBELE/§9
-    #     prompts.
+    # Gemma-2/3 uses HybridCache (alternating local/global layers). The
+    # global layers' get_mask_sizes() runs `cumulative_length >=
+    # sliding_window`, which raises TypeError if sliding_window is None.
+    # Gemma also requires an int because local layers genuinely apply
+    # sliding attention. When seq (max_input_length + max_tokens) is shorter
+    # than the window, `is_full` stays False and the bad slice path never
+    # fires, so Gemma keeps its original value (e.g. 4096 on Gemma-2), which
+    # is fine for short BELEBELE / §9 prompts.
     cfg = getattr(model, "config", None)
     sliding_window = getattr(cfg, "sliding_window", None)
     arch = (getattr(cfg, "model_type", "") or "").lower()
@@ -765,14 +763,14 @@ def _build_transformers_runner(
         return _run_stream
 
     # On XLA, a trailing partial batch (e.g. 900 % 32 = 4 items in the last
-    # call) has a different shape than the steady-state full batch and
-    # forces a fresh HLO compile. The new compile may pick a layout that
-    # bumps peak HBM over the cap (we saw "Used 34.23G of 31.25G hbm" on
-    # the 4-item tail). Pad partial batches with duplicates of the first
-    # prompt to keep the shape stable across the whole run, and slice the
-    # extras off the decoded outputs. The duplicate prompts cost a few
-    # extra forward passes per partial batch but stay inside the cached
-    # HLO, which is far cheaper than recompiling.
+    # call) has a different shape from the steady-state full batch and forces
+    # a fresh HLO compile. The new compile can pick a layout that bumps peak
+    # HBM over the cap, observed as "Used 34.23G of 31.25G hbm" on the
+    # 4-item tail. Pad partial batches with duplicates of the first prompt to
+    # keep the shape stable across the whole run, then slice the extras off
+    # the decoded outputs. The duplicates cost a few extra forward passes per
+    # partial batch but stay inside the cached HLO, which is much cheaper
+    # than recompiling.
     pad_partial_batches = xla_model is not None
 
     def _run(prompts: list[str]) -> list[str]:
@@ -1299,7 +1297,7 @@ def _retry_vllm_gpu_memory_utilization_from_error(
         if free_safe is None:
             return None
         if free_safe >= current_gpu_memory_utilization:
-            # Free memory isn't the bottleneck — defer to the max_model_len retry path.
+            # Free memory is not the bottleneck; defer to the max_model_len retry path.
             return None
         target = min(current_gpu_memory_utilization - _VLLM_GPU_MEMORY_UTILIZATION_RETRY_STEP, free_safe)
     target = max(_VLLM_GPU_MEMORY_UTILIZATION_FLOOR, min(_VLLM_GPU_MEMORY_UTILIZATION_CEILING, target))

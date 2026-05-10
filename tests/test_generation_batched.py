@@ -1,14 +1,8 @@
-"""Equivalence tests for the batched transformers runner.
-
-The patched _build_transformers_runner adds left-padded batching for the
-non-streaming code path. At temperature=0 (greedy decoding), the same prompts
-must produce identical outputs whether they go through one batch or many
-single-prompt forward passes.
-
-The integration tests below build a tiny synthetic causal LM (no network) so
-they run on Mac CPU as part of the standard `python -m unittest` suite.
-"""
-
+# Equivalence tests for the batched transformers runner. _build_transformers_runner
+# uses left-padded batching for the non-streaming path; at temperature=0 the same
+# prompts must produce identical outputs whether they go through one batch or many
+# single-prompt forward passes. The integration tests below build a tiny synthetic
+# causal LM (no network) so they run on Mac CPU as part of `python -m unittest`.
 from __future__ import annotations
 
 import os
@@ -38,12 +32,9 @@ _GPT2_TOKENIZER_REF = "gpt2"
 
 
 def _build_tiny_causal_lm_dir(tmp: Path) -> str:
-    """Materialize a tiny GPT-2 causal LM with random weights into ``tmp``.
-
-    Returns the path that AutoModelForCausalLM/AutoTokenizer can both consume.
-    The model is small (~50 KB on disk after safetensors) and deterministic
-    given a fixed seed.
-    """
+    # Materializes a tiny GPT-2 causal LM (~50 KB on disk, deterministic at
+    # seed 0) at `tmp` and returns the path. Both AutoModelForCausalLM and
+    # AutoTokenizer accept it.
     import torch
     from transformers import AutoTokenizer, GPT2Config, GPT2LMHeadModel
 
@@ -71,8 +62,6 @@ def _build_tiny_causal_lm_dir(tmp: Path) -> str:
     "skipped: THESIS_EVAL_SKIP_NET_TESTS=1 (gpt2 tokenizer fetch disabled)",
 )
 class TestBatchedTransformersRunner(unittest.TestCase):
-    """Verify batched generation is functionally equivalent to sequential."""
-
     def setUp(self) -> None:
         # Each test uses its own tmp dir so model artifacts don't leak between tests.
         self._tmp = tempfile.TemporaryDirectory()
@@ -109,8 +98,8 @@ class TestBatchedTransformersRunner(unittest.TestCase):
         self.assertEqual(len(sequential), len(self.prompts))
         self.assertEqual(len(batched), len(self.prompts))
         # Greedy decoding with left-padded attention masks must be deterministic
-        # and identical across the two paths. Decoded text comparison is the
-        # cheap, robust signal.
+        # and identical across the two paths. Comparing decoded text catches
+        # any divergence cheaply.
         self.assertEqual(sequential, batched)
 
     def test_batched_full_chunk_equals_sequential(self) -> None:
@@ -121,7 +110,7 @@ class TestBatchedTransformersRunner(unittest.TestCase):
 
     def test_partial_trailing_batch_returns_one_output_per_prompt(self) -> None:
         # Regression: with batch_size=3 and 4 prompts, the trailing batch is
-        # 1 prompt — smaller than batch_size. Output count must still equal
+        # 1 prompt, smaller than batch_size. Output count must still equal
         # input count and ordering must match the full-batch baseline.
         outputs_full = self._run(batch_size=4)
         outputs_partial = self._run(batch_size=3)
@@ -146,8 +135,6 @@ class TestBatchedTransformersRunner(unittest.TestCase):
 
 @unittest.skipUnless(_HAVE_TRANSFORMERS, "torch + transformers not installed")
 class TestGpuBatchSizeResolver(unittest.TestCase):
-    """Verify the new --gpu-batch-size resolver applies the right defaults."""
-
     def test_transformers_default_for_generate(self) -> None:
         from thesis_eval.cli import (
             _DEFAULT_TRANSFORMERS_GPU_BATCH_SIZE_GENERATE,

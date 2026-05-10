@@ -1,17 +1,5 @@
-"""Re-exec ``thesis-eval`` arguments inside the GPU Docker container.
-
-Registered as the ``thesis-eval-gpu`` console script. From any host shell
-(PowerShell, bash, zsh) on a machine with Docker and the ``thesis-eval:gpu``
-image built::
-
-    uv run thesis-eval-gpu translate --target-language ara ...
-
-is equivalent to running ``uv run thesis-eval translate --target-language ara ...``
-inside the GPU container with the host repo bind-mounted at ``/work/eval``.
-
-Override the image tag with ``THESIS_EVAL_GPU_IMAGE``.
-"""
-
+# Forwards thesis-eval arguments into the GPU Docker container. Registered as
+# the thesis-eval-gpu console script.
 from __future__ import annotations
 
 import os
