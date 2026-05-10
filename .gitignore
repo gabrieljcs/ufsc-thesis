@@ -4,6 +4,7 @@ __pycache__/
 *.pyc
 .DS_Store
 .ipynb_checkpoints/
+.claude/
 *.md
 !/README.md
 *.parquet
@@ -29,4 +30,5 @@ outputs/scored/redo/
 outputs/scored/all_strongreject_scores.jsonl
 outputs/scored/*.strongreject.strongreject.jsonl
 outputs/spec/all_belebele_predictions.jsonl
+outputs/zenodo_bundle/
 assets/*
