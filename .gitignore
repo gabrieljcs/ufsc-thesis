@@ -4,6 +4,8 @@ __pycache__/
 *.pyc
 .DS_Store
 .ipynb_checkpoints/
+*.md
+!/README.md
 *.parquet
 .tmp_strongreject_tests/
 TODO.md

@@ -29,7 +29,7 @@ def main() -> None:
             "(Windows/Mac) or Docker Engine + nvidia-container-toolkit (Linux), "
             "then build the GPU image:\n"
             "  docker build -f docker/Dockerfile.gpu -t thesis-eval:gpu .\n"
-            "See docker/README.md for details."
+            "See the Docker GPU image section in README.md for details."
         )
 
     image = os.environ.get("THESIS_EVAL_GPU_IMAGE", DEFAULT_IMAGE)

@@ -107,7 +107,7 @@ Two console scripts ship with the package:
 
 ### Docker GPU image (recommended)
 
-PyPI's default `torch` wheel is CPU-only on Windows; vLLM has no Windows wheel; `fairseq2` and `sonar-space` are gated to non-Windows. The Docker image avoids all three, builds on `nvidia/cuda:12.8.1-cudnn-devel-ubuntu24.04`, pins `torch==cu128`, and ships Linux `vllm`. See [`docker/README.md`](docker/README.md) for image internals.
+PyPI's default `torch` wheel is CPU-only on Windows; vLLM has no Windows wheel; `fairseq2` and `sonar-space` are gated to non-Windows. The Docker image avoids all three, builds on `nvidia/cuda:12.8.1-cudnn-devel-ubuntu24.04`, pins `torch==cu128`, and ships Linux `vllm`.
 
 ```sh
 docker build -f docker/Dockerfile.gpu -t thesis-eval:gpu .
