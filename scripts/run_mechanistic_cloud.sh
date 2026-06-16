@@ -26,7 +26,7 @@
 #   MODELS="llama3_1_8b_reference llamantino_anita_8b ai_sweden_llama3_8b"
 #   LANGS="eng spa ita dan swe swa"
 #   LAYERS="10 12 14 16 18 20"
-#   ALPHA=8.0                      # intervention strength (addition only)
+#   ALPHAS="0.5 1 2"               # intervention strengths as MULTIPLES of the residual norm
 #   FROZEN=outputs/dataset_frozen.jsonl   # if present, ASR linkage runs
 #   SKIP_INSTALL=0                 # set 1 if the container already has deps
 #   GIT_NAME / GIT_EMAIL           # committer identity for the results push
@@ -40,7 +40,7 @@ RESULTS_BRANCH="${RESULTS_BRANCH:-mechanistic-results}"
 MODELS="${MODELS:-llama3_1_8b_reference llamantino_anita_8b ai_sweden_llama3_8b}"
 LANGS="${LANGS:-eng spa ita dan swe swa}"
 LAYERS="${LAYERS:-10 12 14 16 18 20}"
-ALPHA="${ALPHA:-8.0}"
+ALPHAS="${ALPHAS:-0.5 1 2}"   # multiples of the residual norm (used with --alpha-scale)
 FROZEN="${FROZEN:-outputs/dataset_frozen.jsonl}"
 SKIP_INSTALL="${SKIP_INSTALL:-0}"
 GIT_NAME="${GIT_NAME:-Gabriel de Jesus}"
@@ -186,13 +186,15 @@ PY
     log "No complied prompts for $model; skipping intervention."
     continue
   fi
-  log "Refusal-strengthening intervention: $model  (layer $SEL_LAYER, alpha $ALPHA)"
-  "${RUN[@]}" apply-refusal-addition \
-    --prompts "$prompts" --model "$model" \
-    --directions "$RESULTS/directions.npz" \
-    --output "$RESULTS/intervention_${model}.jsonl" \
-    --layer "$SEL_LAYER" --alpha "$ALPHA" \
-    --device auto --dtype auto
+  for a in $ALPHAS; do
+    log "Refusal-strengthening intervention: $model  (residual layer $SEL_LAYER, alpha ${a}x norm)"
+    "${RUN[@]}" apply-refusal-addition \
+      --prompts "$prompts" --model "$model" \
+      --directions "$RESULTS/directions.npz" \
+      --output "$RESULTS/intervention_${model}_alpha${a}.jsonl" \
+      --layer "$SEL_LAYER" --alpha "$a" --alpha-scale \
+      --device auto --dtype auto
+  done
 done
 
 # ---------------------------------------------------------------------------

@@ -592,13 +592,23 @@ def apply_refusal_addition(
     output: Path,
     layer: int,
     alpha: float = 1.0,
+    alpha_scale: bool = False,
     max_new_tokens: int = 256,
     device: str = "auto",
     dtype: str = "auto",
     trust_remote_code: bool = False,
     max_records: int | None = None,
 ) -> int:
-    """Refusal-STRENGTHENING intervention only: add +alpha*direction to one decoder layer.
+    """Refusal-STRENGTHENING intervention only: add +alpha*direction to the residual stream.
+
+    ``layer`` is the residual-stream (``hidden_states``) index reported by the layer
+    sweep, matching where the direction was estimated. Since ``hidden_states[k]`` is the
+    output of decoder block ``k-1``, the addition is hooked onto block ``layer-1`` so the
+    perturbed residual is exactly the one the direction was measured in.
+
+    When ``alpha_scale`` is True, ``alpha`` is interpreted as a multiple of the mean L2
+    norm of the residual stream at the intervention site (measured on the supplied
+    prompts), so the same ``alpha`` is comparable across models with different norms.
 
     This never subtracts/ablates the direction. Generated outputs are written for
     downstream StrongREJECT/refusal scoring; this function does not relabel refusals itself.
@@ -641,20 +651,49 @@ def apply_refusal_addition(
     model.eval()
 
     decoder_layers = _decoder_layers(model)
-    if layer < 0 or layer >= len(decoder_layers):
-        raise ValueError(f"Decoder layer {layer} is outside range 0..{len(decoder_layers) - 1}")
+    block_index = layer - 1  # residual hidden_states[layer] == output of decoder block layer-1
+    if block_index < 0 or block_index >= len(decoder_layers):
+        raise ValueError(
+            f"Residual layer {layer} maps to decoder block {block_index}, outside range "
+            f"0..{len(decoder_layers) - 1}. Layer 0 (embeddings) is not a valid intervention site."
+        )
+    target_block = decoder_layers[block_index]
     unit = np.asarray(direction, dtype=np.float32)
     unit = unit / (np.linalg.norm(unit) or 1.0)
-    add_vector = torch.tensor(unit * float(alpha), dtype=model_dtype, device=resolved_device)
+
+    def _block_hidden(outputs: Any) -> Any:
+        return outputs[0] if isinstance(outputs, tuple) else outputs
+
+    residual_norm: float | None = None
+    if alpha_scale:
+        norms: list[float] = []
+
+        def measure_hook(_module: Any, _inputs: Any, outputs: Any) -> None:
+            hidden = _block_hidden(outputs)
+            norms.append(float(hidden[0, -1, :].to(torch.float32).norm().item()))
+
+        handle = target_block.register_forward_hook(measure_hook)
+        try:
+            with torch.no_grad():
+                for row in selected:
+                    formatted = format_generation_prompt(tokenizer, str(row.get("prompt_text") or ""))
+                    encoded = tokenizer(formatted, return_tensors="pt").to(resolved_device)
+                    model(**encoded, use_cache=False)
+        finally:
+            handle.remove()
+        residual_norm = float(np.mean(norms)) if norms else 0.0
+        effective_alpha = float(alpha) * residual_norm
+    else:
+        effective_alpha = float(alpha)
+
+    add_vector = torch.tensor(unit * effective_alpha, dtype=model_dtype, device=resolved_device)
 
     def hook(_module: Any, _inputs: Any, outputs: Any) -> Any:
         if isinstance(outputs, tuple):
-            hidden = outputs[0]
-            hidden = hidden + add_vector.to(hidden.dtype)
-            return (hidden, *outputs[1:])
+            return (outputs[0] + add_vector.to(outputs[0].dtype), *outputs[1:])
         return outputs + add_vector.to(outputs.dtype)
 
-    handle = decoder_layers[layer].register_forward_hook(hook)
+    handle = target_block.register_forward_hook(hook)
     results: list[dict[str, Any]] = []
     try:
         with torch.no_grad():
@@ -668,8 +707,12 @@ def apply_refusal_addition(
                 enriched.update(
                     {
                         "intervention": "refusal_addition",
-                        "intervention_layer": layer,
+                        "intervention_residual_layer": layer,
+                        "intervention_block_index": block_index,
                         "intervention_alpha": float(alpha),
+                        "intervention_alpha_scaled": alpha_scale,
+                        "intervention_residual_norm": residual_norm,
+                        "intervention_effective_alpha": effective_alpha,
                         "intervention_output": completion,
                         "intervention_looks_like_refusal": looks_like_refusal(completion),
                     }

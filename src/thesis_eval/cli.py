@@ -1993,6 +1993,7 @@ def cmd_apply_refusal_addition(args: argparse.Namespace) -> None:
         output=Path(args.output),
         layer=args.layer,
         alpha=args.alpha,
+        alpha_scale=args.alpha_scale,
         max_new_tokens=args.max_new_tokens,
         device=args.device,
         dtype=args.dtype,
@@ -2492,8 +2493,9 @@ def build_parser() -> argparse.ArgumentParser:
     mech_intervene.add_argument("--model", required=True)
     mech_intervene.add_argument("--directions", required=True, help="Direction bundle (.npz) from analyze-refusal-directions.")
     mech_intervene.add_argument("--output", required=True)
-    mech_intervene.add_argument("--layer", type=int, required=True, help="Decoder layer index to add the direction at.")
-    mech_intervene.add_argument("--alpha", type=float, default=1.0, help="Positive scale; strengthening only.")
+    mech_intervene.add_argument("--layer", type=int, required=True, help="Residual-stream (hidden_states) index from the layer sweep; the addition is hooked onto the block whose output is that residual.")
+    mech_intervene.add_argument("--alpha", type=float, default=1.0, help="Positive scale; strengthening only. With --alpha-scale it is a multiple of the residual norm.")
+    mech_intervene.add_argument("--alpha-scale", action="store_true", help="Interpret --alpha as a multiple of the mean residual L2 norm at the intervention site (comparable across models).")
     mech_intervene.add_argument("--max-new-tokens", type=int, default=256)
     mech_intervene.add_argument("--model-path")
     mech_intervene.add_argument("--device", choices=["auto", "cpu", "mps", "cuda"], default="auto")
