@@ -17,7 +17,9 @@
 # --------------------------------------------------------------------------
 # REQUIRED environment variables
 #   HF_TOKEN        Hugging Face token with access to gated Llama-3.1 weights.
-#   GITHUB_TOKEN    GitHub token (repo scope) used to push results.
+#   GITHUB_TOKEN    GitHub token used to push results. Optional when the gh CLI
+#                   is installed and authenticated (gh auth login); the push
+#                   then goes through gh's stored credentials instead.
 #
 # OPTIONAL environment variables (defaults shown)
 #   REPO_URL=https://github.com/gabrieljcs/ufsc-thesis
@@ -50,8 +52,17 @@ log() { printf '\n\033[1;36m[mech]\033[0m %s\n' "$*"; }
 die() { printf '\n\033[1;31m[mech:error]\033[0m %s\n' "$*" >&2; exit 1; }
 
 : "${HF_TOKEN:?Set HF_TOKEN (needs access to meta-llama/Llama-3.1-8B-Instruct)}"
-: "${GITHUB_TOKEN:?Set GITHUB_TOKEN (repo scope) to push results}"
 export HF_TOKEN HUGGING_FACE_HUB_TOKEN="$HF_TOKEN"
+
+# GitHub credentials are only used by the final publish step, but verify them NOW:
+# failing after hours of GPU work would strand the results on an ephemeral pod.
+if [[ -n "${GITHUB_TOKEN:-}" ]]; then
+  log "Using GITHUB_TOKEN for the results push"
+elif command -v gh >/dev/null 2>&1 && gh auth status >/dev/null 2>&1; then
+  log "GITHUB_TOKEN not set; using the authenticated gh CLI for the results push"
+else
+  die "No GitHub credential: set GITHUB_TOKEN, or install gh and run 'gh auth login'."
+fi
 
 # ---------------------------------------------------------------------------
 # 1. Clone (or update) the repo
@@ -212,14 +223,19 @@ done
 log "Publishing results to branch $RESULTS_BRANCH"
 git config user.name  "$GIT_NAME"
 git config user.email "$GIT_EMAIL"
-PUSH_URL="https://x-access-token:${GITHUB_TOKEN}@${REPO_URL#https://}"
 git checkout -B "$RESULTS_BRANCH"
 git add -f "$RESULTS"
 if git diff --cached --quiet; then
   log "No result changes to commit."
 else
   git commit -m "Mechanistic refusal-direction audit results (layer $SEL_LAYER, alphas ${ALPHAS})"
-  git push "$PUSH_URL" "$RESULTS_BRANCH" --force
+  if [[ -n "${GITHUB_TOKEN:-}" ]]; then
+    PUSH_URL="https://x-access-token:${GITHUB_TOKEN}@${REPO_URL#https://}"
+    git push "$PUSH_URL" "$RESULTS_BRANCH" --force
+  else
+    gh auth setup-git   # route git's HTTPS auth through gh's stored credentials
+    git push "$REPO_URL" "$RESULTS_BRANCH" --force
+  fi
   log "Pushed results to $RESULTS_BRANCH"
 fi
 
