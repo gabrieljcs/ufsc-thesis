@@ -24,8 +24,8 @@
 #   WORKDIR=./ufsc-thesis-mech
 #   RESULTS_BRANCH=mechanistic-results
 #   MODELS="llama3_1_8b_reference llamantino_anita_8b ai_sweden_llama3_8b"
-#   LANGS="eng spa ita dan swe swa"
-#   LAYERS="10 12 14 16 18 20"
+#   LANGS="eng spa ita dan nor swe swa"   # matches the committed refusal_sample.jsonl
+#   LAYERS="8 10 12 14 16 18 20 22 24"
 #   ALPHAS="0.5 1 2"               # intervention strengths as MULTIPLES of the residual norm
 #   FROZEN=outputs/dataset_frozen.jsonl   # if present, ASR linkage runs
 #   SKIP_INSTALL=0                 # set 1 if the container already has deps
@@ -38,8 +38,8 @@ CODE_BRANCH="${CODE_BRANCH:-main}"   # branch holding the mechanistic code + sam
 WORKDIR="${WORKDIR:-./ufsc-thesis-mech}"
 RESULTS_BRANCH="${RESULTS_BRANCH:-mechanistic-results}"
 MODELS="${MODELS:-llama3_1_8b_reference llamantino_anita_8b ai_sweden_llama3_8b}"
-LANGS="${LANGS:-eng spa ita dan swe swa}"
-LAYERS="${LAYERS:-10 12 14 16 18 20}"
+LANGS="${LANGS:-eng spa ita dan nor swe swa}"
+LAYERS="${LAYERS:-8 10 12 14 16 18 20 22 24}"
 ALPHAS="${ALPHAS:-0.5 1 2}"   # multiples of the residual norm (used with --alpha-scale)
 FROZEN="${FROZEN:-outputs/dataset_frozen.jsonl}"
 SKIP_INSTALL="${SKIP_INSTALL:-0}"
@@ -73,7 +73,9 @@ cd "$WORKDIR"
 # ---------------------------------------------------------------------------
 # 2. Install the project
 # ---------------------------------------------------------------------------
-if [[ "$SKIP_INSTALL" != "1" ]] && ! python -c "import thesis_eval" 2>/dev/null; then
+# Import the mechanistic module specifically: a pre-mechanistic thesis_eval baked
+# into a Docker image must not satisfy this check, or the stale CLI would run.
+if [[ "$SKIP_INSTALL" != "1" ]] && ! python -c "import thesis_eval.mechanistic.refusal" 2>/dev/null; then
   if command -v uv >/dev/null 2>&1; then
     log "Installing with uv (rtx extra: torch 2.8.0 CUDA build)"
     uv sync --extra rtx
@@ -152,6 +154,12 @@ PY
 )"
 [[ -n "$SEL_LAYER" ]] || die "Could not read the selected layer from the sweep."
 log "Selected residual layer from sweep: $SEL_LAYER"
+read -r BAND_MIN _ <<<"$(printf '%s\n' $LAYERS | sort -n | head -1)"
+read -r BAND_MAX _ <<<"$(printf '%s\n' $LAYERS | sort -n | tail -1)"
+if [[ "$SEL_LAYER" == "$BAND_MIN" || "$SEL_LAYER" == "$BAND_MAX" ]]; then
+  log "WARNING: selected layer $SEL_LAYER sits at the edge of the sweep band ($BAND_MIN..$BAND_MAX);"
+  log "         the true optimum may lie outside it. Consider re-running with a wider LAYERS band."
+fi
 
 # ---------------------------------------------------------------------------
 # 6. ASR linkage (only if the frozen dataset is on the box)
@@ -210,7 +218,7 @@ git add -f "$RESULTS"
 if git diff --cached --quiet; then
   log "No result changes to commit."
 else
-  git commit -m "Mechanistic refusal-direction audit results (layer $SEL_LAYER, alpha $ALPHA)"
+  git commit -m "Mechanistic refusal-direction audit results (layer $SEL_LAYER, alphas ${ALPHAS})"
   git push "$PUSH_URL" "$RESULTS_BRANCH" --force
   log "Pushed results to $RESULTS_BRANCH"
 fi

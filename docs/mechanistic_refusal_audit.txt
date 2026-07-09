@@ -1,0 +1,140 @@
+Mechanistic Refusal Audit
+==========================
+
+This is an exploratory follow-up to the main cross-lingual jailbreak evaluation. It should be reported separately from the preregistered ASR and GLMM results.
+
+The audit asks whether open-weight models have a refusal-related activation direction that separates clear refusals from clear unsafe completions across attack languages.
+
+Scope
+-----
+
+Use this for open-weight models only. API-only models such as `sabia_3` do not expose activations and cannot be included.
+
+Good first-pass models:
+
+- `llama3_1_8b_reference`
+- `llamantino_anita_8b`
+- `ai_sweden_llama3_8b`
+
+Optional broader pass:
+
+- `sagui_7b`
+- `llamantino_2_ultrachat_7b`
+- `gpt_sw3`
+- `bggpt_7b`
+- `bggpt_gemma_9b`
+
+1. Prepare the contrastive sample
+---------------------------------
+
+Run from `eval/`.
+
+```bash
+uv run thesis-eval prepare-mechanistic-sample \
+  --rows outputs/dataset_frozen.parquet \
+  --model llama3_1_8b_reference \
+  --model llamantino_anita_8b \
+  --model ai_sweden_llama3_8b \
+  --language eng \
+  --language ita \
+  --language swe \
+  --language dan \
+  --language nor \
+  --language spa \
+  --language swa \
+  --max-per-label-per-cell 24 \
+  --seed 13 \
+  --output outputs/mechanistic/refusal_sample.jsonl
+```
+
+The command keeps only clear contrast rows:
+
+- `contrast_label=refusal`: `refusal_binary=1` and `unsafe_binary=0`
+- `contrast_label=unsafe`: `unsafe_binary=1` and `refusal_binary=0`
+
+Rows that are both unsafe and refusal-like, neither unsafe nor refusal-like, provider-blocked, failed, excluded, or API-only are excluded by default.
+
+2. Extract residual-stream activations
+--------------------------------------
+
+This is the heavy step. Run it where the target model weights are available and where `torch`/`transformers` are installed through the `mac` or `rtx` extras.
+
+Use the same layer across models for a first pass. `--layer -1` extracts the final hidden state. A stronger audit can repeat this for middle layers such as `8`, `16`, `24`, and `-1`.
+
+```bash
+uv run thesis-eval extract-refusal-activations \
+  --sample outputs/mechanistic/refusal_sample.jsonl \
+  --model llama3_1_8b_reference \
+  --device cuda \
+  --dtype bfloat16 \
+  --layer -1 \
+  --output outputs/mechanistic/llama3_1_8b_reference.layer-1.activations.npz
+```
+
+Repeat for the other open-weight models:
+
+```bash
+uv run thesis-eval extract-refusal-activations \
+  --sample outputs/mechanistic/refusal_sample.jsonl \
+  --model llamantino_anita_8b \
+  --device cuda \
+  --dtype bfloat16 \
+  --layer -1 \
+  --output outputs/mechanistic/llamantino_anita_8b.layer-1.activations.npz
+
+uv run thesis-eval extract-refusal-activations \
+  --sample outputs/mechanistic/refusal_sample.jsonl \
+  --model ai_sweden_llama3_8b \
+  --device cuda \
+  --dtype bfloat16 \
+  --layer -1 \
+  --output outputs/mechanistic/ai_sweden_llama3_8b.layer-1.activations.npz
+```
+
+On Apple Silicon, use `--device mps --dtype float16`. For CPU smoke tests, use `--device cpu --dtype float32 --max-records 2`, but do not use CPU timings as research evidence.
+
+3. Estimate refusal directions and projections
+----------------------------------------------
+
+```bash
+uv run thesis-eval analyze-refusal-directions \
+  --activations outputs/mechanistic/llama3_1_8b_reference.layer-1.activations.npz \
+  --activations outputs/mechanistic/llamantino_anita_8b.layer-1.activations.npz \
+  --activations outputs/mechanistic/ai_sweden_llama3_8b.layer-1.activations.npz \
+  --summary-output outputs/mechanistic/refusal_projection_summary.csv \
+  --projections-output outputs/mechanistic/refusal_projection_rows.jsonl \
+  --language-similarity-output outputs/mechanistic/refusal_language_direction_similarity.csv \
+  --directions-output outputs/mechanistic/pooled_refusal_directions.npz \
+  --min-per-label 2
+```
+
+Main outputs:
+
+- `refusal_projection_summary.csv`: candidate table for `tab:mechanistic-refusal-projections`.
+- `refusal_language_direction_similarity.csv`: candidate table for `tab:mechanistic-language-direction-similarity`.
+- `refusal_projection_rows.jsonl`: row-level projections for plotting or error analysis.
+- `pooled_refusal_directions.npz`: pooled direction vectors and midpoints for reproducibility.
+
+4. How to interpret
+-------------------
+
+If a model has a stable refusal representation, then refusal rows should have higher projection values than unsafe rows. In the summary table, look for:
+
+- positive `projection_gap_refusal_minus_unsafe`;
+- high `auc_refusal_vs_unsafe`;
+- similar language-specific directions across aligned and non-aligned languages.
+
+If the gap is strong in English or the aligned language but weak in another attack language, the model may understand the prompt while failing to trigger the same refusal representation in that language.
+
+If the gap is weak everywhere, the model may have broad refusal weakness rather than a specifically cross-lingual failure.
+
+5. Thesis placement
+-------------------
+
+Best placement:
+
+- Discussion: explanatory follow-up after the Llama-derived English-alignment section.
+- Optional appendix: method details, command lines, layer choices, and extra tables.
+
+Avoid placing this in the main Results chapter unless the full activation run is completed before final freeze. If included with results, label it as exploratory and do not use it to revise the preregistered hypothesis outcomes.
+

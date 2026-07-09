@@ -588,7 +588,7 @@ def heatmap_figure(
     for x, lang in enumerate(LANGS):
         lines.append(f"\\node[rotate=45,anchor=west,font=\\tiny] at ({x + 0.16},0.35) {{\\texttt{{{lang}}}}};")
     for y, model in enumerate(models):
-        lines.append(f"\\node[anchor=east,font=\\tiny] at (-0.15,{-y - 0.5}) {{{DISPLAY[model]}}};")
+        lines.append(f"\\node[anchor=east,font=\\tiny] at (-0.15,{-y - 0.5}) {{\\texttt{{{DISPLAY[model]}}}}};")
         for x, lang in enumerate(LANGS):
             value = metric.get((model, lang))
             if value is None:
@@ -669,7 +669,7 @@ def paired_scatter(command: str, label: str, caption: str, xfield: str, xlabel: 
             f"title={{{pair_name}}},xlabel={{{xlabel}}},ylabel={{ASR}},",
             f"{axis_range},ymin=0,ymax=1,",
             r"tick label style={font=\tiny},label style={font=\tiny},title style={font=\small},",
-            r"legend style={font=\tiny,at={(0.5,-0.24)},anchor=north,draw=none,fill=none,legend columns=2}]",
+            r"legend style={font=\tiny,at={(0.5,-0.45)},anchor=north,draw=none,fill=none,legend columns=2}]",
         ])
         for model, pole in [(weak, "weak"), (strong, "strong")]:
             pts = [(predictors[(model, lang)], asr[(model, lang)]) for lang in LANGS if (model, lang) in predictors and (model, lang) in asr]
@@ -679,16 +679,21 @@ def paired_scatter(command: str, label: str, caption: str, xfield: str, xlabel: 
             x_max = max(x for x, _ in pts)
             y_min = max(0, min(1, intercept + slope * x_min))
             y_max = max(0, min(1, intercept + slope * x_max))
-            lines.append(f"\\addplot+[only marks,mark=*,mark size=1.2pt,{colors[pole]}] coordinates {{{coords}}};")
-            lines.append(f"\\addlegendentry{{{pole}}}")
-            lines.append(f"\\addplot+[no markers,densely dashed,{colors[pole]}] coordinates {{({x_min:.4f},{y_min:.4f}) ({x_max:.4f},{y_max:.4f})}};")
+            lines.append(f"\\addplot+[forget plot,only marks,mark=*,mark size=1.2pt,{colors[pole]}] coordinates {{{coords}}};")
+            lines.append(f"\\addplot+[forget plot,no markers,densely dashed,{colors[pole]}] coordinates {{({x_min:.4f},{y_min:.4f}) ({x_max:.4f},{y_max:.4f})}};")
+        lines.extend([
+            f"\\addlegendimage{{densely dashed,mark=*,mark size=1.2pt,{colors['weak']}}}",
+            r"\addlegendentry{weak}",
+            f"\\addlegendimage{{densely dashed,mark=*,mark size=1.2pt,{colors['strong']}}}",
+            r"\addlegendentry{strong}",
+        ])
         lines.extend([
             r"\end{axis}",
             r"\end{tikzpicture}",
             r"\end{minipage}",
         ])
         if idx % 2 == 1:
-            lines.append(r"\vspace{0.4cm}")
+            lines.append(r"\vspace{0.7cm}")
     if xfield == "distance":
         ref_model = "llama3_1_8b_reference"
         ref_pts = [
@@ -710,7 +715,7 @@ def paired_scatter(command: str, label: str, caption: str, xfield: str, xlabel: 
                 r"title={English-aligned reference},xlabel={" + xlabel + r"},ylabel={ASR},",
                 r"xmin=-0.03,xmax=0.65,ymin=0,ymax=1,",
                 r"tick label style={font=\tiny},label style={font=\tiny},title style={font=\small},",
-                r"legend style={font=\tiny,at={(0.5,-0.24)},anchor=north,draw=none,fill=none}]",
+                r"legend style={font=\tiny,at={(0.5,-0.45)},anchor=north,draw=none,fill=none}]",
                 f"\\addplot+[only marks,mark=*,mark size=1.2pt,black!75!white] coordinates {{{ref_coords}}};",
                 r"\addlegendentry{LLaMA-3.1-8B}",
                 f"\\addplot+[no markers,densely dashed,black!75!white] coordinates {{({ref_x_min:.4f},{ref_y_min:.4f}) ({ref_x_max:.4f},{ref_y_max:.4f})}};",
