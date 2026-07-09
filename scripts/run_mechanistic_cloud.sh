@@ -110,7 +110,11 @@ mkdir -p "$RESULTS"
 FROZEN_ZIP="outputs/frozen_jsonl_artifacts.zip"
 if [[ ! -f "$FROZEN" && -f "$FROZEN_ZIP" ]]; then
   log "Extracting frozen dataset from $FROZEN_ZIP"
-  unzip -o "$FROZEN_ZIP" "outputs/dataset_frozen.jsonl" -d . >/dev/null
+  python3 - "$FROZEN_ZIP" <<'PY'
+import sys, zipfile
+with zipfile.ZipFile(sys.argv[1]) as zf:
+    zf.extract("outputs/dataset_frozen.jsonl", ".")
+PY
 fi
 
 # ---------------------------------------------------------------------------
