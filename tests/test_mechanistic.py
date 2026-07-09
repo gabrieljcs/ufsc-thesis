@@ -227,6 +227,90 @@ class MechanisticRefusalTests(unittest.TestCase):
         # Higher separability => lower ASR: perfect negative rank correlation.
         self.assertAlmostEqual(stats["spearman_auc_vs_asr"], -1.0)
 
+    def test_cli_link_refusal_asr_reads_csv_artifacts(self) -> None:
+        # Regression: the CLI wrapper coerces CSV strings back to numbers; it must
+        # run end-to-end on the artifact files exactly as the cloud runner calls it.
+        from thesis_eval.cli import main
+        from thesis_eval.io import read_csv_dicts, write_csv_dicts, write_jsonl
+        from thesis_eval.mechanistic.refusal import LANGUAGE_SIMILARITY_FIELDS, REFUSAL_SUMMARY_FIELDS
+
+        def summary_row(language: str, auc: float | None) -> dict[str, object]:
+            return {
+                "model": "m",
+                "attack_language": language,
+                "n_refusal": 8,
+                "n_unsafe": 8,
+                "mean_projection_refusal": 1.0,
+                "mean_projection_unsafe": -1.0,
+                "projection_gap_refusal_minus_unsafe": 2.0,
+                "auc_refusal_vs_unsafe": auc,
+                "direction_refusal_n": 8,
+                "direction_unsafe_n": 8,
+                "direction_norm": 1.0,
+                "layer": 22,
+            }
+
+        with tempfile.TemporaryDirectory() as tmp:
+            tmp_path = Path(tmp)
+            summary_path = tmp_path / "refusal_summary.csv"
+            similarity_path = tmp_path / "language_similarity.csv"
+            rows_path = tmp_path / "frozen.jsonl"
+            output_path = tmp_path / "separability_vs_asr.csv"
+
+            write_csv_dicts(
+                summary_path,
+                [summary_row("eng", 0.95), summary_row("spa", 0.7), summary_row("swa", 0.55), summary_row("ita", None)],
+                REFUSAL_SUMMARY_FIELDS,
+            )
+            write_csv_dicts(
+                similarity_path,
+                [
+                    {
+                        "model": "m",
+                        "reference_language": "eng",
+                        "attack_language": language,
+                        "cosine_with_reference_language": cosine,
+                        "cosine_with_pooled_direction": cosine,
+                        "reference_language_refusal_n": 8,
+                        "reference_language_unsafe_n": 8,
+                        "attack_language_refusal_n": 8,
+                        "attack_language_unsafe_n": 8,
+                        "layer": 22,
+                    }
+                    for language, cosine in [("eng", 1.0), ("spa", 0.8), ("swa", 0.4), ("ita", None)]
+                ],
+                LANGUAGE_SIMILARITY_FIELDS,
+            )
+            frozen_rows = []
+            for language, n_unsafe in [("eng", 1), ("spa", 4), ("swa", 8), ("ita", 2)]:
+                for index in range(10):
+                    frozen_rows.append(
+                        {
+                            "model": "m",
+                            "attack_language": language,
+                            "unsafe_binary": 1 if index < n_unsafe else 0,
+                            "refusal_binary": 0 if index < n_unsafe else 1,
+                        }
+                    )
+            write_jsonl(rows_path, frozen_rows)
+
+            main(
+                [
+                    "link-refusal-asr",
+                    "--summary", str(summary_path),
+                    "--language-similarity", str(similarity_path),
+                    "--rows", str(rows_path),
+                    "--output", str(output_path),
+                ]
+            )
+
+            output_rows = {row["attack_language"]: row for row in read_csv_dicts(output_path)}
+
+        self.assertEqual(set(output_rows), {"eng", "spa", "swa", "ita"})
+        self.assertAlmostEqual(float(output_rows["eng"]["auc_refusal_vs_unsafe"]), 0.95)
+        self.assertAlmostEqual(float(output_rows["swa"]["asr"]), 0.8)
+        self.assertEqual(output_rows["ita"]["auc_refusal_vs_unsafe"], "")
+
 
 if __name__ == "__main__":
     unittest.main()

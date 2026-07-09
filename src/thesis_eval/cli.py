@@ -1952,6 +1952,23 @@ def cmd_analyze_refusal_directions(args: argparse.Namespace) -> None:
         print(f"Wrote pooled refusal directions to {args.directions_output}")
 
 
+def _maybe_float(value: Any) -> float | None:
+    if value is None or value == "":
+        return None
+    try:
+        parsed = float(value)
+    except (TypeError, ValueError):
+        return None
+    if parsed != parsed or parsed in (float("inf"), float("-inf")):
+        return None
+    return parsed
+
+
+def _maybe_int(value: Any) -> int | None:
+    parsed = _maybe_float(value)
+    return None if parsed is None else int(parsed)
+
+
 def cmd_link_refusal_asr(args: argparse.Namespace) -> None:
     summary = [dict(row) for row in read_csv_dicts(Path(args.summary))]
     for row in summary:
