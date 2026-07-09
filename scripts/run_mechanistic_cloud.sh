@@ -31,6 +31,8 @@
 #   ALPHAS="0.5 1 2"               # intervention strengths as MULTIPLES of the residual norm
 #   FROZEN=outputs/dataset_frozen.jsonl   # if present, ASR linkage runs
 #   SKIP_INSTALL=0                 # set 1 if the container already has deps
+#   FORCE_EXTRACT=0                # set 1 to re-extract activations even when a
+#                                  # matching .npz already exists (reruns reuse it)
 #   GIT_NAME / GIT_EMAIL           # committer identity for the results push
 # ============================================================================
 set -euo pipefail
@@ -139,11 +141,36 @@ fi
 ACT_ARGS=()
 for model in $MODELS; do
   out="$MECH/${model}.activations.npz"
-  log "Extracting activations: $model  (layers: $LAYERS)"
-  "${RUN[@]}" extract-refusal-activations \
-    --sample "$SAMPLE" --model "$model" --output "$out" \
-    $(printf -- '--layers %s ' $LAYERS) \
-    --device auto --dtype auto
+  reuse=0
+  if [[ "${FORCE_EXTRACT:-0}" != "1" && -f "$out" ]]; then
+    # Reuse only if the bundle matches the current sample and layer band,
+    # so a stale extraction can never silently feed the analysis.
+    if python3 - "$out" "$SAMPLE" "$model" $LAYERS <<'PY'
+import json, sys
+import numpy as np
+path, sample, model = sys.argv[1], sys.argv[2], sys.argv[3]
+layers = [int(v) for v in sys.argv[4:]]
+try:
+    with np.load(path, allow_pickle=False) as bundle:
+        got_layers = [int(v) for v in bundle["layers"]]
+        n_rows = int(bundle["activations"].shape[0])
+except Exception:
+    sys.exit(1)
+with open(sample, encoding="utf-8") as fh:
+    expected = sum(1 for line in fh if json.loads(line).get("model") == model)
+sys.exit(0 if got_layers == layers and n_rows == expected else 1)
+PY
+    then reuse=1; fi
+  fi
+  if [[ "$reuse" == "1" ]]; then
+    log "Reusing existing activations: $out  (set FORCE_EXTRACT=1 to re-extract)"
+  else
+    log "Extracting activations: $model  (layers: $LAYERS)"
+    "${RUN[@]}" extract-refusal-activations \
+      --sample "$SAMPLE" --model "$model" --output "$out" \
+      $(printf -- '--layers %s ' $LAYERS) \
+      --device auto --dtype auto
+  fi
   ACT_ARGS+=(--activations "$out")
 done
 
