@@ -132,7 +132,7 @@ def similarity_heatmap(similarity: list[dict[str, str]]) -> str:
     y0 = -len(MODELS) - 1.25
     lines.extend(
         [
-            f"\\node[anchor=west,font=\\tiny] at (0,{y0}) {{Cosine of each language's refusal-outcome direction to the model's aligned-language direction (residual layer 22).}};",
+            f"\\node[anchor=west,font=\\tiny,text width=5.6cm,align=left] at (0,{y0 - 0.3}) {{Cosine of each language's refusal-outcome direction to the model's aligned-language direction (residual layer 22).}};",
             r"\end{tikzpicture}",
             r"\caption[Cross-lingual refusal-direction similarity]{Cross-lingual refusal-direction similarity. Cell values are cosines between the per-language difference-in-means direction and the model's aligned-language direction.}",
             r"\label{fig:mechanistic-direction-similarity}",
