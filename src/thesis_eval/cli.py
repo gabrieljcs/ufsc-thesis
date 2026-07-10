@@ -2020,6 +2020,42 @@ def cmd_apply_refusal_addition(args: argparse.Namespace) -> None:
     print(f"Wrote {count} intervened generations for {args.model} to {args.output}")
 
 
+def cmd_backtranslate_interventions(args: argparse.Namespace) -> None:
+    from thesis_eval.translation.backtranslate import attach_intervention_backtranslations
+
+    input_paths = [Path(path) for path in args.input]
+    pending: list[tuple[Path, Path, list[dict[str, Any]]]] = []
+    for input_path in input_paths:
+        rows = read_jsonl(input_path)
+        filename = str(args.output_template).format(stem=input_path.stem)
+        output_path = (Path(args.output_dir) if args.output_dir else input_path.parent) / filename
+        if _skip_existing(output_path, args.force, f"backtranslate {input_path.name}"):
+            continue
+        pending.append((input_path, output_path, rows))
+    if not pending:
+        info("backtranslate-interventions: all outputs already exist; nothing to do.")
+        return
+
+    translator = None
+    if args.engine == "nllb" and any(
+        str(row.get("attack_language")) != "eng" for _, _, group_rows in pending for row in group_rows
+    ):
+        translator = NllbTranslator(checkpoint=args.checkpoint, device=args.device, dtype=args.dtype)
+
+    for input_path, output_path, rows in pending:
+        with step(f"backtranslate {input_path.name} ({len(rows)} rows)"):
+            output = attach_intervention_backtranslations(
+                rows,
+                engine=args.engine,
+                checkpoint=args.checkpoint,
+                device=args.device,
+                dtype=args.dtype,
+                translator=translator,
+            )
+        write_jsonl(output_path, output)
+        print(f"Wrote {len(output)} intervention rows with back-translations to {output_path}")
+
+
 def cmd_build_dataset(args: argparse.Namespace) -> None:
     cfg = load_config()
     scored_rows = read_jsonl(Path(args.scored))
@@ -2520,6 +2556,17 @@ def build_parser() -> argparse.ArgumentParser:
     mech_intervene.add_argument("--max-records", type=int)
     mech_intervene.add_argument("--trust-remote-code", action="store_true")
     mech_intervene.set_defaults(func=cmd_apply_refusal_addition)
+
+    mech_bt = sub.add_parser("backtranslate-interventions")
+    mech_bt.add_argument("--input", action="append", required=True, help="Intervention JSONL(s) from apply-refusal-addition.")
+    mech_bt.add_argument("--output-dir", help="Where to write outputs; defaults to each input's directory.")
+    mech_bt.add_argument("--output-template", default="{stem}.backtranslated.jsonl")
+    mech_bt.add_argument("--engine", choices=["placeholder", "nllb"], default="nllb")
+    mech_bt.add_argument("--checkpoint", default="facebook/nllb-200-distilled-600M")
+    mech_bt.add_argument("--device", choices=["auto", "cpu", "mps", "cuda"], default="auto")
+    mech_bt.add_argument("--dtype", choices=["auto", "float16", "bfloat16", "float32"], default="auto")
+    mech_bt.add_argument("--force", action="store_true", help="Overwrite outputs that already exist.")
+    mech_bt.set_defaults(func=cmd_backtranslate_interventions)
 
     dataset = sub.add_parser("build-dataset")
     dataset.add_argument("--scored", required=True)

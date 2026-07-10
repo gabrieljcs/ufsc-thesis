@@ -33,6 +33,8 @@
 #   SKIP_INSTALL=0                 # set 1 if the container already has deps
 #   FORCE_EXTRACT=0                # set 1 to re-extract activations even when a
 #                                  # matching .npz already exists (reruns reuse it)
+#   FORCE_INTERVENE=0              # set 1 to regenerate intervention outputs that
+#                                  # already exist (reruns reuse them)
 #   GIT_NAME / GIT_EMAIL           # committer identity for the results push
 # ============================================================================
 set -euo pipefail
@@ -237,15 +239,40 @@ PY
     continue
   fi
   for a in $ALPHAS; do
+    out="$RESULTS/intervention_${model}_alpha${a}.jsonl"
+    if [[ "${FORCE_INTERVENE:-0}" != "1" && -s "$out" ]]; then
+      log "Reusing existing intervention output: $out  (set FORCE_INTERVENE=1 to regenerate)"
+      continue
+    fi
     log "Refusal-strengthening intervention: $model  (residual layer $SEL_LAYER, alpha ${a}x norm)"
     "${RUN[@]}" apply-refusal-addition \
       --prompts "$prompts" --model "$model" \
       --directions "$RESULTS/directions.npz" \
-      --output "$RESULTS/intervention_${model}_alpha${a}.jsonl" \
+      --output "$out" \
       --layer "$SEL_LAYER" --alpha "$a" --alpha-scale \
       --device auto --dtype auto
   done
 done
+
+# ---------------------------------------------------------------------------
+# 7b. Backtranslate intervention outputs to English (same NLLB path and
+#     checkpoint as the frozen dataset), so StrongREJECT re-scoring can run
+#     anywhere without a GPU. Skips outputs that already exist.
+# ---------------------------------------------------------------------------
+INTERVENTION_FILES=("$RESULTS"/intervention_*.jsonl)
+BT_ARGS=()
+for f in "${INTERVENTION_FILES[@]}"; do
+  [[ -e "$f" ]] || continue   # unmatched glob stays literal
+  [[ "$f" == *.backtranslated.jsonl ]] && continue
+  BT_ARGS+=(--input "$f")
+done
+if [[ ${#BT_ARGS[@]} -gt 0 ]]; then
+  log "Backtranslating ${#BT_ARGS[@]} intervention file(s) with NLLB"
+  "${RUN[@]}" backtranslate-interventions "${BT_ARGS[@]}" \
+    --engine nllb --device auto --dtype auto
+else
+  log "No intervention files found to backtranslate."
+fi
 
 # ---------------------------------------------------------------------------
 # 8. Push the small result artifacts to a results branch
