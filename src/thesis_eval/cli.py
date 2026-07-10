@@ -2562,7 +2562,9 @@ def build_parser() -> argparse.ArgumentParser:
     mech_bt.add_argument("--output-dir", help="Where to write outputs; defaults to each input's directory.")
     mech_bt.add_argument("--output-template", default="{stem}.backtranslated.jsonl")
     mech_bt.add_argument("--engine", choices=["placeholder", "nllb"], default="nllb")
-    mech_bt.add_argument("--checkpoint", default="facebook/nllb-200-distilled-600M")
+    # The frozen dataset's response backtranslations used NLLB-200-3.3B (see README);
+    # the interventions must go through the same checkpoint for comparability.
+    mech_bt.add_argument("--checkpoint", default="facebook/nllb-200-3.3B")
     mech_bt.add_argument("--device", choices=["auto", "cpu", "mps", "cuda"], default="auto")
     mech_bt.add_argument("--dtype", choices=["auto", "float16", "bfloat16", "float32"], default="auto")
     mech_bt.add_argument("--force", action="store_true", help="Overwrite outputs that already exist.")

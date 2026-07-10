@@ -47,6 +47,7 @@ MODELS="${MODELS:-llama3_1_8b_reference llamantino_anita_8b ai_sweden_llama3_8b}
 LANGS="${LANGS:-eng spa ita dan nor swe swa}"
 LAYERS="${LAYERS:-8 10 12 14 16 18 20 22 24}"
 ALPHAS="${ALPHAS:-0.5 1 2}"   # multiples of the residual norm (used with --alpha-scale)
+BT_CHECKPOINT="${BT_CHECKPOINT:-facebook/nllb-200-3.3B}"   # same checkpoint as the frozen backtranslations
 FROZEN="${FROZEN:-outputs/dataset_frozen.jsonl}"
 SKIP_INSTALL="${SKIP_INSTALL:-0}"
 GIT_NAME="${GIT_NAME:-Gabriel de Jesus}"
@@ -267,9 +268,9 @@ for f in "${INTERVENTION_FILES[@]}"; do
   BT_ARGS+=(--input "$f")
 done
 if [[ ${#BT_ARGS[@]} -gt 0 ]]; then
-  log "Backtranslating ${#BT_ARGS[@]} intervention file(s) with NLLB"
+  log "Backtranslating ${#BT_ARGS[@]} intervention file(s) with NLLB ($BT_CHECKPOINT)"
   "${RUN[@]}" backtranslate-interventions "${BT_ARGS[@]}" \
-    --engine nllb --device auto --dtype auto
+    --engine nllb --checkpoint "$BT_CHECKPOINT" --device auto --dtype auto
 else
   log "No intervention files found to backtranslate."
 fi
