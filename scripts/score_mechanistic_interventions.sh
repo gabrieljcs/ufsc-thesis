@@ -47,10 +47,39 @@ fi
 GEN_ARGS=()
 for f in "${files[@]}"; do GEN_ARGS+=(--generations "$f"); done
 
-RUN=(uv run thesis-eval)
-command -v uv >/dev/null 2>&1 || RUN=(thesis-eval)
+# The rubric judge needs the upstream strong-reject library (the `scoring`
+# extra). Plain `uv run` re-syncs the venv WITHOUT extras, so the extra must
+# be part of the run command itself or it silently disappears and every row
+# gets marked scoring_failed without a single API call.
+if command -v uv >/dev/null 2>&1; then
+  RUN=(uv run --extra scoring thesis-eval)
+else
+  RUN=(thesis-eval)
+  python3 -c "import strong_reject" 2>/dev/null || {
+    echo "The strong-reject library is missing. Install the scoring extra first:" >&2
+    echo "  pip install -e '.[scoring]'" >&2
+    exit 1
+  }
+fi
 
 mkdir -p "$SCORED"
+
+# --resume counts existing output rows as complete even if they all failed
+# (e.g. an earlier run without the scoring extra). Purge all-failed outputs
+# so those rows actually get scored this time.
+python3 - "$SCORED" <<'PY'
+import glob
+import json
+import os
+import sys
+
+for path in glob.glob(sys.argv[1] + "/intervention_*.strongreject.jsonl"):
+    with open(path, encoding="utf-8") as fh:
+        rows = [json.loads(line) for line in fh]
+    if rows and all(row.get("scoring_failed") for row in rows):
+        os.remove(path)
+        print(f"[mech-score] removed all-failed checkpoint {path} ({len(rows)} rows will be re-scored)")
+PY
 log "Scoring ${#files[@]} file(s) with judge $JUDGE_MODEL (workers=$WORKERS, resume enabled)"
 # Rows already carry model_output_backtranslated, so the placeholder
 # backtranslation engine is correct here: nothing gets re-translated.
