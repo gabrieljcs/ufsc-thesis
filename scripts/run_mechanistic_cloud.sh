@@ -111,6 +111,17 @@ MECH=outputs/mechanistic
 RESULTS="$MECH/results"
 mkdir -p "$RESULTS"
 
+# Restore previously published results (if any) so the reuse logic can skip
+# completed interventions/backtranslations. The publish step leaves the clone
+# on $RESULTS_BRANCH with the results committed there; a rerun checks out
+# $CODE_BRANCH, which drops those tracked files from the working tree. This
+# also lets a FRESH pod resume from whatever an earlier pod already published.
+if git fetch origin "$RESULTS_BRANCH" 2>/dev/null; then
+  log "Restoring published results from origin/$RESULTS_BRANCH"
+  git checkout FETCH_HEAD -- "$RESULTS" 2>/dev/null || true
+  git reset -q -- "$RESULTS" 2>/dev/null || true
+fi
+
 # Unpack the frozen dataset from its tracked archive if not already on disk.
 FROZEN_ZIP="outputs/frozen_jsonl_artifacts.zip"
 if [[ ! -f "$FROZEN" && -f "$FROZEN_ZIP" ]]; then
