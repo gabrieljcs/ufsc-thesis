@@ -1,0 +1,16 @@
+{
+  "analysis_rerun": false,
+  "revision": "English reference moved out of the three paired figures into its own combined figure; paired panels unchanged.",
+  "reference_role": "Separate descriptive baseline; not a fifth weak/strong pair and not added to paired inference.",
+  "spec_standardization": "Saved all-117-cell standardization unchanged.",
+  "checksums": {
+    "eval/outputs/releases/2026-09-29-graded-reporting/cell_summary.csv": "d61e641f104d87fd79f3b001c0b990c2552a5447129db624d3085ff6675824af",
+    "eval/outputs/releases/2026-09-09-corrected/tables/belebele_coverage.csv": "1386562eafd0fdac2314b061bada3b66318a8d547be5245fc1f3dfcc1fff9a5e",
+    "ufscthesisx/ufscthesisx/figures/strongreject_profiles.tex": "115d6a25445bf536fcd51d247775b2211d9ba252e9ac4e70c3eddb2d04d60dbd",
+    "ufscthesisx/ufscthesisx/figures/belebele_profiles.tex": "5810fad0de35d123051a6851a6bb5848c8f7aef46759178b102e959373a97df7",
+    "ufscthesisx/ufscthesisx/figures/graded_spec_reference_scatter.tex": "f2c74c0e84b4c18208116499c334be1c7062dd70311f9abaae9fdc6998ce12a3",
+    "ufscthesisx/ufscthesisx/figures/reference_profiles.tex": "50f69bfe062b040ed78dd12d1ad0ae4ee542bfdaa7a79f5f53e17de40111724d",
+    "eval/scripts/write_reference_comparison_figures.py": "2effc66dabd511ce6fd6bb7cc9a55f8b0c0a74c001f147e7b3f6fd2d00919713",
+    "eval/scripts/write_belebele_profiles.py": "7cfc6ab3bdc99e466b68c550b77931f027d8b866243f402b884940e9d563b64e"
+  }
+}

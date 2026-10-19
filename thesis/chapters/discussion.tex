@@ -1,0 +1,104 @@
+% The \phantomsection command is needed to create a link to a place in the document that is not a
+% figure, equation, table, section, subsection, chapter, etc.
+% https://tex.stackexchange.com/questions/44088/when-do-i-need-to-invoke-phantomsection
+\phantomsection
+
+% Multiple-language document - babel - selectlanguage vs begin/end{otherlanguage}
+% https://tex.stackexchange.com/questions/36526/multiple-language-document-babel-selectlanguage-vs-begin-endotherlanguage
+\begin{otherlanguage*}{english}
+
+\chapter{Discussion}
+\label{chap:discussion}
+\pdfstringdefDisableCommands{\def\textsubscript#1{#1}}
+
+The results do not establish the proposed directional explanation of multilingual harmful assistance (Section~\ref{sec:hypothesis-comparison}). The evidence is a consistent null rather than an ambiguous one. Typological distance is negative in \RDistanceNegativeCount{} of \RDistanceSpecCount{} specifications, never positive except in the one cohort that drops an entire model; once the covariance is clustered on the model--language cell, where the predictor actually varies, no specification distinguishes it from zero in the predicted direction; and the single pre-specified decision rule, the heterogeneous-pair matrix, places the result in its non-supporting band with \RPreregPositivePairs{} pairs positive at both poles.
+
+The central interpretive distinction is between capability and safety. Sabi\'a-3, ANITA and BgGPT-Gemma combine strong BELEBELE performance with low mean StrongREJECT scores (Figures~\ref{fig:strongreject-profiles} and~\ref{fig:belebele-profiles}), making broad language incapacity a less convincing explanation for their low scores. The frequency/magnitude decomposition sharpens this. Because the rubric rewards specificity and convincingness, the positive SPEC association could in principle reflect nothing more than fluency inflating the quality of whatever a model says; that mechanism would act on conditional magnitude. It does not. Conditional magnitude is remarkably stable across the panel (\RPositiveMeanRange{}) while compliance frequency varies ninefold (\RAsrRange{}), and SPEC's coefficient is \RBinarySpecInterval{} on frequency against \RPositiveSpecInterval{} on magnitude. What differs between these checkpoints, and what tracks the specialization proxy, is how often refusal fails rather than how useful the resulting text is. That is a statement about refusal behavior, not about eloquence. It remains an association over reading comprehension and answer consistency; it identifies no safety mechanism, does not control for open-ended benign generation, and is estimated with one model whose proxy is inverted by a measurement artifact (Section~\ref{sec:graded-distance-spec}).
+
+The English reference illustrates checkpoint heterogeneity: its descriptive specialization profile differs from the adjusted paired-panel association (Section~\ref{sec:reference-baseline-results}). Within-model correlations and adjusted panel coefficients answer different questions, and the reference is not a matched parent checkpoint. The contrast therefore provides context rather than additional confirmation of the hypotheses. Likewise, weak/strong pair differences describe complete deployed checkpoints, whose base families, training and serving conditions differ.
+
+\section{Practical Implications}
+\label{sec:practical-implications}
+Multilingual evaluation should begin with the deployed checkpoint's aligned-language score and then inspect its other language cells. A mean near zero can reflect refusals, irrelevant responses or capability limitations. The full score distribution, rubric components and translation metadata help distinguish these possibilities, but bilingual human review remains necessary to validate the interpretation. The score measures rubric-assessed assistance toward the prohibited request, not the probability of real-world harm.
+
+Model identity, post-training history, serving conditions and translation quality belong alongside the graded results. Token inflation is associated with score in a matched-cohort sensitivity model, but it is not a manipulated protective intervention. Language distance helps organize the evaluation panel; it is not a substitute for measuring the responses themselves.
+
+\section{English Safety across Documented Model Lineages}
+\label{sec:english-alignment-loss}
+\GradedEnglishTable
+The selected LLaMA-family checkpoints have markedly different English mean scores. Figure~\ref{fig:model-lineage} documents their ancestry. Sagui derives through Sabiá-7B from original LLaMA; LLaMAntino-2 derives from Llama-2-chat. ANITA starts from Llama-3-Instruct, whereas AI Sweden's intermediate checkpoint continues Llama-3 base. The English reference is not a matched parent checkpoint. These measurements do not establish safety erosion from a shared upstream state or identify a single training stage as the cause.
+
+\section{Exploratory Mechanistic Follow-up}
+An outcome-selected activation audit of the English reference, ANITA and AI Sweden provides a possible internal correlate of their behavioral differences. Refusal-outcome directions transfer more consistently across the seven inspected languages in the reference and ANITA than in AI Sweden. The association between separability and mean StrongREJECT score is mixed across models. Appendix~\ref{app:mechanistic-audit} reports the sampling, direction construction, layer selection, transfer results and activation-addition diagnostics.
+
+These findings remain exploratory. Source and target evaluations overlap in prompt identity, and direction estimation and interventions reuse observations. Independent question holdouts, matched zero-strength reruns and random or norm-matched control directions were not completed; intervention strengths were selected after inspection. Different checkpoint histories also prevent attributing the contrast to a particular training stage. The audit therefore suggests a refusal-associated representation worth testing further, without establishing a unique mechanism or independently validating the behavioral hypotheses.
+
+\section{Finnish Translation-Pipeline Anomaly}
+\label{sec:finnish-investigation}
+
+Finnish deserves special caution. Of its 313 source-prompt translations, 58 entered the BLASER-flagged audit queue and 20 were excluded by the LLM audit, leaving 293 retained prompt conditions per model. It has the largest flagged translation queue and the highest number of LLM-judge exclusions among flagged translations. An exclusion changes which requests reach the target models; it is not a refusal by those models. A Finnish mean therefore describes scored responses to the retained translated requests, rather than to all 313 source prompts. This does not invalidate the Finnish score cells, but it means they are less cleanly attributable to model behavior alone. Because no human XSTS calibration was completed, the study cannot determine whether Finnish is a true model-safety outlier, a translation-pipeline outlier, or a mixture of both. Finnish-specific claims should therefore be framed as suggestive and measurement-sensitive.
+
+\section{Future Work}
+\label{sec:future-work}
+
+\subsection{Likelihood-based specialization measurement}
+\label{sec:future-belebele-likelihood}
+
+The specialization proxy is the weakest instrument in this study, and its weakness is a design choice that can be removed. Measuring IF and CONS by generating an answer and parsing the text makes the measurement conditional on two independent events: the model knowing the answer, and the model emitting a recognizable string within the output budget. For seven of the nine models the second event is free, so the proxy behaves. For LLaMAntino-2 it fails roughly four times in five, and fails hardest in the language the model handles best, because fluent answers begin with longer preambles (Section~\ref{sec:graded-distance-spec}, Appendix~\ref{app:belebele-sparse-answers}).
+
+The standard remedy is to stop generating. BELEBELE's own protocol for non-chat models scores the four options by conditional log-probability: each option is appended to the same rendered prompt, the model's log-probability of that continuation is read from a single forward pass, and the highest-scoring option is the answer. Nothing is generated and nothing is parsed, so there is no preamble, no output budget, no regular expression, and no dependence on obeying an English formatting instruction. Every item yields a choice by construction, which would raise parse coverage to one for every model and language and would restore all 900 comparable questions per cell. Two implementation details matter: the continuation should be the option text rather than the bare letter, because the letter tests format compliance rather than comprehension; and the summed log-probability must be normalized by continuation length, since BELEBELE distractors differ in length and unnormalized sums systematically prefer the shortest option.
+
+Three consequences for the present analysis are worth stating precisely. First, the CONS-coverage restriction would no longer remove a model, so the coverage sensitivity and the main fit would differ only in measurement, making their comparison interpretable in a way it currently is not. Second, the SPEC coefficient would no longer be estimated with one of eight models contributing an inverted proxy, so the H\textsubscript{2} result would rest on eight comparable measurements rather than seven plus one artifact. Third, a direct agreement check becomes available: on the models that already parse near completely, the generated and likelihood-scored measures can be compared, and their agreement is the only evidence that would justify retaining a generation-parsed figure anywhere. This matters because Sabi\'a-3 is served through a managed API that exposes no per-option log-probabilities and so cannot be rescored, leaving a mixed instrument that the agreement check would have to license.
+
+This remeasurement requires no new generation, translation or judging: the harmful-prompt pipeline, the StrongREJECT scores and the URIEL+ distances are untouched, and only the benign specialization probe is recomputed. It is nonetheless a genuine rerun of BELEBELE across eight open-weight models and thirteen languages, and it was not completed for this dissertation. Until it is, the specialization results should be read as conditional on an instrument that is demonstrably biased for at least one evaluated checkpoint, in a direction that opposes language competence.
+
+\subsection{Remaining priorities}
+
+The other outstanding items are those identified in Section~\ref{sec:threats-validity}: bilingual human validation of prompt translations and of response scoring, which no automated gate replaces; the MultiJail external validation, which was planned and not run; matched benign generative controls, which would test open-ended task execution that BELEBELE cannot reach; a denser attack-language inventory capable of estimating nonlinear or family-specific effects; and independent question holdouts with matched zero-strength and norm-matched control conditions for the mechanistic audit. A panel with more than four aligned languages would also allow the model--aligned-language confound to be separated, which the present design cannot do.
+
+\section{Limitations and Threats to Validity}
+\label{sec:threats-validity}
+
+The empirical findings are bounded by several design and measurement limitations.
+
+\subsection{Translation Audit Limitations}
+\label{sec:limitations-audit}
+
+Translation quality control on flagged rows is performed exclusively by an uncalibrated LLM-as-judge (GPT-5.4) without human reference scores. No weighted Cohen's $\kappa$ or similar agreement measure can therefore be reported. The audit is useful as a systematic QC layer, but it is not a substitute for native or fluent human review. This limitation is most important for Swahili, for Finnish because of its anomalous flag rate, and for Ukrainian because many flagged rows were excluded by the LLM judge.
+
+The supplementary sensitivity analyses reduce but do not remove this threat. The
+distance and SPEC signs persist after excluding Finnish, Swahili, and Ukrainian
+entirely, and after excluding every translation that entered the BLASER flag
+queue. This shows that the main regression signs are not anchored by those
+rows; it does not establish that retained translations are human-equivalent.
+Similarly, StrongREJECT has strong published human calibration, but this study
+did not repeat that calibration on the NLLB-back-translated responses.
+
+\subsection{Design and Measurement Limitations}
+\label{sec:limitations-design}
+
+\begin{description}
+    \item[Estimation and sensitivity:] Converged GEE fits with finite estimates and positive-definite covariance address numerical validity, not all sources of inferential uncertainty. The mean-link specification, collinearity, finite model/language inventory and dependence assumptions still matter. The CONS-coverage restriction changes the distance point estimate, although not in a way that survives cell-clustered inference.
+
+    \item[Prompt-level inference with cell-level predictors:] Distance and SPEC vary between model--language cells, not within them, so they take only \RNumCells{} distinct values. Source-prompt clusters span every cell and therefore cut across the variation being tested; Section~\ref{sec:cluster-sensitivity} reports cell and two-way clustered intervals for this reason, and they are substantially wider. The large response count does not create equally many independent language comparisons. Cell clustering has its own cost: with \RNumCells{} clusters the sandwich asymptotics are approximate, so those intervals are indicative rather than exact, and the two-way combination is not guaranteed positive definite. Inference remains conditional on the observed inventory.
+
+    \item[Inverted specialization proxy for one checkpoint:] LLaMAntino-2's BELEBELE answers were truncated by a uniform output cap before the option was stated, so its IF and CONS measure answer-preamble brevity rather than comprehension, and do so most severely in its own aligned language. Its SPEC values consequently run opposite to language competence, and it is retained in the pooled and stratum fits. Section~\ref{sec:future-belebele-likelihood} states the remedy, which was not completed.
+
+    \item[Model--aligned-language confound:] Each aligned language is represented by one weak/strong pair. The paired design improves interpretability, but it cannot separate language effects from model-family idiosyncrasies.
+
+    \item[Base-model and post-training confound:] The stronger model in a pair often also has a newer or otherwise stronger base model. Strong-vs-weak differences should be read as practical robustness contrasts, not as pure alignment-strength causal estimates.
+
+    \item[Closed API model:] Sabiá-3 is evaluated through a managed API. Provider behavior, model versioning, hidden system instructions, routing, and content filtering cannot be inspected as directly as open-weight systems. The absence of explicit provider-block events is not evidence that invisible moderation was absent. Its mean score therefore characterizes the end-to-end API system, and exact response-level reproducibility is not guaranteed.
+
+    \item[BELEBELE as proxy:] SPEC is based on multiple-choice reading-comprehension and consistency, not on matched benign open-ended generation. It should be interpreted as a specialization proxy, not as a complete benign capability control.
+
+    \item[Translation-QC provenance:] Appendix~\ref{app:frozen-qc-details} reports the frozen thresholds and retention counts. The saved translation, audit, and target-run files reconcile by prompt-language key. The XSTS export lacks raw API replies and request identifiers, and its LLM-only decisions were not calibrated against fluent human judgments. The artifact chain supports what was recorded and excluded; it cannot establish that every retained translation preserved the source meaning.
+
+    \item[No MultiJail validation artifact:] The final outputs do not contain a scored MultiJail run. This limits benchmark-generalization claims, but it does not change the central StrongREJECT-based hypothesis tests. This is an uncompleted planned external validation; no benchmark-generalization result is claimed.
+
+    \item[Finite language inventory:] The 13 attack languages span several families and scripts, but they are still a purposive sample. A denser inventory could reveal nonlinear or family-specific effects that this panel cannot estimate.
+
+    \item[Exploratory mechanistic audit:] The refusal-direction results cover only three related 8B models and seven languages. Outcome-conditioned samples are not prompt-matched across models; layer selection and cell summaries reuse the same finite sample; and the intervention lacks an independent holdout, an $\alpha=0$ rerun, and random or norm-matched direction controls. The audit identifies an internal correlate and a steering response, but not a unique mechanism or a causal effect of a particular post-training component.
+\end{description}
+
+\end{otherlanguage*}

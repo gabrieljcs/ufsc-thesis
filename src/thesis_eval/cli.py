@@ -27,15 +27,24 @@ from thesis_eval.analysis.reporting import (
     spearman_tables,
     tokenizer_diagnostics,
 )
-from thesis_eval.analysis.glmm import fit_main_glmm
+from thesis_eval.analysis.glmm import DIAGNOSTIC_FIELDS, EFFECT_FIELDS, fit_glmm_suite, fit_main_glmm
 from thesis_eval.benchmarks.belebele import (
     attach_belebele_predictions,
     build_belebele_prediction_rows,
     build_belebele_prompt,
     compute_if_cons,
     load_belebele_rows,
+    migrate_prediction_identities,
     repair_belebele_predictions,
 )
+from thesis_eval.benchmarks.belebele_likelihood import (
+    CONTINUATION_MODES,
+    NORMALIZATIONS,
+    attach_option_likelihood_predictions,
+    build_option_continuations,
+    compare_scoring_paths,
+)
+from thesis_eval.models.likelihood import build_option_likelihood_runner
 from thesis_eval.benchmarks.strongreject import import_strongreject, write_prompt_records
 from thesis_eval.benchmarks.uriel import (
     compare_matrices,
@@ -815,6 +824,220 @@ def cmd_predict_belebele(args: argparse.Namespace) -> None:
             max_input_length=args.max_input_length,
         )
     print(f"Wrote {count} BELEBELE predictions to {args.output}")
+
+
+def _mock_option_scores(
+    items: list[tuple[str, list[tuple[str, Any]]]]
+) -> list[dict[str, dict[str, Any]]]:
+    # Deterministic placeholder: option A always scores best. Exercises the
+    # plumbing without a model and without any reference to the gold answer.
+    return [
+        {
+            label: {"logprob_sum": -1.0 * (index + 1), "token_count": 1}
+            for index, (label, _) in enumerate(continuations)
+        }
+        for _, continuations in items
+    ]
+
+
+def _predict_belebele_likelihood_group_checkpointed(
+    prediction_rows: list[dict[str, Any]],
+    *,
+    prompts: list[str],
+    score_batch: Callable[
+        [list[tuple[str, list[tuple[str, str]]]]], list[dict[str, dict[str, Any]]]
+    ],
+    output_path: Path,
+    partial_path: Path,
+    force: bool,
+    local_batch_size: int,
+    normalization: str,
+    continuation_mode: str,
+) -> int:
+    if len(prediction_rows) != len(prompts):
+        raise ValueError("BELEBELE prompt count and prediction row count differ")
+    if force and partial_path.exists():
+        partial_path.unlink()
+    completed_rows = read_jsonl(partial_path) if partial_path.exists() else []
+    if len(completed_rows) > len(prediction_rows):
+        raise ValueError(f"Checkpoint for {output_path.name} has more rows than expected")
+    if len(completed_rows) == len(prediction_rows):
+        info(f"Promoting complete checkpoint for {output_path.name} without rescoring")
+        partial_path.replace(output_path)
+        return len(completed_rows)
+    if completed_rows:
+        info(
+            f"Resuming {output_path.name} from checkpoint "
+            f"rows={len(completed_rows)}/{len(prediction_rows)}"
+        )
+    remaining_rows = prediction_rows[len(completed_rows) :]
+    remaining_prompts = prompts[len(completed_rows) :]
+    for chunk_start in range(0, len(remaining_rows), local_batch_size):
+        chunk_rows = remaining_rows[chunk_start : chunk_start + local_batch_size]
+        chunk_prompts = remaining_prompts[chunk_start : chunk_start + local_batch_size]
+        chunk_offset = len(completed_rows) + chunk_start
+        chunk_end = chunk_offset + len(chunk_rows)
+        items = [
+            (prompt, build_option_continuations(row, mode=continuation_mode))
+            for row, prompt in zip(chunk_rows, chunk_prompts, strict=True)
+        ]
+        with step(
+            f"belebele option-likelihood [{output_path.name}] "
+            f"rows {chunk_offset + 1}-{chunk_end}/{len(prediction_rows)}"
+        ):
+            chunk_scores = score_batch(items)
+        append_jsonl(
+            partial_path,
+            attach_option_likelihood_predictions(
+                chunk_rows,
+                chunk_scores,
+                normalization=normalization,
+                mode=continuation_mode,
+            ),
+        )
+    final_count = len(completed_rows) + len(remaining_rows)
+    if final_count != len(prediction_rows):
+        raise RuntimeError(
+            f"Checkpoint for {output_path.name} is incomplete after option-likelihood scoring"
+        )
+    partial_path.replace(output_path)
+    return final_count
+
+
+def cmd_predict_belebele_likelihood(args: argparse.Namespace) -> None:
+    """Score BELEBELE by option log-probability instead of generating and parsing.
+
+    See the 2026-10-15 addendum in AGENTS.md for why the generation path is not
+    a usable specialization measure for every model.
+    """
+    if not args.output and not args.output_dir:
+        raise ValueError("predict-belebele-likelihood requires --output or --output-dir.")
+    cfg = load_config()
+    model_cfg = cfg.models[args.model]
+    if model_cfg.get("access_mode") == "api":
+        raise ValueError(
+            f"Model {args.model} is API-served and exposes no per-option log-probabilities, "
+            "so option-likelihood scoring cannot run for it. Keep its generation-parsed "
+            "predictions from predict-belebele and disclose the mixed instrument "
+            "(AGENTS.md, 2026-10-15 addendum)."
+        )
+    profile = resolve_runtime_profile(args.profile) if args.profile else None
+    backend = args.backend or (profile.target_backend if profile else "transformers")
+    if backend in {"auto", "vllm"}:
+        # vLLM's generate() path does not expose per-continuation scoring here.
+        backend = "transformers"
+    if backend not in {"transformers", "mock"}:
+        raise ValueError(
+            "Option-likelihood scoring supports the transformers and mock backends; "
+            f"got {backend!r}."
+        )
+    device = args.device or (profile.device if profile else "auto")
+    dtype = args.dtype or (profile.dtype if profile else "auto")
+    model_ref = _resolve_model_ref(args.model, args.model_path)
+    local_batch_size = _resolve_local_generation_batch_size(args.local_batch_size, backend)
+    gpu_batch_size = _resolve_gpu_batch_size(args.gpu_batch_size, backend, default=16)
+    dataset_dir = _resolve_belebele_dataset_dir(args.dataset_dir)
+    languages = list(args.language) if args.language else list(cfg.attack_languages)
+    groups: list[tuple[str, Path, list[dict[str, Any]], list[str]]] = []
+    rows: list[dict[str, Any]] = []
+    single_prompts: list[str] = []
+    for language in languages:
+        dataset_rows = load_belebele_rows(dataset_dir, language, limit=args.limit)
+        prediction_rows = build_belebele_prediction_rows(
+            dataset_rows, model=args.model, language=language
+        )
+        prompts = [build_belebele_prompt(row) for row in dataset_rows]
+        if args.output_dir:
+            output_path = _language_output_path(
+                args.output_dir,
+                args.output_template,
+                language,
+                Path(f"{language}.jsonl"),
+                model=args.model,
+            )
+            if _skip_existing(
+                output_path,
+                args.force,
+                f"predict-belebele-likelihood {args.model} <- {language}",
+            ):
+                continue
+            groups.append((language, output_path, prediction_rows, prompts))
+        else:
+            rows.extend(prediction_rows)
+            single_prompts.extend(prompts)
+    if not args.output_dir and not rows:
+        info("predict-belebele-likelihood: no rows selected; nothing to do.")
+        return
+    if args.output_dir and not groups:
+        info("predict-belebele-likelihood: all outputs already exist; nothing to do.")
+        return
+    info(
+        f"Scoring BELEBELE option likelihoods backend={backend} model={args.model} "
+        f"model_ref={model_ref} normalization={args.normalization} "
+        f"continuation={args.continuation_mode} "
+        f"languages={len(groups) if args.output_dir else len(languages)}"
+    )
+    if backend == "mock":
+        score_batch = _mock_option_scores
+    else:
+        with step("initialize BELEBELE option-likelihood backend"):
+            score_batch = build_option_likelihood_runner(
+                model_ref,
+                device=device,
+                dtype=dtype,
+                trust_remote_code=args.trust_remote_code,
+                gpu_batch_size=gpu_batch_size,
+            )
+    if args.output_dir:
+        written: dict[str, str] = {}
+        for group_index, (_language, output_path, prediction_rows, prompts) in enumerate(
+            groups, start=1
+        ):
+            info(
+                f"BELEBELE likelihood batch {group_index}/{len(groups)}: "
+                f"{output_path.name} items={len(prediction_rows)}"
+            )
+            count = _predict_belebele_likelihood_group_checkpointed(
+                prediction_rows,
+                prompts=prompts,
+                score_batch=score_batch,
+                output_path=output_path,
+                partial_path=_partial_output_path(output_path),
+                force=args.force,
+                local_batch_size=local_batch_size,
+                normalization=args.normalization,
+                continuation_mode=args.continuation_mode,
+            )
+            written[str(output_path)] = str(count)
+            print(f"Wrote {count} BELEBELE option-likelihood predictions to {output_path}")
+        if len(written) > 1:
+            print(json.dumps(written, ensure_ascii=False, indent=2, sort_keys=True))
+        return
+    count = _predict_belebele_likelihood_group_checkpointed(
+        rows,
+        prompts=single_prompts,
+        score_batch=score_batch,
+        output_path=Path(args.output),
+        partial_path=_partial_output_path(Path(args.output)),
+        force=args.force,
+        local_batch_size=local_batch_size,
+        normalization=args.normalization,
+        continuation_mode=args.continuation_mode,
+    )
+    print(f"Wrote {count} BELEBELE option-likelihood predictions to {args.output}")
+
+
+def cmd_compare_belebele_scoring(args: argparse.Namespace) -> None:
+    generated = read_jsonl(Path(args.generated))
+    likelihood = read_jsonl(Path(args.likelihood))
+    summaries = compare_scoring_paths(generated, likelihood)
+    if not summaries:
+        raise ValueError(
+            "No model--language cells joined; check that both files cover the same "
+            "models, languages and canonical question identities."
+        )
+    write_jsonl(Path(args.output), summaries)
+    print(f"Wrote {len(summaries)} BELEBELE scoring-agreement rows to {args.output}")
 
 
 def cmd_repair_belebele_predictions(args: argparse.Namespace) -> None:
@@ -1869,6 +2092,8 @@ def _score_rows_parallel_collect(
 def cmd_compute_spec(args: argparse.Namespace) -> None:
     cfg = load_config()
     predictions = read_jsonl(Path(args.predictions))
+    if getattr(args, "dataset_dir", None):
+        predictions = migrate_prediction_identities(predictions, Path(args.dataset_dir))
     rows = compute_if_cons(predictions, cfg.aligned_language)
     write_jsonl(Path(args.output), rows)
     print(f"Wrote {len(rows)} BELEBELE IF/CONS/SPEC rows to {args.output}")
@@ -2083,9 +2308,10 @@ def cmd_export_report_tables(args: argparse.Namespace) -> None:
     write_csv_dicts(output_dir / "crosslingual_asr_by_model_language.csv", asr_by_model_language(rows, exclude_aligned=True), ["model", "attack_language", "n", "unsafe", "asr", "ci_low", "ci_high", "mean_strongreject_score", "refusal_rate"])
     write_csv_dicts(output_dir / "closest_farthest_languages.csv", closest_farthest_by_model(rows), ["model", "closest_language", "closest_distance", "closest_asr", "farthest_language", "farthest_distance", "farthest_asr", "gap"])
     distance_corr, spec_corr = spearman_tables(rows)
-    write_csv_dicts(output_dir / "distance_asr_correlation.csv", distance_corr, ["model", "predictor", "n", "spearman_rho", "p_value", "interpretation"])
-    write_csv_dicts(output_dir / "spec_asr_correlation.csv", spec_corr, ["model", "predictor", "n", "spearman_rho", "p_value", "interpretation"])
-    write_csv_dicts(output_dir / "tokenizer_diagnostics.csv", tokenizer_diagnostics(rows), ["model", "attack_language", "n", "mean_token_inflation", "mean_tokens_per_char", "truncation_risk_rate"])
+    correlation_fields = ["model", "predictor", "n", "spearman_rho", "ci_low", "ci_high", "p_value", "interval_method", "interpretation"]
+    write_csv_dicts(output_dir / "distance_asr_correlation.csv", distance_corr, correlation_fields)
+    write_csv_dicts(output_dir / "spec_asr_correlation.csv", spec_corr, correlation_fields)
+    write_csv_dicts(output_dir / "tokenizer_diagnostics.csv", tokenizer_diagnostics(rows), ["model", "attack_language", "n", "mean_token_inflation", "mean_tokens_per_char", "median_token_inflation", "n_token_inflation", "n_context_usage", "truncation_risk_rate"])
     write_csv_dicts(output_dir / "belebele_scores.csv", belebele_scores(rows), ["model", "attack_language", "if_score", "cons_score", "spec_score"])
     write_csv_dicts(output_dir / "reference_distance_curve.csv", reference_distance_curve(rows), ["reference_model", "attack_language", "distance_from_english", "n", "unsafe", "asr", "mean_strongreject_score", "refusal_rate"])
     write_csv_dicts(output_dir / "counterfactual_safety_by_aligned_language.csv", counterfactual_safety_by_aligned_language(rows), ["aligned_language", "model", "model_alignment_pole", "model_asr", "reference_model", "reference_asr_same_language", "asr_gap_model_minus_reference", "model_n", "reference_n"])
@@ -2098,8 +2324,18 @@ def cmd_export_report_tables(args: argparse.Namespace) -> None:
 def cmd_fit_glmm(args: argparse.Namespace) -> None:
     rows = read_jsonl(Path(args.rows))
     effects = fit_main_glmm(rows)
-    write_csv_dicts(Path(args.output), effects, ["predictor", "estimate", "std_error", "odds_ratio", "p_value", "fit_method"])
+    write_csv_dicts(Path(args.output), effects, EFFECT_FIELDS)
     print(f"Wrote GLMM main effects to {args.output}")
+
+
+def cmd_fit_glmm_suite(args: argparse.Namespace) -> None:
+    rows = read_jsonl(Path(args.rows))
+    output_dir = ensure_dir(Path(args.output_dir))
+    outputs = fit_glmm_suite(rows)
+    for filename, table_rows in outputs.items():
+        fields = DIAGNOSTIC_FIELDS if "diagnostic" in filename else EFFECT_FIELDS
+        write_csv_dicts(output_dir / filename, table_rows, fields)
+    print(f"Wrote converged GLMM suite and diagnostics to {output_dir}")
 
 
 def cmd_export_audit_queue(args: argparse.Namespace) -> None:
@@ -2359,6 +2595,82 @@ def build_parser() -> argparse.ArgumentParser:
     belebele.add_argument("--force", action="store_true", help="Overwrite outputs that already exist.")
     belebele.set_defaults(func=cmd_predict_belebele)
 
+    belebele_ll = sub.add_parser(
+        "predict-belebele-likelihood",
+        help=(
+            "Score BELEBELE by per-option log-probability instead of generating and "
+            "parsing an answer. Parse coverage is 100%% by construction."
+        ),
+    )
+    belebele_ll.add_argument("--model", default="sagui_7b")
+    belebele_ll.add_argument(
+        "--language",
+        action="append",
+        help="One attack language code (e.g. por, ara). Defaults to all thesis languages.",
+    )
+    belebele_ll.add_argument("--output")
+    belebele_ll.add_argument("--output-dir")
+    belebele_ll.add_argument(
+        "--output-template", default="{model}_{lang}.belebele-likelihood.jsonl"
+    )
+    belebele_ll.add_argument("--dataset-dir", default=str(load_assets()["belebele"].local_dir))
+    belebele_ll.add_argument("--profile", choices=runtime_profile_choices)
+    belebele_ll.add_argument("--backend", choices=["auto", "mock", "transformers"])
+    belebele_ll.add_argument("--device", choices=["auto", "cpu", "mps", "cuda", "xla"])
+    belebele_ll.add_argument("--dtype", choices=["auto", "float16", "bfloat16", "float32"])
+    belebele_ll.add_argument(
+        "--normalization",
+        choices=list(NORMALIZATIONS),
+        default="mean",
+        help=(
+            "Reported choice rule. 'mean' divides by continuation token count; "
+            "unnormalized sums favour shorter options. Both are always saved."
+        ),
+    )
+    belebele_ll.add_argument(
+        "--continuation-mode",
+        choices=list(CONTINUATION_MODES),
+        default="option_text",
+        help="Score the option text (default) or the bare A/B/C/D label.",
+    )
+    belebele_ll.add_argument(
+        "--limit", type=int, help="Only score the first N BELEBELE items from each language."
+    )
+    belebele_ll.add_argument(
+        "--local-batch-size", type=int, help="Items per checkpointed chunk."
+    )
+    belebele_ll.add_argument(
+        "--gpu-batch-size",
+        type=int,
+        help=(
+            "Option continuations per forward pass; batches span items, so 16 is "
+            "four items. Defaults to 16. Peak memory is dominated by the returned "
+            "logits (batch x sequence x vocab), so lower this first on an OOM."
+        ),
+    )
+    belebele_ll.add_argument("--trust-remote-code", action="store_true")
+    belebele_ll.add_argument("--model-path")
+    belebele_ll.add_argument(
+        "--force", action="store_true", help="Overwrite outputs that already exist."
+    )
+    belebele_ll.set_defaults(func=cmd_predict_belebele_likelihood)
+
+    belebele_cmp = sub.add_parser(
+        "compare-belebele-scoring",
+        help=(
+            "Compare generation-parsed and option-likelihood BELEBELE predictions "
+            "per model--language cell."
+        ),
+    )
+    belebele_cmp.add_argument(
+        "--generated", required=True, help="Predictions from predict-belebele."
+    )
+    belebele_cmp.add_argument(
+        "--likelihood", required=True, help="Predictions from predict-belebele-likelihood."
+    )
+    belebele_cmp.add_argument("--output", required=True)
+    belebele_cmp.set_defaults(func=cmd_compare_belebele_scoring)
+
     belebele_repair = sub.add_parser("repair-belebele-predictions")
     belebele_repair.add_argument("--predictions", required=True)
     belebele_repair.add_argument("--output", required=True)
@@ -2489,6 +2801,7 @@ def build_parser() -> argparse.ArgumentParser:
     spec = sub.add_parser("compute-spec")
     spec.add_argument("--predictions", required=True)
     spec.add_argument("--output", required=True)
+    spec.add_argument("--dataset-dir", help="Validate and migrate legacy positional prediction IDs against source language files")
     spec.set_defaults(func=cmd_compute_spec)
 
     benign = sub.add_parser("score-benign-controls")
@@ -2587,6 +2900,11 @@ def build_parser() -> argparse.ArgumentParser:
     glmm.add_argument("--rows", required=True)
     glmm.add_argument("--output", required=True)
     glmm.set_defaults(func=cmd_fit_glmm)
+
+    glmm_suite = sub.add_parser("fit-glmm-suite")
+    glmm_suite.add_argument("--rows", required=True)
+    glmm_suite.add_argument("--output-dir", required=True)
+    glmm_suite.set_defaults(func=cmd_fit_glmm_suite)
 
     audit_export = sub.add_parser("export-audit-queue")
     audit_export.add_argument("--translations", required=True)

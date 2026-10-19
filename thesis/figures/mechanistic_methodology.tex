@@ -1,0 +1,84 @@
+% Schematic workflow; no positions represent observed activations.
+\begin{figure}[p]\centering
+\caption[Methodology of the exploratory mechanistic audit]{Visual workflow of the completed exploratory mechanistic audit. Token boxes, vector arrows, and projection dots are schematic, not observed activations or results. The harmful-prompt outcome contrast does not separate harm recognition from refusal execution.}
+
+\begin{tikzpicture}[font=\fontsize{9.5}{11.5}\selectfont,
+flow/.style={-{Latex[length=2mm]},thick,draw=black!45},
+card/.style={draw=black!25,rounded corners=2pt,fill=white,minimum width=1.65cm,minimum height=.55cm},
+badge/.style={circle,fill=auditblue,text=white,inner sep=0pt,minimum size=.55cm,font=\bfseries},
+small/.style={font=\fontsize{8.5}{10}\selectfont,align=center}]
+\definecolor{auditblue}{HTML}{286F8C}
+\definecolor{auditorange}{HTML}{A64B39}
+\foreach \y in {0,-2.65,-5.3,-7.95}{\draw[rounded corners=3pt,black!20,fill=black!2] (0,\y) rectangle (14,\y-2.3);}
+\node[badge] at (.5,-.45) {1};
+\node[anchor=west,font=\bfseries] at (.95,-.45) {Select prompts from saved response outcomes};
+\foreach \dx/\dy in {0/0,.08/.08,.16/.16}{
+\node[card,draw=auditblue!60,fill=auditblue!7] at (2.1+\dx,-1.45+\dy) {};
+\node[card,draw=auditorange!60,fill=auditorange!7] at (5+\dx,-1.45+\dy) {};}
+\node[text=auditblue] at (2.26,-1.29) {Refused};
+\node[text=auditorange] at (5.16,-1.29) {Unsafe};
+\node[small] at (2.2,-1.96) {Up to 24 per cell};
+\node[small] at (5.1,-1.96) {Up to 24 per cell};
+\draw[flow] (6.2,-1.4) -- (7.15,-1.4);
+\node[align=center] at (10.25,-1.4) {\textbf{952 activation rows}\\3 models $\times$ 7 languages};
+\draw[flow] (7,-2.3) -- (7,-2.65);
+\node[badge] at (.5,-3.1) {2};
+\node[anchor=west,font=\bfseries] at (.95,-3.1) {Read the hidden vector at the final prompt token};
+\node[small,anchor=west] at (.7,-3.75) {Native chat\\template};
+\draw[flow] (2.05,-3.75) -- (2.55,-3.75);
+\foreach \x/\t in {3.05/$t_1$,3.75/$t_2$,4.45/$\cdots$}{\node[draw=black!25,fill=white,minimum width=.55cm,minimum height=.5cm] at (\x,-3.75) {\t};}
+\node[draw=auditblue,fill=auditblue!15,minimum width=.55cm,minimum height=.5cm] at (5.15,-3.75) {$t_n$};
+\node[small,text=auditblue] at (5.15,-4.45) {Final token};
+\draw[flow] (5.55,-3.75) -- (6.15,-3.75);
+\foreach \y/\label in {-3.52/8,-3.87/$\vdots$,-4.22/24}{
+\draw[fill=auditblue!8,draw=auditblue!40] (6.35,\y-.12) rectangle (8.15,\y+.12);
+\node[small,anchor=west] at (8.3,\y) {\label};}
+\node[align=center] at (11.4,-3.9) {Residual-stream vector $h$\\4\,096 values at each\\candidate index: $8,10,\ldots,24$};
+\draw[flow] (7,-4.95) -- (7,-5.3);
+\node[badge] at (.5,-5.75) {3};
+\node[anchor=west,font=\bfseries] at (.95,-5.75) {Compare nine candidate layers and select index 22};
+\node[card,fill=auditblue!8,align=center,minimum width=2.3cm,minimum height=.65cm] (estimate) at (2.2,-6.6) {Half A: estimate};
+\node[card,fill=auditorange!8,align=center,minimum width=2.3cm,minimum height=.65cm] (evaluate) at (5.25,-6.6) {Half B: assess AUC};
+\draw[flow] (estimate.east) -- (evaluate.west);
+\node[small] at (3.7,-7.2) {Label-stratified split within each model};
+\draw[flow] (6.55,-6.6) -- (7.1,-6.6);
+\foreach \x/\v in {7.45/8,8.1/10,8.75/12,9.4/14,10.05/16,10.7/18,11.35/20,12/22,12.65/24}{\node[draw=black!25,fill=white,minimum width=.55cm,minimum height=.5cm,small] at (\x,-6.6) {\v};}
+\node[draw=auditblue,fill=auditblue!20,minimum width=.55cm,minimum height=.5cm,small,font=\bfseries] at (12,-6.6) {22};
+\node[small] at (10.05,-7.2) {Select by mean AUC across the three models};
+\draw[flow] (7,-7.6) -- (7,-7.95);
+\node[badge] at (.5,-8.4) {4};
+\node[anchor=west,font=\bfseries] at (.95,-8.4) {Subtract the two activation averages and normalize};
+\node[text=auditblue,align=center] at (2.35,-9.25) {Mean refused vector\\$\mu_{\mathrm{refused}}$};
+\node at (4.35,-9.25) {$-$};
+\node[text=auditorange,align=center] at (6.25,-9.25) {Mean unsafe vector\\$\mu_{\mathrm{unsafe}}$};
+\draw[flow] (8,-9.25) -- (8.7,-9.25);
+\draw[-{Latex[length=3mm]},very thick,auditblue] (9.2,-9.65) -- (10.65,-8.95);
+\node[align=center,anchor=west] at (11,-9.25) {Direction $\hat r$\\unit length};
+\node[small] at (7,-9.95) {Pooled and language-specific directions; estimated separately for each model};
+\coordinate (hub) at (7,-10.6);
+\draw[flow] (7,-10.25) -- (hub);
+\foreach \x in {2.2,7,11.8}{\draw[flow] (hub) -| (\x,-11);}
+\foreach \x in {0,4.8,9.6}{\draw[rounded corners=3pt,black!20,fill=auditblue!3] (\x,-11) rectangle (\x+4.4,-14.25);}
+\node[font=\fontsize{9}{11}\selectfont\bfseries,align=center,text width=4.2cm] at (2.2,-11.45) {A. Projection / similarity};
+\draw[flow] (.6,-12.4) -- (3.8,-12.4);
+\foreach \x in {.95,1.3,1.65}{\fill[auditorange] (\x,-12.4) circle (.07);}
+\foreach \x in {2.6,2.95,3.3}{\fill[auditblue] (\x,-12.4) circle (.07);}
+\node[small,text width=4.15cm] at (2.2,-13.05) {Projection AUC\\Direction cosine};
+\node[small,text=black!65,text width=4.1cm] at (2.2,-13.8) {Estimation rows reused};
+\node[font=\fontsize{9}{11}\selectfont\bfseries,align=center,text width=4.2cm] at (7,-11.45) {B. Language transfer};
+\node[card,minimum width=.8cm] (langA) at (5.65,-12.4) {A};
+\node[card,minimum width=.8cm] (langB) at (8.35,-12.4) {B};
+\draw[flow] (langA.east) -- node[above,small] {direction $\hat r_A$} (langB.west);
+\node[small,text width=4.15cm] at (7,-13.05) {Transfer AUC\\126 ordered language pairs};
+\node[small,text=black!65,text width=4.1cm] at (7,-13.8) {Shared question identities};
+\node[font=\fontsize{9}{11}\selectfont\bfseries,align=center,text width=4.2cm] at (11.8,-11.45) {C. Activation addition};
+\draw[flow,black!50] (10.25,-12.55) -- (11.25,-12.55) node[above,small,pos=.5] {$h$};
+\draw[flow,auditblue] (11.25,-12.55) -- (11.85,-12.05) node[above,small] {$+\alpha\hat r$};
+\draw[flow] (12.05,-12.35) -- (13.25,-12.35);
+\node[small,text width=4.15cm] at (11.8,-13.05) {Refusal indicators\\StrongREJECT scores};
+\node[small,text=black!65,text width=4.1cm] at (11.8,-13.8) {Reused prompts\\Post-hoc strengths};
+\node[small,text width=13.6cm] at (7,-14.85) {\textbf{Exploratory:} layer-selection halves are reused; independent question holdouts and intervention controls remain incomplete.};
+\end{tikzpicture}
+\label{fig:mechanistic-methodology}
+\fonte{Prepared by the author (2026).}
+\end{figure}

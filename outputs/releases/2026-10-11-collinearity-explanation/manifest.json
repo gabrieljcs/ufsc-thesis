@@ -1,0 +1,9 @@
+{
+  "purpose": "Explanation of existing graded diagnostics; no model refit.",
+  "sources": {
+    "eval/outputs/releases/2026-09-29-graded-reporting/diagnostics.json": "5802c0a82983926110fa5ef8b01018925cea89313aa40b271bf4c744fe9278ae",
+    "eval/outputs/releases/2026-09-29-graded-reporting/effects.csv": "cab7c9c461d8e0dc8ef86dd7a3481a54080ba874e943613a8ef768296e9c4901"
+  },
+  "same_cohort_and_scaling_verified": true,
+  "code_sha256": "00702b13025591fa5fd7e2e64b2b66e314d506d2fdfe2688f5520b57642f3849"
+}

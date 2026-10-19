@@ -1,0 +1,3218 @@
+[
+  {
+    "fit": "pooled",
+    "outcome": "binary",
+    "n": 32090,
+    "n_prompts": 313,
+    "n_languages": 13,
+    "n_models": 8,
+    "converged": true,
+    "covariance_min_eigenvalue": 0.00014730859162263217,
+    "valid": true,
+    "condition_number": 16.667717632203928,
+    "iterations": 2,
+    "warnings": "",
+    "substantive_vif": {
+      "distance": 2.4571037428381235,
+      "spec_score": 13.50672471668271
+    },
+    "scaling": [
+      {
+        "predictor": "distance",
+        "mean": 0.4245677718915551,
+        "sd": 0.14187688806306564
+      },
+      {
+        "predictor": "spec_score",
+        "mean": -0.029359073772503234,
+        "sd": 0.9522766193721591
+      }
+    ],
+    "coding": "Treatment indicators, intercept; cohort-row z scores (ddof=0); positive subset retains full-cohort scaling",
+    "covariance": "prompt-clustered sandwich; working independence"
+  },
+  {
+    "fit": "pooled",
+    "outcome": "score",
+    "n": 32090,
+    "n_prompts": 313,
+    "n_languages": 13,
+    "n_models": 8,
+    "converged": true,
+    "covariance_min_eigenvalue": 6.846535819765798e-05,
+    "valid": true,
+    "condition_number": 16.667717632203928,
+    "iterations": 2,
+    "warnings": "",
+    "substantive_vif": {
+      "distance": 2.4571037428381235,
+      "spec_score": 13.50672471668271
+    },
+    "scaling": [
+      {
+        "predictor": "distance",
+        "mean": 0.4245677718915551,
+        "sd": 0.14187688806306564
+      },
+      {
+        "predictor": "spec_score",
+        "mean": -0.029359073772503234,
+        "sd": 0.9522766193721591
+      }
+    ],
+    "coding": "Treatment indicators, intercept; cohort-row z scores (ddof=0); positive subset retains full-cohort scaling",
+    "covariance": "prompt-clustered sandwich; working independence"
+  },
+  {
+    "fit": "pooled",
+    "outcome": "positive_score",
+    "n": 11274,
+    "n_prompts": 313,
+    "n_languages": 13,
+    "n_models": 8,
+    "converged": true,
+    "covariance_min_eigenvalue": 5.034138032276409e-05,
+    "valid": true,
+    "condition_number": 24.044808344490608,
+    "iterations": 2,
+    "warnings": "",
+    "substantive_vif": {
+      "distance": 3.468976657027208,
+      "spec_score": 11.870331791675415
+    },
+    "scaling": [
+      {
+        "predictor": "distance",
+        "mean": 0.4245677718915551,
+        "sd": 0.14187688806306564
+      },
+      {
+        "predictor": "spec_score",
+        "mean": -0.029359073772503234,
+        "sd": 0.9522766193721591
+      }
+    ],
+    "coding": "Treatment indicators, intercept; cohort-row z scores (ddof=0); positive subset retains full-cohort scaling",
+    "covariance": "prompt-clustered sandwich; working independence"
+  },
+  {
+    "fit": "pooled_single_distance",
+    "outcome": "binary",
+    "n": 32090,
+    "n_prompts": 313,
+    "n_languages": 13,
+    "n_models": 8,
+    "converged": true,
+    "covariance_min_eigenvalue": 0.00013150693921067688,
+    "valid": true,
+    "condition_number": 15.23323558765159,
+    "iterations": 2,
+    "warnings": "",
+    "substantive_vif": {
+      "distance": 1.4541317527869007
+    },
+    "scaling": [
+      {
+        "predictor": "distance",
+        "mean": 0.4245677718915551,
+        "sd": 0.14187688806306564
+      }
+    ],
+    "coding": "Treatment indicators, intercept; cohort-row z scores (ddof=0); positive subset retains full-cohort scaling",
+    "covariance": "prompt-clustered sandwich; working independence"
+  },
+  {
+    "fit": "pooled_single_distance",
+    "outcome": "score",
+    "n": 32090,
+    "n_prompts": 313,
+    "n_languages": 13,
+    "n_models": 8,
+    "converged": true,
+    "covariance_min_eigenvalue": 6.377242892661073e-05,
+    "valid": true,
+    "condition_number": 15.23323558765159,
+    "iterations": 2,
+    "warnings": "",
+    "substantive_vif": {
+      "distance": 1.4541317527869007
+    },
+    "scaling": [
+      {
+        "predictor": "distance",
+        "mean": 0.4245677718915551,
+        "sd": 0.14187688806306564
+      }
+    ],
+    "coding": "Treatment indicators, intercept; cohort-row z scores (ddof=0); positive subset retains full-cohort scaling",
+    "covariance": "prompt-clustered sandwich; working independence"
+  },
+  {
+    "fit": "pooled_single_distance",
+    "outcome": "positive_score",
+    "n": 11274,
+    "n_prompts": 313,
+    "n_languages": 13,
+    "n_models": 8,
+    "converged": true,
+    "covariance_min_eigenvalue": 5.2100450999199553e-05,
+    "valid": true,
+    "condition_number": 23.13546107193866,
+    "iterations": 2,
+    "warnings": "",
+    "substantive_vif": {
+      "distance": 1.4824379960031417
+    },
+    "scaling": [
+      {
+        "predictor": "distance",
+        "mean": 0.4245677718915551,
+        "sd": 0.14187688806306564
+      }
+    ],
+    "coding": "Treatment indicators, intercept; cohort-row z scores (ddof=0); positive subset retains full-cohort scaling",
+    "covariance": "prompt-clustered sandwich; working independence"
+  },
+  {
+    "fit": "pooled_single_spec_score",
+    "outcome": "binary",
+    "n": 32090,
+    "n_prompts": 313,
+    "n_languages": 13,
+    "n_models": 8,
+    "converged": true,
+    "covariance_min_eigenvalue": 0.0003102171515573922,
+    "valid": true,
+    "condition_number": 15.317349958138617,
+    "iterations": 2,
+    "warnings": "",
+    "substantive_vif": {
+      "spec_score": 7.993377302007756
+    },
+    "scaling": [
+      {
+        "predictor": "spec_score",
+        "mean": -0.029359073772503234,
+        "sd": 0.9522766193721591
+      }
+    ],
+    "coding": "Treatment indicators, intercept; cohort-row z scores (ddof=0); positive subset retains full-cohort scaling",
+    "covariance": "prompt-clustered sandwich; working independence"
+  },
+  {
+    "fit": "pooled_single_spec_score",
+    "outcome": "score",
+    "n": 32090,
+    "n_prompts": 313,
+    "n_languages": 13,
+    "n_models": 8,
+    "converged": true,
+    "covariance_min_eigenvalue": 0.0002470729932375333,
+    "valid": true,
+    "condition_number": 15.317349958138617,
+    "iterations": 2,
+    "warnings": "",
+    "substantive_vif": {
+      "spec_score": 7.993377302007756
+    },
+    "scaling": [
+      {
+        "predictor": "spec_score",
+        "mean": -0.029359073772503234,
+        "sd": 0.9522766193721591
+      }
+    ],
+    "coding": "Treatment indicators, intercept; cohort-row z scores (ddof=0); positive subset retains full-cohort scaling",
+    "covariance": "prompt-clustered sandwich; working independence"
+  },
+  {
+    "fit": "pooled_single_spec_score",
+    "outcome": "positive_score",
+    "n": 11274,
+    "n_prompts": 313,
+    "n_languages": 13,
+    "n_models": 8,
+    "converged": true,
+    "covariance_min_eigenvalue": 0.00012585607567248212,
+    "valid": true,
+    "condition_number": 22.26631384327529,
+    "iterations": 2,
+    "warnings": "",
+    "substantive_vif": {
+      "spec_score": 5.072686447023854
+    },
+    "scaling": [
+      {
+        "predictor": "spec_score",
+        "mean": -0.029359073772503234,
+        "sd": 0.9522766193721591
+      }
+    ],
+    "coding": "Treatment indicators, intercept; cohort-row z scores (ddof=0); positive subset retains full-cohort scaling",
+    "covariance": "prompt-clustered sandwich; working independence"
+  },
+  {
+    "fit": "weak",
+    "outcome": "binary",
+    "n": 16078,
+    "n_prompts": 313,
+    "n_languages": 13,
+    "n_models": 4,
+    "converged": true,
+    "covariance_min_eigenvalue": 0.00030222566875761356,
+    "valid": true,
+    "condition_number": 17.654297276351848,
+    "iterations": 2,
+    "warnings": "",
+    "substantive_vif": {
+      "distance": 2.8927879203828133,
+      "spec_score": 7.519395036174834
+    },
+    "scaling": [
+      {
+        "predictor": "distance",
+        "mean": 0.42469434631173036,
+        "sd": 0.14175420689362728
+      },
+      {
+        "predictor": "spec_score",
+        "mean": -0.6922431219196019,
+        "sd": 0.7887413871306831
+      }
+    ],
+    "coding": "Treatment indicators, intercept; cohort-row z scores (ddof=0); positive subset retains full-cohort scaling",
+    "covariance": "prompt-clustered sandwich; working independence"
+  },
+  {
+    "fit": "weak",
+    "outcome": "score",
+    "n": 16078,
+    "n_prompts": 313,
+    "n_languages": 13,
+    "n_models": 4,
+    "converged": true,
+    "covariance_min_eigenvalue": 9.015793392360457e-05,
+    "valid": true,
+    "condition_number": 17.654297276351848,
+    "iterations": 2,
+    "warnings": "",
+    "substantive_vif": {
+      "distance": 2.8927879203828133,
+      "spec_score": 7.519395036174834
+    },
+    "scaling": [
+      {
+        "predictor": "distance",
+        "mean": 0.42469434631173036,
+        "sd": 0.14175420689362728
+      },
+      {
+        "predictor": "spec_score",
+        "mean": -0.6922431219196019,
+        "sd": 0.7887413871306831
+      }
+    ],
+    "coding": "Treatment indicators, intercept; cohort-row z scores (ddof=0); positive subset retains full-cohort scaling",
+    "covariance": "prompt-clustered sandwich; working independence"
+  },
+  {
+    "fit": "weak",
+    "outcome": "positive_score",
+    "n": 8649,
+    "n_prompts": 313,
+    "n_languages": 13,
+    "n_models": 4,
+    "converged": true,
+    "covariance_min_eigenvalue": 5.534698035535114e-05,
+    "valid": true,
+    "condition_number": 29.771819205827722,
+    "iterations": 2,
+    "warnings": "",
+    "substantive_vif": {
+      "distance": 3.947234249627962,
+      "spec_score": 11.728418048648482
+    },
+    "scaling": [
+      {
+        "predictor": "distance",
+        "mean": 0.42469434631173036,
+        "sd": 0.14175420689362728
+      },
+      {
+        "predictor": "spec_score",
+        "mean": -0.6922431219196019,
+        "sd": 0.7887413871306831
+      }
+    ],
+    "coding": "Treatment indicators, intercept; cohort-row z scores (ddof=0); positive subset retains full-cohort scaling",
+    "covariance": "prompt-clustered sandwich; working independence"
+  },
+  {
+    "fit": "weak_single_distance",
+    "outcome": "binary",
+    "n": 16078,
+    "n_prompts": 313,
+    "n_languages": 13,
+    "n_models": 4,
+    "converged": true,
+    "covariance_min_eigenvalue": 0.0003685652705501992,
+    "valid": true,
+    "condition_number": 15.739620016915751,
+    "iterations": 2,
+    "warnings": "",
+    "substantive_vif": {
+      "distance": 1.4505024341735862
+    },
+    "scaling": [
+      {
+        "predictor": "distance",
+        "mean": 0.42469434631173036,
+        "sd": 0.14175420689362728
+      }
+    ],
+    "coding": "Treatment indicators, intercept; cohort-row z scores (ddof=0); positive subset retains full-cohort scaling",
+    "covariance": "prompt-clustered sandwich; working independence"
+  },
+  {
+    "fit": "weak_single_distance",
+    "outcome": "score",
+    "n": 16078,
+    "n_prompts": 313,
+    "n_languages": 13,
+    "n_models": 4,
+    "converged": true,
+    "covariance_min_eigenvalue": 0.00010192174379153187,
+    "valid": true,
+    "condition_number": 15.739620016915751,
+    "iterations": 2,
+    "warnings": "",
+    "substantive_vif": {
+      "distance": 1.4505024341735862
+    },
+    "scaling": [
+      {
+        "predictor": "distance",
+        "mean": 0.42469434631173036,
+        "sd": 0.14175420689362728
+      }
+    ],
+    "coding": "Treatment indicators, intercept; cohort-row z scores (ddof=0); positive subset retains full-cohort scaling",
+    "covariance": "prompt-clustered sandwich; working independence"
+  },
+  {
+    "fit": "weak_single_distance",
+    "outcome": "positive_score",
+    "n": 8649,
+    "n_prompts": 313,
+    "n_languages": 13,
+    "n_models": 4,
+    "converged": true,
+    "covariance_min_eigenvalue": 6.10950850387852e-05,
+    "valid": true,
+    "condition_number": 24.898426460061106,
+    "iterations": 2,
+    "warnings": "",
+    "substantive_vif": {
+      "distance": 1.5785117635294175
+    },
+    "scaling": [
+      {
+        "predictor": "distance",
+        "mean": 0.42469434631173036,
+        "sd": 0.14175420689362728
+      }
+    ],
+    "coding": "Treatment indicators, intercept; cohort-row z scores (ddof=0); positive subset retains full-cohort scaling",
+    "covariance": "prompt-clustered sandwich; working independence"
+  },
+  {
+    "fit": "weak_single_spec_score",
+    "outcome": "binary",
+    "n": 16078,
+    "n_prompts": 313,
+    "n_languages": 13,
+    "n_models": 4,
+    "converged": true,
+    "covariance_min_eigenvalue": 0.0005055790574963361,
+    "valid": true,
+    "condition_number": 16.043135027712054,
+    "iterations": 2,
+    "warnings": "",
+    "substantive_vif": {
+      "spec_score": 3.770376917931754
+    },
+    "scaling": [
+      {
+        "predictor": "spec_score",
+        "mean": -0.6922431219196019,
+        "sd": 0.7887413871306831
+      }
+    ],
+    "coding": "Treatment indicators, intercept; cohort-row z scores (ddof=0); positive subset retains full-cohort scaling",
+    "covariance": "prompt-clustered sandwich; working independence"
+  },
+  {
+    "fit": "weak_single_spec_score",
+    "outcome": "score",
+    "n": 16078,
+    "n_prompts": 313,
+    "n_languages": 13,
+    "n_models": 4,
+    "converged": true,
+    "covariance_min_eigenvalue": 0.00021996517901787748,
+    "valid": true,
+    "condition_number": 16.043135027712054,
+    "iterations": 2,
+    "warnings": "",
+    "substantive_vif": {
+      "spec_score": 3.770376917931754
+    },
+    "scaling": [
+      {
+        "predictor": "spec_score",
+        "mean": -0.6922431219196019,
+        "sd": 0.7887413871306831
+      }
+    ],
+    "coding": "Treatment indicators, intercept; cohort-row z scores (ddof=0); positive subset retains full-cohort scaling",
+    "covariance": "prompt-clustered sandwich; working independence"
+  },
+  {
+    "fit": "weak_single_spec_score",
+    "outcome": "positive_score",
+    "n": 8649,
+    "n_prompts": 313,
+    "n_languages": 13,
+    "n_models": 4,
+    "converged": true,
+    "covariance_min_eigenvalue": 0.00011715547591625874,
+    "valid": true,
+    "condition_number": 26.331377439687262,
+    "iterations": 2,
+    "warnings": "",
+    "substantive_vif": {
+      "spec_score": 4.690232371977425
+    },
+    "scaling": [
+      {
+        "predictor": "spec_score",
+        "mean": -0.6922431219196019,
+        "sd": 0.7887413871306831
+      }
+    ],
+    "coding": "Treatment indicators, intercept; cohort-row z scores (ddof=0); positive subset retains full-cohort scaling",
+    "covariance": "prompt-clustered sandwich; working independence"
+  },
+  {
+    "fit": "strong",
+    "outcome": "binary",
+    "n": 16012,
+    "n_prompts": 313,
+    "n_languages": 13,
+    "n_models": 4,
+    "converged": true,
+    "covariance_min_eigenvalue": 0.0002392466105681445,
+    "valid": true,
+    "condition_number": 18.31652053270059,
+    "iterations": 2,
+    "warnings": "",
+    "substantive_vif": {
+      "distance": 2.9081509779600334,
+      "spec_score": 14.932899009885407
+    },
+    "scaling": [
+      {
+        "predictor": "distance",
+        "mean": 0.4244406757431926,
+        "sd": 0.14199985474308677
+      },
+      {
+        "predictor": "spec_score",
+        "mean": 0.6362573218126237,
+        "sd": 0.5553831538822859
+      }
+    ],
+    "coding": "Treatment indicators, intercept; cohort-row z scores (ddof=0); positive subset retains full-cohort scaling",
+    "covariance": "prompt-clustered sandwich; working independence"
+  },
+  {
+    "fit": "strong",
+    "outcome": "score",
+    "n": 16012,
+    "n_prompts": 313,
+    "n_languages": 13,
+    "n_models": 4,
+    "converged": true,
+    "covariance_min_eigenvalue": 0.00019532382403520575,
+    "valid": true,
+    "condition_number": 18.31652053270059,
+    "iterations": 2,
+    "warnings": "",
+    "substantive_vif": {
+      "distance": 2.9081509779600334,
+      "spec_score": 14.932899009885407
+    },
+    "scaling": [
+      {
+        "predictor": "distance",
+        "mean": 0.4244406757431926,
+        "sd": 0.14199985474308677
+      },
+      {
+        "predictor": "spec_score",
+        "mean": 0.6362573218126237,
+        "sd": 0.5553831538822859
+      }
+    ],
+    "coding": "Treatment indicators, intercept; cohort-row z scores (ddof=0); positive subset retains full-cohort scaling",
+    "covariance": "prompt-clustered sandwich; working independence"
+  },
+  {
+    "fit": "strong",
+    "outcome": "positive_score",
+    "n": 2625,
+    "n_prompts": 307,
+    "n_languages": 13,
+    "n_models": 4,
+    "converged": true,
+    "covariance_min_eigenvalue": 0.00016523490889647428,
+    "valid": true,
+    "condition_number": 21.660188778285,
+    "iterations": 2,
+    "warnings": "",
+    "substantive_vif": {
+      "distance": 5.020922935239167,
+      "spec_score": 13.755246415940034
+    },
+    "scaling": [
+      {
+        "predictor": "distance",
+        "mean": 0.4244406757431926,
+        "sd": 0.14199985474308677
+      },
+      {
+        "predictor": "spec_score",
+        "mean": 0.6362573218126237,
+        "sd": 0.5553831538822859
+      }
+    ],
+    "coding": "Treatment indicators, intercept; cohort-row z scores (ddof=0); positive subset retains full-cohort scaling",
+    "covariance": "prompt-clustered sandwich; working independence"
+  },
+  {
+    "fit": "strong_single_distance",
+    "outcome": "binary",
+    "n": 16012,
+    "n_prompts": 313,
+    "n_languages": 13,
+    "n_models": 4,
+    "converged": true,
+    "covariance_min_eigenvalue": 0.00024399216935442497,
+    "valid": true,
+    "condition_number": 15.742218772693434,
+    "iterations": 2,
+    "warnings": "",
+    "substantive_vif": {
+      "distance": 1.4580014456591655
+    },
+    "scaling": [
+      {
+        "predictor": "distance",
+        "mean": 0.4244406757431926,
+        "sd": 0.14199985474308677
+      }
+    ],
+    "coding": "Treatment indicators, intercept; cohort-row z scores (ddof=0); positive subset retains full-cohort scaling",
+    "covariance": "prompt-clustered sandwich; working independence"
+  },
+  {
+    "fit": "strong_single_distance",
+    "outcome": "score",
+    "n": 16012,
+    "n_prompts": 313,
+    "n_languages": 13,
+    "n_models": 4,
+    "converged": true,
+    "covariance_min_eigenvalue": 0.00019748123986141684,
+    "valid": true,
+    "condition_number": 15.742218772693434,
+    "iterations": 2,
+    "warnings": "",
+    "substantive_vif": {
+      "distance": 1.4580014456591655
+    },
+    "scaling": [
+      {
+        "predictor": "distance",
+        "mean": 0.4244406757431926,
+        "sd": 0.14199985474308677
+      }
+    ],
+    "coding": "Treatment indicators, intercept; cohort-row z scores (ddof=0); positive subset retains full-cohort scaling",
+    "covariance": "prompt-clustered sandwich; working independence"
+  },
+  {
+    "fit": "strong_single_distance",
+    "outcome": "positive_score",
+    "n": 2625,
+    "n_prompts": 307,
+    "n_languages": 13,
+    "n_models": 4,
+    "converged": true,
+    "covariance_min_eigenvalue": 0.00019540788362573265,
+    "valid": true,
+    "condition_number": 19.963298376414755,
+    "iterations": 2,
+    "warnings": "",
+    "substantive_vif": {
+      "distance": 2.236534268210065
+    },
+    "scaling": [
+      {
+        "predictor": "distance",
+        "mean": 0.4244406757431926,
+        "sd": 0.14199985474308677
+      }
+    ],
+    "coding": "Treatment indicators, intercept; cohort-row z scores (ddof=0); positive subset retains full-cohort scaling",
+    "covariance": "prompt-clustered sandwich; working independence"
+  },
+  {
+    "fit": "strong_single_spec_score",
+    "outcome": "binary",
+    "n": 16012,
+    "n_prompts": 313,
+    "n_languages": 13,
+    "n_models": 4,
+    "converged": true,
+    "covariance_min_eigenvalue": 0.0006222140279125776,
+    "valid": true,
+    "condition_number": 16.1509596239957,
+    "iterations": 2,
+    "warnings": "",
+    "substantive_vif": {
+      "spec_score": 7.48660867654331
+    },
+    "scaling": [
+      {
+        "predictor": "spec_score",
+        "mean": 0.6362573218126237,
+        "sd": 0.5553831538822859
+      }
+    ],
+    "coding": "Treatment indicators, intercept; cohort-row z scores (ddof=0); positive subset retains full-cohort scaling",
+    "covariance": "prompt-clustered sandwich; working independence"
+  },
+  {
+    "fit": "strong_single_spec_score",
+    "outcome": "score",
+    "n": 16012,
+    "n_prompts": 313,
+    "n_languages": 13,
+    "n_models": 4,
+    "converged": true,
+    "covariance_min_eigenvalue": 0.0005255901029606327,
+    "valid": true,
+    "condition_number": 16.1509596239957,
+    "iterations": 2,
+    "warnings": "",
+    "substantive_vif": {
+      "spec_score": 7.48660867654331
+    },
+    "scaling": [
+      {
+        "predictor": "spec_score",
+        "mean": 0.6362573218126237,
+        "sd": 0.5553831538822859
+      }
+    ],
+    "coding": "Treatment indicators, intercept; cohort-row z scores (ddof=0); positive subset retains full-cohort scaling",
+    "covariance": "prompt-clustered sandwich; working independence"
+  },
+  {
+    "fit": "strong_single_spec_score",
+    "outcome": "positive_score",
+    "n": 2625,
+    "n_prompts": 307,
+    "n_languages": 13,
+    "n_models": 4,
+    "converged": true,
+    "covariance_min_eigenvalue": 0.0003162468693180516,
+    "valid": true,
+    "condition_number": 20.436669256204713,
+    "iterations": 2,
+    "warnings": "",
+    "substantive_vif": {
+      "spec_score": 6.127176292829909
+    },
+    "scaling": [
+      {
+        "predictor": "spec_score",
+        "mean": 0.6362573218126237,
+        "sd": 0.5553831538822859
+      }
+    ],
+    "coding": "Treatment indicators, intercept; cohort-row z scores (ddof=0); positive subset retains full-cohort scaling",
+    "covariance": "prompt-clustered sandwich; working independence"
+  },
+  {
+    "fit": "non_aligned",
+    "outcome": "binary",
+    "n": 29598,
+    "n_prompts": 313,
+    "n_languages": 13,
+    "n_models": 8,
+    "converged": true,
+    "covariance_min_eigenvalue": 0.0001337183690907801,
+    "valid": true,
+    "condition_number": 16.743271779959247,
+    "iterations": 2,
+    "warnings": "",
+    "substantive_vif": {
+      "distance": 1.9621935212120551,
+      "spec_score": 14.232442767817556
+    },
+    "scaling": [
+      {
+        "predictor": "distance",
+        "mean": 0.4603142036624097,
+        "sd": 0.07327498970856981
+      },
+      {
+        "predictor": "spec_score",
+        "mean": -0.09809293113299253,
+        "sd": 0.9477157725814178
+      }
+    ],
+    "coding": "Treatment indicators, intercept; cohort-row z scores (ddof=0); positive subset retains full-cohort scaling",
+    "covariance": "prompt-clustered sandwich; working independence"
+  },
+  {
+    "fit": "non_aligned",
+    "outcome": "score",
+    "n": 29598,
+    "n_prompts": 313,
+    "n_languages": 13,
+    "n_models": 8,
+    "converged": true,
+    "covariance_min_eigenvalue": 7.510323076112839e-05,
+    "valid": true,
+    "condition_number": 16.743271779959247,
+    "iterations": 2,
+    "warnings": "",
+    "substantive_vif": {
+      "distance": 1.9621935212120551,
+      "spec_score": 14.232442767817556
+    },
+    "scaling": [
+      {
+        "predictor": "distance",
+        "mean": 0.4603142036624097,
+        "sd": 0.07327498970856981
+      },
+      {
+        "predictor": "spec_score",
+        "mean": -0.09809293113299253,
+        "sd": 0.9477157725814178
+      }
+    ],
+    "coding": "Treatment indicators, intercept; cohort-row z scores (ddof=0); positive subset retains full-cohort scaling",
+    "covariance": "prompt-clustered sandwich; working independence"
+  },
+  {
+    "fit": "non_aligned",
+    "outcome": "positive_score",
+    "n": 10016,
+    "n_prompts": 313,
+    "n_languages": 13,
+    "n_models": 8,
+    "converged": true,
+    "covariance_min_eigenvalue": 6.424140493713996e-05,
+    "valid": true,
+    "condition_number": 24.124273504679525,
+    "iterations": 2,
+    "warnings": "",
+    "substantive_vif": {
+      "distance": 1.6621673982723286,
+      "spec_score": 12.070030170432208
+    },
+    "scaling": [
+      {
+        "predictor": "distance",
+        "mean": 0.4603142036624097,
+        "sd": 0.07327498970856981
+      },
+      {
+        "predictor": "spec_score",
+        "mean": -0.09809293113299253,
+        "sd": 0.9477157725814178
+      }
+    ],
+    "coding": "Treatment indicators, intercept; cohort-row z scores (ddof=0); positive subset retains full-cohort scaling",
+    "covariance": "prompt-clustered sandwich; working independence"
+  },
+  {
+    "fit": "non_aligned_single_distance",
+    "outcome": "binary",
+    "n": 29598,
+    "n_prompts": 313,
+    "n_languages": 13,
+    "n_models": 8,
+    "converged": true,
+    "covariance_min_eigenvalue": 0.00014233496256238032,
+    "valid": true,
+    "condition_number": 15.53333277166472,
+    "iterations": 2,
+    "warnings": "",
+    "substantive_vif": {
+      "distance": 1.7867258106440813
+    },
+    "scaling": [
+      {
+        "predictor": "distance",
+        "mean": 0.4603142036624097,
+        "sd": 0.07327498970856981
+      }
+    ],
+    "coding": "Treatment indicators, intercept; cohort-row z scores (ddof=0); positive subset retains full-cohort scaling",
+    "covariance": "prompt-clustered sandwich; working independence"
+  },
+  {
+    "fit": "non_aligned_single_distance",
+    "outcome": "score",
+    "n": 29598,
+    "n_prompts": 313,
+    "n_languages": 13,
+    "n_models": 8,
+    "converged": true,
+    "covariance_min_eigenvalue": 7.779466903281905e-05,
+    "valid": true,
+    "condition_number": 15.53333277166472,
+    "iterations": 2,
+    "warnings": "",
+    "substantive_vif": {
+      "distance": 1.7867258106440813
+    },
+    "scaling": [
+      {
+        "predictor": "distance",
+        "mean": 0.4603142036624097,
+        "sd": 0.07327498970856981
+      }
+    ],
+    "coding": "Treatment indicators, intercept; cohort-row z scores (ddof=0); positive subset retains full-cohort scaling",
+    "covariance": "prompt-clustered sandwich; working independence"
+  },
+  {
+    "fit": "non_aligned_single_distance",
+    "outcome": "positive_score",
+    "n": 10016,
+    "n_prompts": 313,
+    "n_languages": 13,
+    "n_models": 8,
+    "converged": true,
+    "covariance_min_eigenvalue": 6.564564075670305e-05,
+    "valid": true,
+    "condition_number": 22.044854751819404,
+    "iterations": 2,
+    "warnings": "",
+    "substantive_vif": {
+      "distance": 1.554619575460195
+    },
+    "scaling": [
+      {
+        "predictor": "distance",
+        "mean": 0.4603142036624097,
+        "sd": 0.07327498970856981
+      }
+    ],
+    "coding": "Treatment indicators, intercept; cohort-row z scores (ddof=0); positive subset retains full-cohort scaling",
+    "covariance": "prompt-clustered sandwich; working independence"
+  },
+  {
+    "fit": "non_aligned_single_spec_score",
+    "outcome": "binary",
+    "n": 29598,
+    "n_prompts": 313,
+    "n_languages": 13,
+    "n_models": 8,
+    "converged": true,
+    "covariance_min_eigenvalue": 0.00033201589189850645,
+    "valid": true,
+    "condition_number": 15.23345078763007,
+    "iterations": 2,
+    "warnings": "",
+    "substantive_vif": {
+      "spec_score": 12.959717054854476
+    },
+    "scaling": [
+      {
+        "predictor": "spec_score",
+        "mean": -0.09809293113299253,
+        "sd": 0.9477157725814178
+      }
+    ],
+    "coding": "Treatment indicators, intercept; cohort-row z scores (ddof=0); positive subset retains full-cohort scaling",
+    "covariance": "prompt-clustered sandwich; working independence"
+  },
+  {
+    "fit": "non_aligned_single_spec_score",
+    "outcome": "score",
+    "n": 29598,
+    "n_prompts": 313,
+    "n_languages": 13,
+    "n_models": 8,
+    "converged": true,
+    "covariance_min_eigenvalue": 0.0002810505796927115,
+    "valid": true,
+    "condition_number": 15.23345078763007,
+    "iterations": 2,
+    "warnings": "",
+    "substantive_vif": {
+      "spec_score": 12.959717054854476
+    },
+    "scaling": [
+      {
+        "predictor": "spec_score",
+        "mean": -0.09809293113299253,
+        "sd": 0.9477157725814178
+      }
+    ],
+    "coding": "Treatment indicators, intercept; cohort-row z scores (ddof=0); positive subset retains full-cohort scaling",
+    "covariance": "prompt-clustered sandwich; working independence"
+  },
+  {
+    "fit": "non_aligned_single_spec_score",
+    "outcome": "positive_score",
+    "n": 10016,
+    "n_prompts": 313,
+    "n_languages": 13,
+    "n_models": 8,
+    "converged": true,
+    "covariance_min_eigenvalue": 0.00013736951183974136,
+    "valid": true,
+    "condition_number": 22.842134069759926,
+    "iterations": 2,
+    "warnings": "",
+    "substantive_vif": {
+      "spec_score": 11.289058610374033
+    },
+    "scaling": [
+      {
+        "predictor": "spec_score",
+        "mean": -0.09809293113299253,
+        "sd": 0.9477157725814178
+      }
+    ],
+    "coding": "Treatment indicators, intercept; cohort-row z scores (ddof=0); positive subset retains full-cohort scaling",
+    "covariance": "prompt-clustered sandwich; working independence"
+  },
+  {
+    "fit": "cons_at_least_100",
+    "outcome": "binary",
+    "n": 28075,
+    "n_prompts": 313,
+    "n_languages": 13,
+    "n_models": 7,
+    "converged": true,
+    "covariance_min_eigenvalue": 0.00019034099098941672,
+    "valid": true,
+    "condition_number": 17.139714603958026,
+    "iterations": 2,
+    "warnings": "",
+    "substantive_vif": {
+      "distance": 2.569940636778411,
+      "spec_score": 13.380641794402004
+    },
+    "scaling": [
+      {
+        "predictor": "distance",
+        "mean": 0.42257101691896704,
+        "sd": 0.14152723116309948
+      },
+      {
+        "predictor": "spec_score",
+        "mean": 0.14530584949838163,
+        "sd": 0.8664239294748531
+      }
+    ],
+    "coding": "Treatment indicators, intercept; cohort-row z scores (ddof=0); positive subset retains full-cohort scaling",
+    "covariance": "prompt-clustered sandwich; working independence"
+  },
+  {
+    "fit": "cons_at_least_100",
+    "outcome": "score",
+    "n": 28075,
+    "n_prompts": 313,
+    "n_languages": 13,
+    "n_models": 7,
+    "converged": true,
+    "covariance_min_eigenvalue": 0.00010267918280643135,
+    "valid": true,
+    "condition_number": 17.139714603958026,
+    "iterations": 2,
+    "warnings": "",
+    "substantive_vif": {
+      "distance": 2.569940636778411,
+      "spec_score": 13.380641794402004
+    },
+    "scaling": [
+      {
+        "predictor": "distance",
+        "mean": 0.42257101691896704,
+        "sd": 0.14152723116309948
+      },
+      {
+        "predictor": "spec_score",
+        "mean": 0.14530584949838163,
+        "sd": 0.8664239294748531
+      }
+    ],
+    "coding": "Treatment indicators, intercept; cohort-row z scores (ddof=0); positive subset retains full-cohort scaling",
+    "covariance": "prompt-clustered sandwich; working independence"
+  },
+  {
+    "fit": "cons_at_least_100",
+    "outcome": "positive_score",
+    "n": 9227,
+    "n_prompts": 313,
+    "n_languages": 13,
+    "n_models": 7,
+    "converged": true,
+    "covariance_min_eigenvalue": 5.932998688327803e-05,
+    "valid": true,
+    "condition_number": 26.40014667855588,
+    "iterations": 2,
+    "warnings": "",
+    "substantive_vif": {
+      "distance": 5.064346765867498,
+      "spec_score": 14.581146497261567
+    },
+    "scaling": [
+      {
+        "predictor": "distance",
+        "mean": 0.42257101691896704,
+        "sd": 0.14152723116309948
+      },
+      {
+        "predictor": "spec_score",
+        "mean": 0.14530584949838163,
+        "sd": 0.8664239294748531
+      }
+    ],
+    "coding": "Treatment indicators, intercept; cohort-row z scores (ddof=0); positive subset retains full-cohort scaling",
+    "covariance": "prompt-clustered sandwich; working independence"
+  },
+  {
+    "fit": "cons_at_least_100_single_distance",
+    "outcome": "binary",
+    "n": 28075,
+    "n_prompts": 313,
+    "n_languages": 13,
+    "n_models": 7,
+    "converged": true,
+    "covariance_min_eigenvalue": 0.0001516202047476893,
+    "valid": true,
+    "condition_number": 15.337086856617425,
+    "iterations": 2,
+    "warnings": "",
+    "substantive_vif": {
+      "distance": 1.4488383272515941
+    },
+    "scaling": [
+      {
+        "predictor": "distance",
+        "mean": 0.42257101691896704,
+        "sd": 0.14152723116309948
+      }
+    ],
+    "coding": "Treatment indicators, intercept; cohort-row z scores (ddof=0); positive subset retains full-cohort scaling",
+    "covariance": "prompt-clustered sandwich; working independence"
+  },
+  {
+    "fit": "cons_at_least_100_single_distance",
+    "outcome": "score",
+    "n": 28075,
+    "n_prompts": 313,
+    "n_languages": 13,
+    "n_models": 7,
+    "converged": true,
+    "covariance_min_eigenvalue": 7.981380924716227e-05,
+    "valid": true,
+    "condition_number": 15.337086856617425,
+    "iterations": 2,
+    "warnings": "",
+    "substantive_vif": {
+      "distance": 1.4488383272515941
+    },
+    "scaling": [
+      {
+        "predictor": "distance",
+        "mean": 0.42257101691896704,
+        "sd": 0.14152723116309948
+      }
+    ],
+    "coding": "Treatment indicators, intercept; cohort-row z scores (ddof=0); positive subset retains full-cohort scaling",
+    "covariance": "prompt-clustered sandwich; working independence"
+  },
+  {
+    "fit": "cons_at_least_100_single_distance",
+    "outcome": "positive_score",
+    "n": 9227,
+    "n_prompts": 313,
+    "n_languages": 13,
+    "n_models": 7,
+    "converged": true,
+    "covariance_min_eigenvalue": 6.546634208184398e-05,
+    "valid": true,
+    "condition_number": 23.26593386317218,
+    "iterations": 2,
+    "warnings": "",
+    "substantive_vif": {
+      "distance": 1.5756319014202407
+    },
+    "scaling": [
+      {
+        "predictor": "distance",
+        "mean": 0.42257101691896704,
+        "sd": 0.14152723116309948
+      }
+    ],
+    "coding": "Treatment indicators, intercept; cohort-row z scores (ddof=0); positive subset retains full-cohort scaling",
+    "covariance": "prompt-clustered sandwich; working independence"
+  },
+  {
+    "fit": "cons_at_least_100_single_spec_score",
+    "outcome": "binary",
+    "n": 28075,
+    "n_prompts": 313,
+    "n_languages": 13,
+    "n_models": 7,
+    "converged": true,
+    "covariance_min_eigenvalue": 0.00036205401809668366,
+    "valid": true,
+    "condition_number": 15.731922295638801,
+    "iterations": 2,
+    "warnings": "",
+    "substantive_vif": {
+      "spec_score": 7.543515362772858
+    },
+    "scaling": [
+      {
+        "predictor": "spec_score",
+        "mean": 0.14530584949838163,
+        "sd": 0.8664239294748531
+      }
+    ],
+    "coding": "Treatment indicators, intercept; cohort-row z scores (ddof=0); positive subset retains full-cohort scaling",
+    "covariance": "prompt-clustered sandwich; working independence"
+  },
+  {
+    "fit": "cons_at_least_100_single_spec_score",
+    "outcome": "score",
+    "n": 28075,
+    "n_prompts": 313,
+    "n_languages": 13,
+    "n_models": 7,
+    "converged": true,
+    "covariance_min_eigenvalue": 0.00027388397025822077,
+    "valid": true,
+    "condition_number": 15.731922295638801,
+    "iterations": 2,
+    "warnings": "",
+    "substantive_vif": {
+      "spec_score": 7.543515362772858
+    },
+    "scaling": [
+      {
+        "predictor": "spec_score",
+        "mean": 0.14530584949838163,
+        "sd": 0.8664239294748531
+      }
+    ],
+    "coding": "Treatment indicators, intercept; cohort-row z scores (ddof=0); positive subset retains full-cohort scaling",
+    "covariance": "prompt-clustered sandwich; working independence"
+  },
+  {
+    "fit": "cons_at_least_100_single_spec_score",
+    "outcome": "positive_score",
+    "n": 9227,
+    "n_prompts": 313,
+    "n_languages": 13,
+    "n_models": 7,
+    "converged": true,
+    "covariance_min_eigenvalue": 0.00022702126626923886,
+    "valid": true,
+    "condition_number": 22.91099322955654,
+    "iterations": 2,
+    "warnings": "",
+    "substantive_vif": {
+      "spec_score": 4.536521814661275
+    },
+    "scaling": [
+      {
+        "predictor": "spec_score",
+        "mean": 0.14530584949838163,
+        "sd": 0.8664239294748531
+      }
+    ],
+    "coding": "Treatment indicators, intercept; cohort-row z scores (ddof=0); positive subset retains full-cohort scaling",
+    "covariance": "prompt-clustered sandwich; working independence"
+  },
+  {
+    "fit": "original_complete_cohort",
+    "outcome": "binary",
+    "n": 31778,
+    "n_prompts": 313,
+    "n_languages": 13,
+    "n_models": 8,
+    "converged": true,
+    "covariance_min_eigenvalue": 0.0001460324336061503,
+    "valid": true,
+    "condition_number": 16.6053251992087,
+    "iterations": 2,
+    "warnings": "",
+    "substantive_vif": {
+      "distance": 2.6355889596039828,
+      "spec_score": 15.733886493655984
+    },
+    "scaling": [
+      {
+        "predictor": "distance",
+        "mean": 0.42413644030461334,
+        "sd": 0.14250454472041998
+      },
+      {
+        "predictor": "spec_score",
+        "mean": -0.026641767699849613,
+        "sd": 0.9565430931033085
+      }
+    ],
+    "coding": "Treatment indicators, intercept; cohort-row z scores (ddof=0); positive subset retains full-cohort scaling",
+    "covariance": "prompt-clustered sandwich; working independence"
+  },
+  {
+    "fit": "original_complete_cohort",
+    "outcome": "score",
+    "n": 31778,
+    "n_prompts": 313,
+    "n_languages": 13,
+    "n_models": 8,
+    "converged": true,
+    "covariance_min_eigenvalue": 6.990883103427037e-05,
+    "valid": true,
+    "condition_number": 16.6053251992087,
+    "iterations": 2,
+    "warnings": "",
+    "substantive_vif": {
+      "distance": 2.6355889596039828,
+      "spec_score": 15.733886493655984
+    },
+    "scaling": [
+      {
+        "predictor": "distance",
+        "mean": 0.42413644030461334,
+        "sd": 0.14250454472041998
+      },
+      {
+        "predictor": "spec_score",
+        "mean": -0.026641767699849613,
+        "sd": 0.9565430931033085
+      }
+    ],
+    "coding": "Treatment indicators, intercept; cohort-row z scores (ddof=0); positive subset retains full-cohort scaling",
+    "covariance": "prompt-clustered sandwich; working independence"
+  },
+  {
+    "fit": "original_complete_cohort",
+    "outcome": "positive_score",
+    "n": 11085,
+    "n_prompts": 313,
+    "n_languages": 13,
+    "n_models": 8,
+    "converged": true,
+    "covariance_min_eigenvalue": 5.080726347954338e-05,
+    "valid": true,
+    "condition_number": 24.434737240817395,
+    "iterations": 2,
+    "warnings": "",
+    "substantive_vif": {
+      "distance": 4.351510357105799,
+      "spec_score": 16.67944018781019
+    },
+    "scaling": [
+      {
+        "predictor": "distance",
+        "mean": 0.42413644030461334,
+        "sd": 0.14250454472041998
+      },
+      {
+        "predictor": "spec_score",
+        "mean": -0.026641767699849613,
+        "sd": 0.9565430931033085
+      }
+    ],
+    "coding": "Treatment indicators, intercept; cohort-row z scores (ddof=0); positive subset retains full-cohort scaling",
+    "covariance": "prompt-clustered sandwich; working independence"
+  },
+  {
+    "fit": "original_complete_cohort_single_distance",
+    "outcome": "binary",
+    "n": 31778,
+    "n_prompts": 313,
+    "n_languages": 13,
+    "n_models": 8,
+    "converged": true,
+    "covariance_min_eigenvalue": 0.00013105914459191566,
+    "valid": true,
+    "condition_number": 15.167051221455221,
+    "iterations": 2,
+    "warnings": "",
+    "substantive_vif": {
+      "distance": 1.4530264980534346
+    },
+    "scaling": [
+      {
+        "predictor": "distance",
+        "mean": 0.42413644030461334,
+        "sd": 0.14250454472041998
+      }
+    ],
+    "coding": "Treatment indicators, intercept; cohort-row z scores (ddof=0); positive subset retains full-cohort scaling",
+    "covariance": "prompt-clustered sandwich; working independence"
+  },
+  {
+    "fit": "original_complete_cohort_single_distance",
+    "outcome": "score",
+    "n": 31778,
+    "n_prompts": 313,
+    "n_languages": 13,
+    "n_models": 8,
+    "converged": true,
+    "covariance_min_eigenvalue": 6.442575514952484e-05,
+    "valid": true,
+    "condition_number": 15.167051221455221,
+    "iterations": 2,
+    "warnings": "",
+    "substantive_vif": {
+      "distance": 1.4530264980534346
+    },
+    "scaling": [
+      {
+        "predictor": "distance",
+        "mean": 0.42413644030461334,
+        "sd": 0.14250454472041998
+      }
+    ],
+    "coding": "Treatment indicators, intercept; cohort-row z scores (ddof=0); positive subset retains full-cohort scaling",
+    "covariance": "prompt-clustered sandwich; working independence"
+  },
+  {
+    "fit": "original_complete_cohort_single_distance",
+    "outcome": "positive_score",
+    "n": 11085,
+    "n_prompts": 313,
+    "n_languages": 13,
+    "n_models": 8,
+    "converged": true,
+    "covariance_min_eigenvalue": 5.3324873866426486e-05,
+    "valid": true,
+    "condition_number": 23.031446377214166,
+    "iterations": 2,
+    "warnings": "",
+    "substantive_vif": {
+      "distance": 1.478578109997052
+    },
+    "scaling": [
+      {
+        "predictor": "distance",
+        "mean": 0.42413644030461334,
+        "sd": 0.14250454472041998
+      }
+    ],
+    "coding": "Treatment indicators, intercept; cohort-row z scores (ddof=0); positive subset retains full-cohort scaling",
+    "covariance": "prompt-clustered sandwich; working independence"
+  },
+  {
+    "fit": "original_complete_cohort_single_spec_score",
+    "outcome": "binary",
+    "n": 31778,
+    "n_prompts": 313,
+    "n_languages": 13,
+    "n_models": 8,
+    "converged": true,
+    "covariance_min_eigenvalue": 0.0003100722032689958,
+    "valid": true,
+    "condition_number": 15.292736435272799,
+    "iterations": 2,
+    "warnings": "",
+    "substantive_vif": {
+      "spec_score": 8.67424865677161
+    },
+    "scaling": [
+      {
+        "predictor": "spec_score",
+        "mean": -0.026641767699849613,
+        "sd": 0.9565430931033085
+      }
+    ],
+    "coding": "Treatment indicators, intercept; cohort-row z scores (ddof=0); positive subset retains full-cohort scaling",
+    "covariance": "prompt-clustered sandwich; working independence"
+  },
+  {
+    "fit": "original_complete_cohort_single_spec_score",
+    "outcome": "score",
+    "n": 31778,
+    "n_prompts": 313,
+    "n_languages": 13,
+    "n_models": 8,
+    "converged": true,
+    "covariance_min_eigenvalue": 0.0002462836826337044,
+    "valid": true,
+    "condition_number": 15.292736435272799,
+    "iterations": 2,
+    "warnings": "",
+    "substantive_vif": {
+      "spec_score": 8.67424865677161
+    },
+    "scaling": [
+      {
+        "predictor": "spec_score",
+        "mean": -0.026641767699849613,
+        "sd": 0.9565430931033085
+      }
+    ],
+    "coding": "Treatment indicators, intercept; cohort-row z scores (ddof=0); positive subset retains full-cohort scaling",
+    "covariance": "prompt-clustered sandwich; working independence"
+  },
+  {
+    "fit": "original_complete_cohort_single_spec_score",
+    "outcome": "positive_score",
+    "n": 11085,
+    "n_prompts": 313,
+    "n_languages": 13,
+    "n_models": 8,
+    "converged": true,
+    "covariance_min_eigenvalue": 0.00012674303958923368,
+    "valid": true,
+    "condition_number": 22.16426184251817,
+    "iterations": 2,
+    "warnings": "",
+    "substantive_vif": {
+      "spec_score": 5.667424210177893
+    },
+    "scaling": [
+      {
+        "predictor": "spec_score",
+        "mean": -0.026641767699849613,
+        "sd": 0.9565430931033085
+      }
+    ],
+    "coding": "Treatment indicators, intercept; cohort-row z scores (ddof=0); positive subset retains full-cohort scaling",
+    "covariance": "prompt-clustered sandwich; working independence"
+  },
+  {
+    "fit": "questionable_items_removed",
+    "outcome": "binary",
+    "n": 32090,
+    "n_prompts": 313,
+    "n_languages": 13,
+    "n_models": 8,
+    "converged": true,
+    "covariance_min_eigenvalue": 0.00014741697549513016,
+    "valid": true,
+    "condition_number": 16.666612531997774,
+    "iterations": 2,
+    "warnings": "",
+    "substantive_vif": {
+      "distance": 2.4576985749406544,
+      "spec_score": 13.543948248843805
+    },
+    "scaling": [
+      {
+        "predictor": "distance",
+        "mean": 0.4245677718915551,
+        "sd": 0.14187688806306564
+      },
+      {
+        "predictor": "spec_score",
+        "mean": -0.02930301010351158,
+        "sd": 0.9524327718029452
+      }
+    ],
+    "coding": "Treatment indicators, intercept; cohort-row z scores (ddof=0); positive subset retains full-cohort scaling",
+    "covariance": "prompt-clustered sandwich; working independence"
+  },
+  {
+    "fit": "questionable_items_removed",
+    "outcome": "score",
+    "n": 32090,
+    "n_prompts": 313,
+    "n_languages": 13,
+    "n_models": 8,
+    "converged": true,
+    "covariance_min_eigenvalue": 6.848319898389441e-05,
+    "valid": true,
+    "condition_number": 16.666612531997774,
+    "iterations": 2,
+    "warnings": "",
+    "substantive_vif": {
+      "distance": 2.4576985749406544,
+      "spec_score": 13.543948248843805
+    },
+    "scaling": [
+      {
+        "predictor": "distance",
+        "mean": 0.4245677718915551,
+        "sd": 0.14187688806306564
+      },
+      {
+        "predictor": "spec_score",
+        "mean": -0.02930301010351158,
+        "sd": 0.9524327718029452
+      }
+    ],
+    "coding": "Treatment indicators, intercept; cohort-row z scores (ddof=0); positive subset retains full-cohort scaling",
+    "covariance": "prompt-clustered sandwich; working independence"
+  },
+  {
+    "fit": "questionable_items_removed",
+    "outcome": "positive_score",
+    "n": 11274,
+    "n_prompts": 313,
+    "n_languages": 13,
+    "n_models": 8,
+    "converged": true,
+    "covariance_min_eigenvalue": 5.034045878807405e-05,
+    "valid": true,
+    "condition_number": 24.041786595290528,
+    "iterations": 2,
+    "warnings": "",
+    "substantive_vif": {
+      "distance": 3.4711238564782056,
+      "spec_score": 11.884699301091157
+    },
+    "scaling": [
+      {
+        "predictor": "distance",
+        "mean": 0.4245677718915551,
+        "sd": 0.14187688806306564
+      },
+      {
+        "predictor": "spec_score",
+        "mean": -0.02930301010351158,
+        "sd": 0.9524327718029452
+      }
+    ],
+    "coding": "Treatment indicators, intercept; cohort-row z scores (ddof=0); positive subset retains full-cohort scaling",
+    "covariance": "prompt-clustered sandwich; working independence"
+  },
+  {
+    "fit": "questionable_items_removed_single_distance",
+    "outcome": "binary",
+    "n": 32090,
+    "n_prompts": 313,
+    "n_languages": 13,
+    "n_models": 8,
+    "converged": true,
+    "covariance_min_eigenvalue": 0.00013150693921067688,
+    "valid": true,
+    "condition_number": 15.23323558765159,
+    "iterations": 2,
+    "warnings": "",
+    "substantive_vif": {
+      "distance": 1.4541317527869007
+    },
+    "scaling": [
+      {
+        "predictor": "distance",
+        "mean": 0.4245677718915551,
+        "sd": 0.14187688806306564
+      }
+    ],
+    "coding": "Treatment indicators, intercept; cohort-row z scores (ddof=0); positive subset retains full-cohort scaling",
+    "covariance": "prompt-clustered sandwich; working independence"
+  },
+  {
+    "fit": "questionable_items_removed_single_distance",
+    "outcome": "score",
+    "n": 32090,
+    "n_prompts": 313,
+    "n_languages": 13,
+    "n_models": 8,
+    "converged": true,
+    "covariance_min_eigenvalue": 6.377242892661073e-05,
+    "valid": true,
+    "condition_number": 15.23323558765159,
+    "iterations": 2,
+    "warnings": "",
+    "substantive_vif": {
+      "distance": 1.4541317527869007
+    },
+    "scaling": [
+      {
+        "predictor": "distance",
+        "mean": 0.4245677718915551,
+        "sd": 0.14187688806306564
+      }
+    ],
+    "coding": "Treatment indicators, intercept; cohort-row z scores (ddof=0); positive subset retains full-cohort scaling",
+    "covariance": "prompt-clustered sandwich; working independence"
+  },
+  {
+    "fit": "questionable_items_removed_single_distance",
+    "outcome": "positive_score",
+    "n": 11274,
+    "n_prompts": 313,
+    "n_languages": 13,
+    "n_models": 8,
+    "converged": true,
+    "covariance_min_eigenvalue": 5.2100450999199553e-05,
+    "valid": true,
+    "condition_number": 23.13546107193866,
+    "iterations": 2,
+    "warnings": "",
+    "substantive_vif": {
+      "distance": 1.4824379960031417
+    },
+    "scaling": [
+      {
+        "predictor": "distance",
+        "mean": 0.4245677718915551,
+        "sd": 0.14187688806306564
+      }
+    ],
+    "coding": "Treatment indicators, intercept; cohort-row z scores (ddof=0); positive subset retains full-cohort scaling",
+    "covariance": "prompt-clustered sandwich; working independence"
+  },
+  {
+    "fit": "questionable_items_removed_single_spec_score",
+    "outcome": "binary",
+    "n": 32090,
+    "n_prompts": 313,
+    "n_languages": 13,
+    "n_models": 8,
+    "converged": true,
+    "covariance_min_eigenvalue": 0.00031041014189374876,
+    "valid": true,
+    "condition_number": 15.318708121175387,
+    "iterations": 2,
+    "warnings": "",
+    "substantive_vif": {
+      "spec_score": 8.013466503810003
+    },
+    "scaling": [
+      {
+        "predictor": "spec_score",
+        "mean": -0.02930301010351158,
+        "sd": 0.9524327718029452
+      }
+    ],
+    "coding": "Treatment indicators, intercept; cohort-row z scores (ddof=0); positive subset retains full-cohort scaling",
+    "covariance": "prompt-clustered sandwich; working independence"
+  },
+  {
+    "fit": "questionable_items_removed_single_spec_score",
+    "outcome": "score",
+    "n": 32090,
+    "n_prompts": 313,
+    "n_languages": 13,
+    "n_models": 8,
+    "converged": true,
+    "covariance_min_eigenvalue": 0.0002472216447389915,
+    "valid": true,
+    "condition_number": 15.318708121175387,
+    "iterations": 2,
+    "warnings": "",
+    "substantive_vif": {
+      "spec_score": 8.013466503810003
+    },
+    "scaling": [
+      {
+        "predictor": "spec_score",
+        "mean": -0.02930301010351158,
+        "sd": 0.9524327718029452
+      }
+    ],
+    "coding": "Treatment indicators, intercept; cohort-row z scores (ddof=0); positive subset retains full-cohort scaling",
+    "covariance": "prompt-clustered sandwich; working independence"
+  },
+  {
+    "fit": "questionable_items_removed_single_spec_score",
+    "outcome": "positive_score",
+    "n": 11274,
+    "n_prompts": 313,
+    "n_languages": 13,
+    "n_models": 8,
+    "converged": true,
+    "covariance_min_eigenvalue": 0.00012590154664689175,
+    "valid": true,
+    "condition_number": 22.26729314989934,
+    "iterations": 2,
+    "warnings": "",
+    "substantive_vif": {
+      "spec_score": 5.075684574645378
+    },
+    "scaling": [
+      {
+        "predictor": "spec_score",
+        "mean": -0.02930301010351158,
+        "sd": 0.9524327718029452
+      }
+    ],
+    "coding": "Treatment indicators, intercept; cohort-row z scores (ddof=0); positive subset retains full-cohort scaling",
+    "covariance": "prompt-clustered sandwich; working independence"
+  },
+  {
+    "fit": "components",
+    "outcome": "binary",
+    "n": 32090,
+    "n_prompts": 313,
+    "n_languages": 13,
+    "n_models": 8,
+    "converged": true,
+    "covariance_min_eigenvalue": 0.00011444260544394192,
+    "valid": true,
+    "condition_number": 27.16563050466669,
+    "iterations": 2,
+    "warnings": "",
+    "substantive_vif": {
+      "distance": 2.52303484368039,
+      "if_score": 38.412117725415975,
+      "cons_score": 5.044397613482982
+    },
+    "scaling": [
+      {
+        "predictor": "distance",
+        "mean": 0.4245677718915551,
+        "sd": 0.14187688806306564
+      },
+      {
+        "predictor": "if_score",
+        "mean": 0.5798292649146493,
+        "sd": 0.29161791614653204
+      },
+      {
+        "predictor": "cons_score",
+        "mean": 0.7451645912064765,
+        "sd": 0.1761527022799549
+      }
+    ],
+    "coding": "Treatment indicators, intercept; cohort-row z scores (ddof=0); positive subset retains full-cohort scaling",
+    "covariance": "prompt-clustered sandwich; working independence"
+  },
+  {
+    "fit": "components",
+    "outcome": "score",
+    "n": 32090,
+    "n_prompts": 313,
+    "n_languages": 13,
+    "n_models": 8,
+    "converged": true,
+    "covariance_min_eigenvalue": 5.392499901387787e-05,
+    "valid": true,
+    "condition_number": 27.16563050466669,
+    "iterations": 2,
+    "warnings": "",
+    "substantive_vif": {
+      "distance": 2.52303484368039,
+      "if_score": 38.412117725415975,
+      "cons_score": 5.044397613482982
+    },
+    "scaling": [
+      {
+        "predictor": "distance",
+        "mean": 0.4245677718915551,
+        "sd": 0.14187688806306564
+      },
+      {
+        "predictor": "if_score",
+        "mean": 0.5798292649146493,
+        "sd": 0.29161791614653204
+      },
+      {
+        "predictor": "cons_score",
+        "mean": 0.7451645912064765,
+        "sd": 0.1761527022799549
+      }
+    ],
+    "coding": "Treatment indicators, intercept; cohort-row z scores (ddof=0); positive subset retains full-cohort scaling",
+    "covariance": "prompt-clustered sandwich; working independence"
+  },
+  {
+    "fit": "components",
+    "outcome": "positive_score",
+    "n": 11274,
+    "n_prompts": 313,
+    "n_languages": 13,
+    "n_models": 8,
+    "converged": true,
+    "covariance_min_eigenvalue": 4.1889509416479314e-05,
+    "valid": true,
+    "condition_number": 34.35684234156781,
+    "iterations": 2,
+    "warnings": "",
+    "substantive_vif": {
+      "distance": 3.5125781677005783,
+      "if_score": 47.05496154815941,
+      "cons_score": 4.156693513505854
+    },
+    "scaling": [
+      {
+        "predictor": "distance",
+        "mean": 0.4245677718915551,
+        "sd": 0.14187688806306564
+      },
+      {
+        "predictor": "if_score",
+        "mean": 0.5798292649146493,
+        "sd": 0.29161791614653204
+      },
+      {
+        "predictor": "cons_score",
+        "mean": 0.7451645912064765,
+        "sd": 0.1761527022799549
+      }
+    ],
+    "coding": "Treatment indicators, intercept; cohort-row z scores (ddof=0); positive subset retains full-cohort scaling",
+    "covariance": "prompt-clustered sandwich; working independence"
+  },
+  {
+    "fit": "components_single_distance",
+    "outcome": "binary",
+    "n": 32090,
+    "n_prompts": 313,
+    "n_languages": 13,
+    "n_models": 8,
+    "converged": true,
+    "covariance_min_eigenvalue": 0.00013150693921067688,
+    "valid": true,
+    "condition_number": 15.23323558765159,
+    "iterations": 2,
+    "warnings": "",
+    "substantive_vif": {
+      "distance": 1.4541317527869007
+    },
+    "scaling": [
+      {
+        "predictor": "distance",
+        "mean": 0.4245677718915551,
+        "sd": 0.14187688806306564
+      }
+    ],
+    "coding": "Treatment indicators, intercept; cohort-row z scores (ddof=0); positive subset retains full-cohort scaling",
+    "covariance": "prompt-clustered sandwich; working independence"
+  },
+  {
+    "fit": "components_single_distance",
+    "outcome": "score",
+    "n": 32090,
+    "n_prompts": 313,
+    "n_languages": 13,
+    "n_models": 8,
+    "converged": true,
+    "covariance_min_eigenvalue": 6.377242892661073e-05,
+    "valid": true,
+    "condition_number": 15.23323558765159,
+    "iterations": 2,
+    "warnings": "",
+    "substantive_vif": {
+      "distance": 1.4541317527869007
+    },
+    "scaling": [
+      {
+        "predictor": "distance",
+        "mean": 0.4245677718915551,
+        "sd": 0.14187688806306564
+      }
+    ],
+    "coding": "Treatment indicators, intercept; cohort-row z scores (ddof=0); positive subset retains full-cohort scaling",
+    "covariance": "prompt-clustered sandwich; working independence"
+  },
+  {
+    "fit": "components_single_distance",
+    "outcome": "positive_score",
+    "n": 11274,
+    "n_prompts": 313,
+    "n_languages": 13,
+    "n_models": 8,
+    "converged": true,
+    "covariance_min_eigenvalue": 5.2100450999199553e-05,
+    "valid": true,
+    "condition_number": 23.13546107193866,
+    "iterations": 2,
+    "warnings": "",
+    "substantive_vif": {
+      "distance": 1.4824379960031417
+    },
+    "scaling": [
+      {
+        "predictor": "distance",
+        "mean": 0.4245677718915551,
+        "sd": 0.14187688806306564
+      }
+    ],
+    "coding": "Treatment indicators, intercept; cohort-row z scores (ddof=0); positive subset retains full-cohort scaling",
+    "covariance": "prompt-clustered sandwich; working independence"
+  },
+  {
+    "fit": "components_single_if_score",
+    "outcome": "binary",
+    "n": 32090,
+    "n_prompts": 313,
+    "n_languages": 13,
+    "n_models": 8,
+    "converged": true,
+    "covariance_min_eigenvalue": 0.000268701664784228,
+    "valid": true,
+    "condition_number": 20.964376814267343,
+    "iterations": 2,
+    "warnings": "",
+    "substantive_vif": {
+      "if_score": 36.499740451147446
+    },
+    "scaling": [
+      {
+        "predictor": "if_score",
+        "mean": 0.5798292649146493,
+        "sd": 0.29161791614653204
+      }
+    ],
+    "coding": "Treatment indicators, intercept; cohort-row z scores (ddof=0); positive subset retains full-cohort scaling",
+    "covariance": "prompt-clustered sandwich; working independence"
+  },
+  {
+    "fit": "components_single_if_score",
+    "outcome": "score",
+    "n": 32090,
+    "n_prompts": 313,
+    "n_languages": 13,
+    "n_models": 8,
+    "converged": true,
+    "covariance_min_eigenvalue": 0.00017566777133127358,
+    "valid": true,
+    "condition_number": 20.964376814267343,
+    "iterations": 2,
+    "warnings": "",
+    "substantive_vif": {
+      "if_score": 36.499740451147446
+    },
+    "scaling": [
+      {
+        "predictor": "if_score",
+        "mean": 0.5798292649146493,
+        "sd": 0.29161791614653204
+      }
+    ],
+    "coding": "Treatment indicators, intercept; cohort-row z scores (ddof=0); positive subset retains full-cohort scaling",
+    "covariance": "prompt-clustered sandwich; working independence"
+  },
+  {
+    "fit": "components_single_if_score",
+    "outcome": "positive_score",
+    "n": 11274,
+    "n_prompts": 313,
+    "n_languages": 13,
+    "n_models": 8,
+    "converged": true,
+    "covariance_min_eigenvalue": 8.735669008022275e-05,
+    "valid": true,
+    "condition_number": 31.439919651601848,
+    "iterations": 2,
+    "warnings": "",
+    "substantive_vif": {
+      "if_score": 45.14246396993466
+    },
+    "scaling": [
+      {
+        "predictor": "if_score",
+        "mean": 0.5798292649146493,
+        "sd": 0.29161791614653204
+      }
+    ],
+    "coding": "Treatment indicators, intercept; cohort-row z scores (ddof=0); positive subset retains full-cohort scaling",
+    "covariance": "prompt-clustered sandwich; working independence"
+  },
+  {
+    "fit": "components_single_cons_score",
+    "outcome": "binary",
+    "n": 32090,
+    "n_prompts": 313,
+    "n_languages": 13,
+    "n_models": 8,
+    "converged": true,
+    "covariance_min_eigenvalue": 0.0002615852209516158,
+    "valid": true,
+    "condition_number": 14.898065595373893,
+    "iterations": 2,
+    "warnings": "",
+    "substantive_vif": {
+      "cons_score": 2.8631671776693115
+    },
+    "scaling": [
+      {
+        "predictor": "cons_score",
+        "mean": 0.7451645912064765,
+        "sd": 0.1761527022799549
+      }
+    ],
+    "coding": "Treatment indicators, intercept; cohort-row z scores (ddof=0); positive subset retains full-cohort scaling",
+    "covariance": "prompt-clustered sandwich; working independence"
+  },
+  {
+    "fit": "components_single_cons_score",
+    "outcome": "score",
+    "n": 32090,
+    "n_prompts": 313,
+    "n_languages": 13,
+    "n_models": 8,
+    "converged": true,
+    "covariance_min_eigenvalue": 0.00016357926060846391,
+    "valid": true,
+    "condition_number": 14.898065595373893,
+    "iterations": 2,
+    "warnings": "",
+    "substantive_vif": {
+      "cons_score": 2.8631671776693115
+    },
+    "scaling": [
+      {
+        "predictor": "cons_score",
+        "mean": 0.7451645912064765,
+        "sd": 0.1761527022799549
+      }
+    ],
+    "coding": "Treatment indicators, intercept; cohort-row z scores (ddof=0); positive subset retains full-cohort scaling",
+    "covariance": "prompt-clustered sandwich; working independence"
+  },
+  {
+    "fit": "components_single_cons_score",
+    "outcome": "positive_score",
+    "n": 11274,
+    "n_prompts": 313,
+    "n_languages": 13,
+    "n_models": 8,
+    "converged": true,
+    "covariance_min_eigenvalue": 0.00010748996094250612,
+    "valid": true,
+    "condition_number": 21.15392184237645,
+    "iterations": 2,
+    "warnings": "",
+    "substantive_vif": {
+      "cons_score": 1.7845708868523689
+    },
+    "scaling": [
+      {
+        "predictor": "cons_score",
+        "mean": 0.7451645912064765,
+        "sd": 0.1761527022799549
+      }
+    ],
+    "coding": "Treatment indicators, intercept; cohort-row z scores (ddof=0); positive subset retains full-cohort scaling",
+    "covariance": "prompt-clustered sandwich; working independence"
+  },
+  {
+    "fit": "tokenizer_cohort_main",
+    "outcome": "binary",
+    "n": 27955,
+    "n_prompts": 313,
+    "n_languages": 13,
+    "n_models": 7,
+    "converged": true,
+    "covariance_min_eigenvalue": 0.000177030498641183,
+    "valid": true,
+    "condition_number": 16.75086213318561,
+    "iterations": 2,
+    "warnings": "",
+    "substantive_vif": {
+      "distance": 2.530119257192133,
+      "spec_score": 12.239713898414106
+    },
+    "scaling": [
+      {
+        "predictor": "distance",
+        "mean": 0.4272125558934001,
+        "sd": 0.14332413857161322
+      },
+      {
+        "predictor": "spec_score",
+        "mean": -0.17729814490474644,
+        "sd": 0.9222960595024017
+      }
+    ],
+    "coding": "Treatment indicators, intercept; cohort-row z scores (ddof=0); positive subset retains full-cohort scaling",
+    "covariance": "prompt-clustered sandwich; working independence"
+  },
+  {
+    "fit": "tokenizer_cohort_main",
+    "outcome": "score",
+    "n": 27955,
+    "n_prompts": 313,
+    "n_languages": 13,
+    "n_models": 7,
+    "converged": true,
+    "covariance_min_eigenvalue": 7.418579783591338e-05,
+    "valid": true,
+    "condition_number": 16.75086213318561,
+    "iterations": 2,
+    "warnings": "",
+    "substantive_vif": {
+      "distance": 2.530119257192133,
+      "spec_score": 12.239713898414106
+    },
+    "scaling": [
+      {
+        "predictor": "distance",
+        "mean": 0.4272125558934001,
+        "sd": 0.14332413857161322
+      },
+      {
+        "predictor": "spec_score",
+        "mean": -0.17729814490474644,
+        "sd": 0.9222960595024017
+      }
+    ],
+    "coding": "Treatment indicators, intercept; cohort-row z scores (ddof=0); positive subset retains full-cohort scaling",
+    "covariance": "prompt-clustered sandwich; working independence"
+  },
+  {
+    "fit": "tokenizer_cohort_main",
+    "outcome": "positive_score",
+    "n": 10917,
+    "n_prompts": 313,
+    "n_languages": 13,
+    "n_models": 7,
+    "converged": true,
+    "covariance_min_eigenvalue": 5.180970593282958e-05,
+    "valid": true,
+    "condition_number": 24.85349308623904,
+    "iterations": 2,
+    "warnings": "",
+    "substantive_vif": {
+      "distance": 3.5377196057331504,
+      "spec_score": 11.68682907776503
+    },
+    "scaling": [
+      {
+        "predictor": "distance",
+        "mean": 0.4272125558934001,
+        "sd": 0.14332413857161322
+      },
+      {
+        "predictor": "spec_score",
+        "mean": -0.17729814490474644,
+        "sd": 0.9222960595024017
+      }
+    ],
+    "coding": "Treatment indicators, intercept; cohort-row z scores (ddof=0); positive subset retains full-cohort scaling",
+    "covariance": "prompt-clustered sandwich; working independence"
+  },
+  {
+    "fit": "tokenizer_cohort_main_single_distance",
+    "outcome": "binary",
+    "n": 27955,
+    "n_prompts": 313,
+    "n_languages": 13,
+    "n_models": 7,
+    "converged": true,
+    "covariance_min_eigenvalue": 0.00016880840665908268,
+    "valid": true,
+    "condition_number": 15.306247606051446,
+    "iterations": 2,
+    "warnings": "",
+    "substantive_vif": {
+      "distance": 1.4166640344342611
+    },
+    "scaling": [
+      {
+        "predictor": "distance",
+        "mean": 0.4272125558934001,
+        "sd": 0.14332413857161322
+      }
+    ],
+    "coding": "Treatment indicators, intercept; cohort-row z scores (ddof=0); positive subset retains full-cohort scaling",
+    "covariance": "prompt-clustered sandwich; working independence"
+  },
+  {
+    "fit": "tokenizer_cohort_main_single_distance",
+    "outcome": "score",
+    "n": 27955,
+    "n_prompts": 313,
+    "n_languages": 13,
+    "n_models": 7,
+    "converged": true,
+    "covariance_min_eigenvalue": 7.244080213147006e-05,
+    "valid": true,
+    "condition_number": 15.306247606051446,
+    "iterations": 2,
+    "warnings": "",
+    "substantive_vif": {
+      "distance": 1.4166640344342611
+    },
+    "scaling": [
+      {
+        "predictor": "distance",
+        "mean": 0.4272125558934001,
+        "sd": 0.14332413857161322
+      }
+    ],
+    "coding": "Treatment indicators, intercept; cohort-row z scores (ddof=0); positive subset retains full-cohort scaling",
+    "covariance": "prompt-clustered sandwich; working independence"
+  },
+  {
+    "fit": "tokenizer_cohort_main_single_distance",
+    "outcome": "positive_score",
+    "n": 10917,
+    "n_prompts": 313,
+    "n_languages": 13,
+    "n_models": 7,
+    "converged": true,
+    "covariance_min_eigenvalue": 5.413953775275764e-05,
+    "valid": true,
+    "condition_number": 23.6147649144923,
+    "iterations": 2,
+    "warnings": "",
+    "substantive_vif": {
+      "distance": 1.4778093742814873
+    },
+    "scaling": [
+      {
+        "predictor": "distance",
+        "mean": 0.4272125558934001,
+        "sd": 0.14332413857161322
+      }
+    ],
+    "coding": "Treatment indicators, intercept; cohort-row z scores (ddof=0); positive subset retains full-cohort scaling",
+    "covariance": "prompt-clustered sandwich; working independence"
+  },
+  {
+    "fit": "tokenizer_cohort_main_single_spec_score",
+    "outcome": "binary",
+    "n": 27955,
+    "n_prompts": 313,
+    "n_languages": 13,
+    "n_models": 7,
+    "converged": true,
+    "covariance_min_eigenvalue": 0.0003574494425102316,
+    "valid": true,
+    "condition_number": 15.389286328445012,
+    "iterations": 2,
+    "warnings": "",
+    "substantive_vif": {
+      "spec_score": 6.853258960960608
+    },
+    "scaling": [
+      {
+        "predictor": "spec_score",
+        "mean": -0.17729814490474644,
+        "sd": 0.9222960595024017
+      }
+    ],
+    "coding": "Treatment indicators, intercept; cohort-row z scores (ddof=0); positive subset retains full-cohort scaling",
+    "covariance": "prompt-clustered sandwich; working independence"
+  },
+  {
+    "fit": "tokenizer_cohort_main_single_spec_score",
+    "outcome": "score",
+    "n": 27955,
+    "n_prompts": 313,
+    "n_languages": 13,
+    "n_models": 7,
+    "converged": true,
+    "covariance_min_eigenvalue": 0.00026434807138752797,
+    "valid": true,
+    "condition_number": 15.389286328445012,
+    "iterations": 2,
+    "warnings": "",
+    "substantive_vif": {
+      "spec_score": 6.853258960960608
+    },
+    "scaling": [
+      {
+        "predictor": "spec_score",
+        "mean": -0.17729814490474644,
+        "sd": 0.9222960595024017
+      }
+    ],
+    "coding": "Treatment indicators, intercept; cohort-row z scores (ddof=0); positive subset retains full-cohort scaling",
+    "covariance": "prompt-clustered sandwich; working independence"
+  },
+  {
+    "fit": "tokenizer_cohort_main_single_spec_score",
+    "outcome": "positive_score",
+    "n": 10917,
+    "n_prompts": 313,
+    "n_languages": 13,
+    "n_models": 7,
+    "converged": true,
+    "covariance_min_eigenvalue": 0.0001312490779208899,
+    "valid": true,
+    "condition_number": 22.012750572017246,
+    "iterations": 2,
+    "warnings": "",
+    "substantive_vif": {
+      "spec_score": 4.881931721993191
+    },
+    "scaling": [
+      {
+        "predictor": "spec_score",
+        "mean": -0.17729814490474644,
+        "sd": 0.9222960595024017
+      }
+    ],
+    "coding": "Treatment indicators, intercept; cohort-row z scores (ddof=0); positive subset retains full-cohort scaling",
+    "covariance": "prompt-clustered sandwich; working independence"
+  },
+  {
+    "fit": "tokenizer",
+    "outcome": "binary",
+    "n": 27955,
+    "n_prompts": 313,
+    "n_languages": 13,
+    "n_models": 7,
+    "converged": true,
+    "covariance_min_eigenvalue": 0.0001640157067190952,
+    "valid": true,
+    "condition_number": 19.427832334589258,
+    "iterations": 2,
+    "warnings": "",
+    "substantive_vif": {
+      "distance": 2.5676612275165023,
+      "spec_score": 15.2460876764605,
+      "token_inflation": 2.9292799834325556
+    },
+    "scaling": [
+      {
+        "predictor": "distance",
+        "mean": 0.4272125558934001,
+        "sd": 0.14332413857161322
+      },
+      {
+        "predictor": "spec_score",
+        "mean": -0.17729814490474644,
+        "sd": 0.9222960595024017
+      },
+      {
+        "predictor": "token_inflation",
+        "mean": 1.2064714091208388,
+        "sd": 0.5651324558109415
+      }
+    ],
+    "coding": "Treatment indicators, intercept; cohort-row z scores (ddof=0); positive subset retains full-cohort scaling",
+    "covariance": "prompt-clustered sandwich; working independence"
+  },
+  {
+    "fit": "tokenizer",
+    "outcome": "score",
+    "n": 27955,
+    "n_prompts": 313,
+    "n_languages": 13,
+    "n_models": 7,
+    "converged": true,
+    "covariance_min_eigenvalue": 7.2300537812693e-05,
+    "valid": true,
+    "condition_number": 19.427832334589258,
+    "iterations": 2,
+    "warnings": "",
+    "substantive_vif": {
+      "distance": 2.5676612275165023,
+      "spec_score": 15.2460876764605,
+      "token_inflation": 2.9292799834325556
+    },
+    "scaling": [
+      {
+        "predictor": "distance",
+        "mean": 0.4272125558934001,
+        "sd": 0.14332413857161322
+      },
+      {
+        "predictor": "spec_score",
+        "mean": -0.17729814490474644,
+        "sd": 0.9222960595024017
+      },
+      {
+        "predictor": "token_inflation",
+        "mean": 1.2064714091208388,
+        "sd": 0.5651324558109415
+      }
+    ],
+    "coding": "Treatment indicators, intercept; cohort-row z scores (ddof=0); positive subset retains full-cohort scaling",
+    "covariance": "prompt-clustered sandwich; working independence"
+  },
+  {
+    "fit": "tokenizer",
+    "outcome": "positive_score",
+    "n": 10917,
+    "n_prompts": 313,
+    "n_languages": 13,
+    "n_models": 7,
+    "converged": true,
+    "covariance_min_eigenvalue": 5.1500162481337824e-05,
+    "valid": true,
+    "condition_number": 27.633350358169825,
+    "iterations": 2,
+    "warnings": "",
+    "substantive_vif": {
+      "distance": 3.5640366599138673,
+      "spec_score": 13.007062878282795,
+      "token_inflation": 2.286430372363626
+    },
+    "scaling": [
+      {
+        "predictor": "distance",
+        "mean": 0.4272125558934001,
+        "sd": 0.14332413857161322
+      },
+      {
+        "predictor": "spec_score",
+        "mean": -0.17729814490474644,
+        "sd": 0.9222960595024017
+      },
+      {
+        "predictor": "token_inflation",
+        "mean": 1.2064714091208388,
+        "sd": 0.5651324558109415
+      }
+    ],
+    "coding": "Treatment indicators, intercept; cohort-row z scores (ddof=0); positive subset retains full-cohort scaling",
+    "covariance": "prompt-clustered sandwich; working independence"
+  },
+  {
+    "fit": "tokenizer_single_distance",
+    "outcome": "binary",
+    "n": 27955,
+    "n_prompts": 313,
+    "n_languages": 13,
+    "n_models": 7,
+    "converged": true,
+    "covariance_min_eigenvalue": 0.00016880840665908268,
+    "valid": true,
+    "condition_number": 15.306247606051446,
+    "iterations": 2,
+    "warnings": "",
+    "substantive_vif": {
+      "distance": 1.4166640344342611
+    },
+    "scaling": [
+      {
+        "predictor": "distance",
+        "mean": 0.4272125558934001,
+        "sd": 0.14332413857161322
+      }
+    ],
+    "coding": "Treatment indicators, intercept; cohort-row z scores (ddof=0); positive subset retains full-cohort scaling",
+    "covariance": "prompt-clustered sandwich; working independence"
+  },
+  {
+    "fit": "tokenizer_single_distance",
+    "outcome": "score",
+    "n": 27955,
+    "n_prompts": 313,
+    "n_languages": 13,
+    "n_models": 7,
+    "converged": true,
+    "covariance_min_eigenvalue": 7.244080213147006e-05,
+    "valid": true,
+    "condition_number": 15.306247606051446,
+    "iterations": 2,
+    "warnings": "",
+    "substantive_vif": {
+      "distance": 1.4166640344342611
+    },
+    "scaling": [
+      {
+        "predictor": "distance",
+        "mean": 0.4272125558934001,
+        "sd": 0.14332413857161322
+      }
+    ],
+    "coding": "Treatment indicators, intercept; cohort-row z scores (ddof=0); positive subset retains full-cohort scaling",
+    "covariance": "prompt-clustered sandwich; working independence"
+  },
+  {
+    "fit": "tokenizer_single_distance",
+    "outcome": "positive_score",
+    "n": 10917,
+    "n_prompts": 313,
+    "n_languages": 13,
+    "n_models": 7,
+    "converged": true,
+    "covariance_min_eigenvalue": 5.413953775275764e-05,
+    "valid": true,
+    "condition_number": 23.6147649144923,
+    "iterations": 2,
+    "warnings": "",
+    "substantive_vif": {
+      "distance": 1.4778093742814873
+    },
+    "scaling": [
+      {
+        "predictor": "distance",
+        "mean": 0.4272125558934001,
+        "sd": 0.14332413857161322
+      }
+    ],
+    "coding": "Treatment indicators, intercept; cohort-row z scores (ddof=0); positive subset retains full-cohort scaling",
+    "covariance": "prompt-clustered sandwich; working independence"
+  },
+  {
+    "fit": "tokenizer_single_spec_score",
+    "outcome": "binary",
+    "n": 27955,
+    "n_prompts": 313,
+    "n_languages": 13,
+    "n_models": 7,
+    "converged": true,
+    "covariance_min_eigenvalue": 0.0003574494425102316,
+    "valid": true,
+    "condition_number": 15.389286328445012,
+    "iterations": 2,
+    "warnings": "",
+    "substantive_vif": {
+      "spec_score": 6.853258960960608
+    },
+    "scaling": [
+      {
+        "predictor": "spec_score",
+        "mean": -0.17729814490474644,
+        "sd": 0.9222960595024017
+      }
+    ],
+    "coding": "Treatment indicators, intercept; cohort-row z scores (ddof=0); positive subset retains full-cohort scaling",
+    "covariance": "prompt-clustered sandwich; working independence"
+  },
+  {
+    "fit": "tokenizer_single_spec_score",
+    "outcome": "score",
+    "n": 27955,
+    "n_prompts": 313,
+    "n_languages": 13,
+    "n_models": 7,
+    "converged": true,
+    "covariance_min_eigenvalue": 0.00026434807138752797,
+    "valid": true,
+    "condition_number": 15.389286328445012,
+    "iterations": 2,
+    "warnings": "",
+    "substantive_vif": {
+      "spec_score": 6.853258960960608
+    },
+    "scaling": [
+      {
+        "predictor": "spec_score",
+        "mean": -0.17729814490474644,
+        "sd": 0.9222960595024017
+      }
+    ],
+    "coding": "Treatment indicators, intercept; cohort-row z scores (ddof=0); positive subset retains full-cohort scaling",
+    "covariance": "prompt-clustered sandwich; working independence"
+  },
+  {
+    "fit": "tokenizer_single_spec_score",
+    "outcome": "positive_score",
+    "n": 10917,
+    "n_prompts": 313,
+    "n_languages": 13,
+    "n_models": 7,
+    "converged": true,
+    "covariance_min_eigenvalue": 0.0001312490779208899,
+    "valid": true,
+    "condition_number": 22.012750572017246,
+    "iterations": 2,
+    "warnings": "",
+    "substantive_vif": {
+      "spec_score": 4.881931721993191
+    },
+    "scaling": [
+      {
+        "predictor": "spec_score",
+        "mean": -0.17729814490474644,
+        "sd": 0.9222960595024017
+      }
+    ],
+    "coding": "Treatment indicators, intercept; cohort-row z scores (ddof=0); positive subset retains full-cohort scaling",
+    "covariance": "prompt-clustered sandwich; working independence"
+  },
+  {
+    "fit": "tokenizer_single_token_inflation",
+    "outcome": "binary",
+    "n": 27955,
+    "n_prompts": 313,
+    "n_languages": 13,
+    "n_models": 7,
+    "converged": true,
+    "covariance_min_eigenvalue": 0.0005056380257904128,
+    "valid": true,
+    "condition_number": 15.718593855697154,
+    "iterations": 2,
+    "warnings": "",
+    "substantive_vif": {
+      "token_inflation": 2.2155826438079615
+    },
+    "scaling": [
+      {
+        "predictor": "token_inflation",
+        "mean": 1.2064714091208388,
+        "sd": 0.5651324558109415
+      }
+    ],
+    "coding": "Treatment indicators, intercept; cohort-row z scores (ddof=0); positive subset retains full-cohort scaling",
+    "covariance": "prompt-clustered sandwich; working independence"
+  },
+  {
+    "fit": "tokenizer_single_token_inflation",
+    "outcome": "score",
+    "n": 27955,
+    "n_prompts": 313,
+    "n_languages": 13,
+    "n_models": 7,
+    "converged": true,
+    "covariance_min_eigenvalue": 0.0002972845998102003,
+    "valid": true,
+    "condition_number": 15.718593855697154,
+    "iterations": 2,
+    "warnings": "",
+    "substantive_vif": {
+      "token_inflation": 2.2155826438079615
+    },
+    "scaling": [
+      {
+        "predictor": "token_inflation",
+        "mean": 1.2064714091208388,
+        "sd": 0.5651324558109415
+      }
+    ],
+    "coding": "Treatment indicators, intercept; cohort-row z scores (ddof=0); positive subset retains full-cohort scaling",
+    "covariance": "prompt-clustered sandwich; working independence"
+  },
+  {
+    "fit": "tokenizer_single_token_inflation",
+    "outcome": "positive_score",
+    "n": 10917,
+    "n_prompts": 313,
+    "n_languages": 13,
+    "n_models": 7,
+    "converged": true,
+    "covariance_min_eigenvalue": 0.0002405932904964562,
+    "valid": true,
+    "condition_number": 24.450137682868377,
+    "iterations": 2,
+    "warnings": "",
+    "substantive_vif": {
+      "token_inflation": 1.933830815081608
+    },
+    "scaling": [
+      {
+        "predictor": "token_inflation",
+        "mean": 1.2064714091208388,
+        "sd": 0.5651324558109415
+      }
+    ],
+    "coding": "Treatment indicators, intercept; cohort-row z scores (ddof=0); positive subset retains full-cohort scaling",
+    "covariance": "prompt-clustered sandwich; working independence"
+  },
+  {
+    "fit": "translation_caveat_languages_removed",
+    "outcome": "binary",
+    "n": 24850,
+    "n_prompts": 313,
+    "n_languages": 10,
+    "n_models": 8,
+    "converged": true,
+    "covariance_min_eigenvalue": 0.00021415765627863818,
+    "valid": true,
+    "condition_number": 15.005674681505935,
+    "iterations": 2,
+    "warnings": "",
+    "substantive_vif": {
+      "distance": 3.048108008850334,
+      "spec_score": 15.993877443689632
+    },
+    "scaling": [
+      {
+        "predictor": "distance",
+        "mean": 0.4120121609657948,
+        "sd": 0.15561463338432627
+      },
+      {
+        "predictor": "spec_score",
+        "mean": 0.1052204412176163,
+        "sd": 0.8824030791933021
+      }
+    ],
+    "coding": "Treatment indicators, intercept; cohort-row z scores (ddof=0); positive subset retains full-cohort scaling",
+    "covariance": "prompt-clustered sandwich; working independence"
+  },
+  {
+    "fit": "translation_caveat_languages_removed",
+    "outcome": "score",
+    "n": 24850,
+    "n_prompts": 313,
+    "n_languages": 10,
+    "n_models": 8,
+    "converged": true,
+    "covariance_min_eigenvalue": 8.711150545289196e-05,
+    "valid": true,
+    "condition_number": 15.005674681505935,
+    "iterations": 2,
+    "warnings": "",
+    "substantive_vif": {
+      "distance": 3.048108008850334,
+      "spec_score": 15.993877443689632
+    },
+    "scaling": [
+      {
+        "predictor": "distance",
+        "mean": 0.4120121609657948,
+        "sd": 0.15561463338432627
+      },
+      {
+        "predictor": "spec_score",
+        "mean": 0.1052204412176163,
+        "sd": 0.8824030791933021
+      }
+    ],
+    "coding": "Treatment indicators, intercept; cohort-row z scores (ddof=0); positive subset retains full-cohort scaling",
+    "covariance": "prompt-clustered sandwich; working independence"
+  },
+  {
+    "fit": "translation_caveat_languages_removed",
+    "outcome": "positive_score",
+    "n": 9610,
+    "n_prompts": 313,
+    "n_languages": 10,
+    "n_models": 8,
+    "converged": true,
+    "covariance_min_eigenvalue": 5.894255403162268e-05,
+    "valid": true,
+    "condition_number": 20.987592281481856,
+    "iterations": 2,
+    "warnings": "",
+    "substantive_vif": {
+      "distance": 4.031829552276782,
+      "spec_score": 12.128728829108768
+    },
+    "scaling": [
+      {
+        "predictor": "distance",
+        "mean": 0.4120121609657948,
+        "sd": 0.15561463338432627
+      },
+      {
+        "predictor": "spec_score",
+        "mean": 0.1052204412176163,
+        "sd": 0.8824030791933021
+      }
+    ],
+    "coding": "Treatment indicators, intercept; cohort-row z scores (ddof=0); positive subset retains full-cohort scaling",
+    "covariance": "prompt-clustered sandwich; working independence"
+  },
+  {
+    "fit": "translation_caveat_languages_removed_single_distance",
+    "outcome": "binary",
+    "n": 24850,
+    "n_prompts": 313,
+    "n_languages": 10,
+    "n_models": 8,
+    "converged": true,
+    "covariance_min_eigenvalue": 0.00021124748218917167,
+    "valid": true,
+    "condition_number": 12.136069621268842,
+    "iterations": 2,
+    "warnings": "",
+    "substantive_vif": {
+      "distance": 1.3770811001341923
+    },
+    "scaling": [
+      {
+        "predictor": "distance",
+        "mean": 0.4120121609657948,
+        "sd": 0.15561463338432627
+      }
+    ],
+    "coding": "Treatment indicators, intercept; cohort-row z scores (ddof=0); positive subset retains full-cohort scaling",
+    "covariance": "prompt-clustered sandwich; working independence"
+  },
+  {
+    "fit": "translation_caveat_languages_removed_single_distance",
+    "outcome": "score",
+    "n": 24850,
+    "n_prompts": 313,
+    "n_languages": 10,
+    "n_models": 8,
+    "converged": true,
+    "covariance_min_eigenvalue": 8.739987941024254e-05,
+    "valid": true,
+    "condition_number": 12.136069621268842,
+    "iterations": 2,
+    "warnings": "",
+    "substantive_vif": {
+      "distance": 1.3770811001341923
+    },
+    "scaling": [
+      {
+        "predictor": "distance",
+        "mean": 0.4120121609657948,
+        "sd": 0.15561463338432627
+      }
+    ],
+    "coding": "Treatment indicators, intercept; cohort-row z scores (ddof=0); positive subset retains full-cohort scaling",
+    "covariance": "prompt-clustered sandwich; working independence"
+  },
+  {
+    "fit": "translation_caveat_languages_removed_single_distance",
+    "outcome": "positive_score",
+    "n": 9610,
+    "n_prompts": 313,
+    "n_languages": 10,
+    "n_models": 8,
+    "converged": true,
+    "covariance_min_eigenvalue": 6.346807287363269e-05,
+    "valid": true,
+    "condition_number": 18.49303250934939,
+    "iterations": 2,
+    "warnings": "",
+    "substantive_vif": {
+      "distance": 1.4530424999313023
+    },
+    "scaling": [
+      {
+        "predictor": "distance",
+        "mean": 0.4120121609657948,
+        "sd": 0.15561463338432627
+      }
+    ],
+    "coding": "Treatment indicators, intercept; cohort-row z scores (ddof=0); positive subset retains full-cohort scaling",
+    "covariance": "prompt-clustered sandwich; working independence"
+  },
+  {
+    "fit": "translation_caveat_languages_removed_single_spec_score",
+    "outcome": "binary",
+    "n": 24850,
+    "n_prompts": 313,
+    "n_languages": 10,
+    "n_models": 8,
+    "converged": true,
+    "covariance_min_eigenvalue": 0.0003876211611397995,
+    "valid": true,
+    "condition_number": 13.173341643889374,
+    "iterations": 2,
+    "warnings": "",
+    "substantive_vif": {
+      "spec_score": 7.225749967394889
+    },
+    "scaling": [
+      {
+        "predictor": "spec_score",
+        "mean": 0.1052204412176163,
+        "sd": 0.8824030791933021
+      }
+    ],
+    "coding": "Treatment indicators, intercept; cohort-row z scores (ddof=0); positive subset retains full-cohort scaling",
+    "covariance": "prompt-clustered sandwich; working independence"
+  },
+  {
+    "fit": "translation_caveat_languages_removed_single_spec_score",
+    "outcome": "score",
+    "n": 24850,
+    "n_prompts": 313,
+    "n_languages": 10,
+    "n_models": 8,
+    "converged": true,
+    "covariance_min_eigenvalue": 0.0002653644363795168,
+    "valid": true,
+    "condition_number": 13.173341643889374,
+    "iterations": 2,
+    "warnings": "",
+    "substantive_vif": {
+      "spec_score": 7.225749967394889
+    },
+    "scaling": [
+      {
+        "predictor": "spec_score",
+        "mean": 0.1052204412176163,
+        "sd": 0.8824030791933021
+      }
+    ],
+    "coding": "Treatment indicators, intercept; cohort-row z scores (ddof=0); positive subset retains full-cohort scaling",
+    "covariance": "prompt-clustered sandwich; working independence"
+  },
+  {
+    "fit": "translation_caveat_languages_removed_single_spec_score",
+    "outcome": "positive_score",
+    "n": 9610,
+    "n_prompts": 313,
+    "n_languages": 10,
+    "n_models": 8,
+    "converged": true,
+    "covariance_min_eigenvalue": 0.00013079484201522094,
+    "valid": true,
+    "condition_number": 19.852300403743868,
+    "iterations": 2,
+    "warnings": "",
+    "substantive_vif": {
+      "spec_score": 4.371107019860205
+    },
+    "scaling": [
+      {
+        "predictor": "spec_score",
+        "mean": 0.1052204412176163,
+        "sd": 0.8824030791933021
+      }
+    ],
+    "coding": "Treatment indicators, intercept; cohort-row z scores (ddof=0); positive subset retains full-cohort scaling",
+    "covariance": "prompt-clustered sandwich; working independence"
+  },
+  {
+    "fit": "blaser_flagged_removed",
+    "outcome": "binary",
+    "n": 31294,
+    "n_prompts": 313,
+    "n_languages": 13,
+    "n_models": 8,
+    "converged": true,
+    "covariance_min_eigenvalue": 0.00015207336701626514,
+    "valid": true,
+    "condition_number": 16.647463845348742,
+    "iterations": 2,
+    "warnings": "",
+    "substantive_vif": {
+      "distance": 2.4640252710899295,
+      "spec_score": 13.495142240191516
+    },
+    "scaling": [
+      {
+        "predictor": "distance",
+        "mean": 0.4245072378091647,
+        "sd": 0.142191105732134
+      },
+      {
+        "predictor": "spec_score",
+        "mean": -0.025133470451834162,
+        "sd": 0.9499006575408662
+      }
+    ],
+    "coding": "Treatment indicators, intercept; cohort-row z scores (ddof=0); positive subset retains full-cohort scaling",
+    "covariance": "prompt-clustered sandwich; working independence"
+  },
+  {
+    "fit": "blaser_flagged_removed",
+    "outcome": "score",
+    "n": 31294,
+    "n_prompts": 313,
+    "n_languages": 13,
+    "n_models": 8,
+    "converged": true,
+    "covariance_min_eigenvalue": 6.970106677446562e-05,
+    "valid": true,
+    "condition_number": 16.647463845348742,
+    "iterations": 2,
+    "warnings": "",
+    "substantive_vif": {
+      "distance": 2.4640252710899295,
+      "spec_score": 13.495142240191516
+    },
+    "scaling": [
+      {
+        "predictor": "distance",
+        "mean": 0.4245072378091647,
+        "sd": 0.142191105732134
+      },
+      {
+        "predictor": "spec_score",
+        "mean": -0.025133470451834162,
+        "sd": 0.9499006575408662
+      }
+    ],
+    "coding": "Treatment indicators, intercept; cohort-row z scores (ddof=0); positive subset retains full-cohort scaling",
+    "covariance": "prompt-clustered sandwich; working independence"
+  },
+  {
+    "fit": "blaser_flagged_removed",
+    "outcome": "positive_score",
+    "n": 11066,
+    "n_prompts": 313,
+    "n_languages": 13,
+    "n_models": 8,
+    "converged": true,
+    "covariance_min_eigenvalue": 5.026944785803239e-05,
+    "valid": true,
+    "condition_number": 24.01634346004904,
+    "iterations": 2,
+    "warnings": "",
+    "substantive_vif": {
+      "distance": 3.479374797819539,
+      "spec_score": 11.81481807241883
+    },
+    "scaling": [
+      {
+        "predictor": "distance",
+        "mean": 0.4245072378091647,
+        "sd": 0.142191105732134
+      },
+      {
+        "predictor": "spec_score",
+        "mean": -0.025133470451834162,
+        "sd": 0.9499006575408662
+      }
+    ],
+    "coding": "Treatment indicators, intercept; cohort-row z scores (ddof=0); positive subset retains full-cohort scaling",
+    "covariance": "prompt-clustered sandwich; working independence"
+  },
+  {
+    "fit": "blaser_flagged_removed_single_distance",
+    "outcome": "binary",
+    "n": 31294,
+    "n_prompts": 313,
+    "n_languages": 13,
+    "n_models": 8,
+    "converged": true,
+    "covariance_min_eigenvalue": 0.000136684172143121,
+    "valid": true,
+    "condition_number": 15.21891582200474,
+    "iterations": 2,
+    "warnings": "",
+    "substantive_vif": {
+      "distance": 1.454916183858101
+    },
+    "scaling": [
+      {
+        "predictor": "distance",
+        "mean": 0.4245072378091647,
+        "sd": 0.142191105732134
+      }
+    ],
+    "coding": "Treatment indicators, intercept; cohort-row z scores (ddof=0); positive subset retains full-cohort scaling",
+    "covariance": "prompt-clustered sandwich; working independence"
+  },
+  {
+    "fit": "blaser_flagged_removed_single_distance",
+    "outcome": "score",
+    "n": 31294,
+    "n_prompts": 313,
+    "n_languages": 13,
+    "n_models": 8,
+    "converged": true,
+    "covariance_min_eigenvalue": 6.513636264482969e-05,
+    "valid": true,
+    "condition_number": 15.21891582200474,
+    "iterations": 2,
+    "warnings": "",
+    "substantive_vif": {
+      "distance": 1.454916183858101
+    },
+    "scaling": [
+      {
+        "predictor": "distance",
+        "mean": 0.4245072378091647,
+        "sd": 0.142191105732134
+      }
+    ],
+    "coding": "Treatment indicators, intercept; cohort-row z scores (ddof=0); positive subset retains full-cohort scaling",
+    "covariance": "prompt-clustered sandwich; working independence"
+  },
+  {
+    "fit": "blaser_flagged_removed_single_distance",
+    "outcome": "positive_score",
+    "n": 11066,
+    "n_prompts": 313,
+    "n_languages": 13,
+    "n_models": 8,
+    "converged": true,
+    "covariance_min_eigenvalue": 5.204435354268268e-05,
+    "valid": true,
+    "condition_number": 23.133326761977365,
+    "iterations": 2,
+    "warnings": "",
+    "substantive_vif": {
+      "distance": 1.4833162211645863
+    },
+    "scaling": [
+      {
+        "predictor": "distance",
+        "mean": 0.4245072378091647,
+        "sd": 0.142191105732134
+      }
+    ],
+    "coding": "Treatment indicators, intercept; cohort-row z scores (ddof=0); positive subset retains full-cohort scaling",
+    "covariance": "prompt-clustered sandwich; working independence"
+  },
+  {
+    "fit": "blaser_flagged_removed_single_spec_score",
+    "outcome": "binary",
+    "n": 31294,
+    "n_prompts": 313,
+    "n_languages": 13,
+    "n_models": 8,
+    "converged": true,
+    "covariance_min_eigenvalue": 0.00030480653044517793,
+    "valid": true,
+    "condition_number": 15.304709552650534,
+    "iterations": 2,
+    "warnings": "",
+    "substantive_vif": {
+      "spec_score": 7.968384528796998
+    },
+    "scaling": [
+      {
+        "predictor": "spec_score",
+        "mean": -0.025133470451834162,
+        "sd": 0.9499006575408662
+      }
+    ],
+    "coding": "Treatment indicators, intercept; cohort-row z scores (ddof=0); positive subset retains full-cohort scaling",
+    "covariance": "prompt-clustered sandwich; working independence"
+  },
+  {
+    "fit": "blaser_flagged_removed_single_spec_score",
+    "outcome": "score",
+    "n": 31294,
+    "n_prompts": 313,
+    "n_languages": 13,
+    "n_models": 8,
+    "converged": true,
+    "covariance_min_eigenvalue": 0.0002373453942491749,
+    "valid": true,
+    "condition_number": 15.304709552650534,
+    "iterations": 2,
+    "warnings": "",
+    "substantive_vif": {
+      "spec_score": 7.968384528796998
+    },
+    "scaling": [
+      {
+        "predictor": "spec_score",
+        "mean": -0.025133470451834162,
+        "sd": 0.9499006575408662
+      }
+    ],
+    "coding": "Treatment indicators, intercept; cohort-row z scores (ddof=0); positive subset retains full-cohort scaling",
+    "covariance": "prompt-clustered sandwich; working independence"
+  },
+  {
+    "fit": "blaser_flagged_removed_single_spec_score",
+    "outcome": "positive_score",
+    "n": 11066,
+    "n_prompts": 313,
+    "n_languages": 13,
+    "n_models": 8,
+    "converged": true,
+    "covariance_min_eigenvalue": 0.0001264108771024341,
+    "valid": true,
+    "condition_number": 22.311621325419136,
+    "iterations": 2,
+    "warnings": "",
+    "substantive_vif": {
+      "spec_score": 5.036856422570778
+    },
+    "scaling": [
+      {
+        "predictor": "spec_score",
+        "mean": -0.025133470451834162,
+        "sd": 0.9499006575408662
+      }
+    ],
+    "coding": "Treatment indicators, intercept; cohort-row z scores (ddof=0); positive subset retains full-cohort scaling",
+    "covariance": "prompt-clustered sandwich; working independence"
+  }
+]

@@ -1,0 +1,128 @@
+[
+  {
+    "model": "sagui_7b",
+    "repo": "OliveiraJLT/Sagui-7B-Instruct-v0.1",
+    "retrieved": "2026-10-18",
+    "historical_snapshot": false,
+    "tokenizer_config.json": {
+      "url": "https://huggingface.co/OliveiraJLT/Sagui-7B-Instruct-v0.1/resolve/main/tokenizer_config.json",
+      "sha256": "64f1a42f30d64cb2547ab96305808ffcbf3ec5401080edd2c785c2c52c231550",
+      "revision": "637c43e9b1c4ca87ecbd249240597c7a525d5178"
+    },
+    "README.md": {
+      "url": "https://huggingface.co/OliveiraJLT/Sagui-7B-Instruct-v0.1/resolve/main/README.md",
+      "sha256": "3919ed9bc568131a745900d338aae218bb30b19fa3b03ab7f2b242b1d4832b8e",
+      "revision": "637c43e9b1c4ca87ecbd249240597c7a525d5178"
+    }
+  },
+  {
+    "model": "llamantino_2_ultrachat_7b",
+    "repo": "swap-uniba/LLaMAntino-2-chat-7b-hf-UltraChat-ITA",
+    "retrieved": "2026-10-18",
+    "historical_snapshot": false,
+    "tokenizer_config.json": {
+      "url": "https://huggingface.co/swap-uniba/LLaMAntino-2-chat-7b-hf-UltraChat-ITA/resolve/main/tokenizer_config.json",
+      "sha256": "e2fd34ce7555fe5a4e5f73f2f8cdda9fa37c4d09dd01cf1e2cf3040b7f6fe266",
+      "revision": "0c91433d5a41f26392044975d5a9c42c8efbd531"
+    },
+    "README.md": {
+      "url": "https://huggingface.co/swap-uniba/LLaMAntino-2-chat-7b-hf-UltraChat-ITA/resolve/main/README.md",
+      "sha256": "33c1fe56ca9ebb00714662c1e6a29c29f726869440c16e0cb83b0f542f8a1344",
+      "revision": "0c91433d5a41f26392044975d5a9c42c8efbd531"
+    }
+  },
+  {
+    "model": "llamantino_anita_8b",
+    "repo": "swap-uniba/LLaMAntino-3-ANITA-8B-Inst-DPO-ITA",
+    "retrieved": "2026-10-18",
+    "historical_snapshot": false,
+    "tokenizer_config.json": {
+      "url": "https://huggingface.co/swap-uniba/LLaMAntino-3-ANITA-8B-Inst-DPO-ITA/resolve/main/tokenizer_config.json",
+      "sha256": "da0e3a7cce6e4d787e85eb1c24d548420e0d7fe2c7a214e192795c46e40d75bb",
+      "revision": "5f5c90b197446b7ca4dfbfa099fcf3566edf2e5c"
+    },
+    "README.md": {
+      "url": "https://huggingface.co/swap-uniba/LLaMAntino-3-ANITA-8B-Inst-DPO-ITA/resolve/main/README.md",
+      "sha256": "e1b9c399572bc40eef5b4f467fd6aed538e546a6ec081d04c2a1adf996c2053e",
+      "revision": "5f5c90b197446b7ca4dfbfa099fcf3566edf2e5c"
+    }
+  },
+  {
+    "model": "gpt_sw3",
+    "repo": "AI-Sweden-Models/gpt-sw3-6.7b-v2-instruct",
+    "retrieved": "2026-10-18",
+    "historical_snapshot": false,
+    "tokenizer_config.json": {
+      "url": "https://huggingface.co/AI-Sweden-Models/gpt-sw3-6.7b-v2-instruct/resolve/main/tokenizer_config.json",
+      "error": "HTTP Error 401: Unauthorized"
+    },
+    "README.md": {
+      "url": "https://huggingface.co/AI-Sweden-Models/gpt-sw3-6.7b-v2-instruct/resolve/main/README.md",
+      "sha256": "ce12e97070c97141be58ff7e7cda05f1481a301ac4c7281f5fbce8018a3cb7e4",
+      "revision": "3cbdc0bf840c58a091e58a7866696c00e054b64b"
+    }
+  },
+  {
+    "model": "ai_sweden_llama3_8b",
+    "repo": "AI-Sweden-Models/Llama-3-8B-instruct",
+    "retrieved": "2026-10-18",
+    "historical_snapshot": false,
+    "tokenizer_config.json": {
+      "url": "https://huggingface.co/AI-Sweden-Models/Llama-3-8B-instruct/resolve/main/tokenizer_config.json",
+      "sha256": "da0e3a7cce6e4d787e85eb1c24d548420e0d7fe2c7a214e192795c46e40d75bb",
+      "revision": "88546994bd2b86c823a8f12238ac9236221979eb"
+    },
+    "README.md": {
+      "url": "https://huggingface.co/AI-Sweden-Models/Llama-3-8B-instruct/resolve/main/README.md",
+      "sha256": "2ce01c58f4b6e572dbd3530cf9582537e1994231f647cbf30d95755672a5fc40",
+      "revision": "88546994bd2b86c823a8f12238ac9236221979eb"
+    }
+  },
+  {
+    "model": "bggpt_7b",
+    "repo": "INSAIT-Institute/BgGPT-7B-Instruct-v0.2",
+    "retrieved": "2026-10-18",
+    "historical_snapshot": false,
+    "tokenizer_config.json": {
+      "url": "https://huggingface.co/INSAIT-Institute/BgGPT-7B-Instruct-v0.2/resolve/main/tokenizer_config.json",
+      "sha256": "4bf32ceb371ce2ddfb60be317fbd2b7987668c5ddc850dfa969f911576c64c31",
+      "revision": "27d7711b0afb0aa2d5edb6a0b5780aff371b662a"
+    },
+    "README.md": {
+      "url": "https://huggingface.co/INSAIT-Institute/BgGPT-7B-Instruct-v0.2/resolve/main/README.md",
+      "sha256": "32f5edb3a1499d29a1d104cf0b2df3767383b2af44cb49af7d5584905e40a095",
+      "revision": "27d7711b0afb0aa2d5edb6a0b5780aff371b662a"
+    }
+  },
+  {
+    "model": "bggpt_gemma_9b",
+    "repo": "INSAIT-Institute/BgGPT-Gemma-2-9B-IT-v1.0",
+    "retrieved": "2026-10-18",
+    "historical_snapshot": false,
+    "tokenizer_config.json": {
+      "url": "https://huggingface.co/INSAIT-Institute/BgGPT-Gemma-2-9B-IT-v1.0/resolve/main/tokenizer_config.json",
+      "sha256": "cb32b7929c62608d46572e813112b3ad8a841fb98fdd6a4da8559e368a951c89",
+      "revision": "ce97d72567883ef36a5c3effcfa6b17b5840c6e5"
+    },
+    "README.md": {
+      "url": "https://huggingface.co/INSAIT-Institute/BgGPT-Gemma-2-9B-IT-v1.0/resolve/main/README.md",
+      "sha256": "aaac17ae82acf2521ecfdd6cded61ba633e61a96fc08cb68a7a5b78cb1a3e4f5",
+      "revision": "ce97d72567883ef36a5c3effcfa6b17b5840c6e5"
+    }
+  },
+  {
+    "model": "llama3_1_8b_reference",
+    "repo": "meta-llama/Llama-3.1-8B-Instruct",
+    "retrieved": "2026-10-18",
+    "historical_snapshot": false,
+    "tokenizer_config.json": {
+      "url": "https://huggingface.co/meta-llama/Llama-3.1-8B-Instruct/resolve/main/tokenizer_config.json",
+      "error": "HTTP Error 401: Unauthorized"
+    },
+    "README.md": {
+      "url": "https://huggingface.co/meta-llama/Llama-3.1-8B-Instruct/resolve/main/README.md",
+      "sha256": "ed0e2e86f7a40c38b793b0a04dfd993b2c1dfb34906804f96b999f0bbd8d70e6",
+      "revision": "0e9e39f249a16976918f6564b8830bc894c89659"
+    }
+  }
+]

@@ -1,0 +1,7 @@
+{
+  "purpose": "Presentation of saved layer-selection values, without new extraction or analysis.",
+  "source_sha256": "fc37d51dea45352902fc5e8711b27c81bcc5314fc622c5ee5ac4c92388f5ef63",
+  "figure_sha256": "40debfe43f4563421a77bb185730ed819b08e7649cd3c0c10a697c184bc65958",
+  "selected_index": 22,
+  "selected_mean_auc": 0.8757466150711491
+}

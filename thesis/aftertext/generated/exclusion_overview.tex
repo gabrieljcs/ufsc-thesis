@@ -1,0 +1,24 @@
+\section{Where Records Leave the Pipeline}
+\label{app:exclusion-overview}
+Table~\ref{tab:exclusion-overview} distinguishes exclusions before any model
+query from missing outcomes after a query. No entire English source prompt
+was removed: the 48 translation exclusions affect particular language variants.
+\begin{table}[htbp]\centering\small
+\begin{tabularx}{\linewidth}{@{}p{3.4cm}rX@{}}
+\caption[Translation exclusions and missing response scores]{Translation exclusions and missing response scores across all nine evaluated systems}
+\label{tab:exclusion-overview} \\
+\toprule
+\textbf{Stage} & \textbf{Count} & \textbf{What happened}\\\midrule
+Before model queries & 48 & Translation variants rejected by the XSTS judge. This prevents 432 potential queries across nine systems.\\[5pt]
+After model queries & 75 & Empty response texts; no StrongREJECT score.\\[5pt]
+At response scoring & 3 & Nonempty responses; judge-side HTTP 400 \texttt{invalid\_prompt} blocks.\\\midrule
+Scored responses retained & 36\,111 & Official scores available, including zero.\\\bottomrule
+\end{tabularx}
+\fonte{Prepared by the author (2026), from the immutable translation audit and frozen response records.}
+\end{table}
+The arithmetic is $4\,069-48=4\,021$ retained prompt--language conditions,
+$4\,021\times9=36\,189$ response records, and $36\,189-75-3=36\,111$ scored
+responses. These all-system counts include the separate English reference;
+paired inference uses only the eight targets. Appendix~\ref{app:translation-exclusion-ledger}
+lists every excluded translation and its recorded judge note.
+Section~\ref{app:unscored-response-ledger} lists all 78 unscored response records.

@@ -37,7 +37,7 @@ rtx = [
   "sacrebleu>=2.4",
 ]
 scoring = [
-  "strong-reject @ git+https://github.com/dsbowen/strong_reject.git@main",
+  "strong-reject @ git+https://github.com/dsbowen/strong_reject.git@7a551d5b440ec7b75d4f6f5bb7c1719965b76b47",
 ]
 analysis = [
   "statsmodels>=0.14",

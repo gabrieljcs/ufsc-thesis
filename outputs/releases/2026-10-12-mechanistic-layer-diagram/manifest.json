@@ -1,0 +1,22 @@
+{
+  "purpose": "Expand Figure 27 into a computation diagram, the saved curve and a four-check map. No new empirical analysis.",
+  "source_sha256": "fc37d51dea45352902fc5e8711b27c81bcc5314fc622c5ee5ac4c92388f5ef63",
+  "outputs": {
+    "ufscthesisx/ufscthesisx/figures/mechanistic_layer_selection.tex": "40debfe43f4563421a77bb185730ed819b08e7649cd3c0c10a697c184bc65958",
+    "ufscthesisx/ufscthesisx/figures/mechanistic_layer_point_diagram.tex": "e123a4064646a94d1622bebe8b9fc9f4e53483c7e4b48fff6f71bcfdd1a82632",
+    "ufscthesisx/ufscthesisx/figures/mechanistic_checks_map.tex": "d969736759c807d448c0f0dbefaf4ad55b4ef99370f91f49e1705e4ba4f4bec0",
+    "ufscthesisx/ufscthesisx/chapters/discussion.tex": "f768d0094004618deb8d008c33638f6a1b603289e0a7245a559d58bd78c70354"
+  },
+  "generator_sha256": "79b10e881c9e875df8d70b3b13f9148987b08f1c154d17cd77b8c727b01c057c",
+  "pdf_sha256": "fc5f94542fbd8ccd7fd6c20183c3a694526d7115e1bdb79f4d41e4525acaf0d4",
+  "preview_sha256": "b6c6c88d0781e56e0be1dc59cfa089af9718a670a255bd2131d79676b63ecc2e",
+  "validation": {
+    "figure_number": 27,
+    "pdf_page": 119,
+    "visually_verified": true,
+    "overflow_or_unresolved_references": false,
+    "saved_layer_values_unchanged": true
+  },
+  "schematic_elements": "Outcome symbols and projection positions in panel A are illustrative; individual model AUCs are symbolic, not fabricated numerical results.",
+  "limitations": "Reused selection halves and full samples; overlapping canonical questions; no independent final question holdout; matched steerability remains unresolved."
+}

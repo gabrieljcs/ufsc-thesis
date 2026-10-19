@@ -1,0 +1,10 @@
+% Replace with the official library-generated PDF before submission.
+\IfFileExists{beforetext/ficha-oficial.pdf}{%
+    \includepdf[pages=-]{beforetext/ficha-oficial.pdf}%
+}{%
+    \begin{fichacatalografica}
+    \vspace*{\fill}
+    \begin{center}
+    \end{center}
+    \end{fichacatalografica}
+}

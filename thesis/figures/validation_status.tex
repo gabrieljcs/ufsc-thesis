@@ -1,0 +1,28 @@
+\begin{figure}[htbp]
+\centering
+\caption[Completed checks and remaining validation]{Completed checks and remaining validation. The right-hand column lists work that has not been completed for this dissertation.}
+\label{fig:validation-status}
+\begingroup
+\hyphenpenalty=10000\relax
+\definecolor{statusblue}{HTML}{286F8C}
+\definecolor{statusorange}{HTML}{A64B39}
+\begin{tikzpicture}[
+  font=\sffamily\fontsize{10}{12}\selectfont,
+  card/.style={rounded corners=4pt,draw=black!20,inner sep=8pt,
+    text width=6.1cm,minimum height=2.15cm,align=left},
+  flow/.style={-{Latex[length=2mm]},draw=black!40,thick}]
+\node[anchor=west,text=statusblue,font=\sffamily\bfseries] at (0,0) {Completed in the frozen run};
+\node[anchor=west,text=statusorange,font=\sffamily\bfseries] at (8,0) {Remaining validation};
+\foreach \statusy/\statuslefttext/\statusrighttext in {
+  -1.65/{\textbf{Prompt translation checks}\\[5pt]BLASER screening; LLM review of 148 flagged translations.}/{\textbf{Human translation audit}\\[5pt]Fluent-speaker checks, including automatic passes; trusted-reference spBLEU.},
+  -4.35/{\textbf{Response scoring}\\[5pt]Back-translate to English; score with StrongREJECT.}/{\textbf{Bilingual scoring audit}\\[5pt]Compare English-path scores with bilingual review.},
+  -7.05/{\textbf{Specialization measurement}\\[5pt]BELEBELE accuracy and consistency from parsed answers.}/{\textbf{Option-likelihood rescoring}\\[5pt]Code ready; not run. SPEC still has parsing limitations.}
+}{
+  \node[card,fill=statusblue!5,anchor=west] (done) at (0,\statusy) {\statuslefttext};
+  \node[card,fill=statusorange!5,anchor=west] (next) at (8,\statusy) {\statusrighttext};
+  \draw[flow] (done.east)--(next.west);
+}
+\end{tikzpicture}
+\endgroup
+\fonte{Prepared by the author (2026).}
+\end{figure}

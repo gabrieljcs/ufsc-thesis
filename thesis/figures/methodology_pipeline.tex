@@ -1,0 +1,173 @@
+% Vector-only overview of the completed behavioral workflow.
+% All drawings are schematic; the score ruler does not plot observed results.
+% Shared by the thesis and the standalone preview. Keep method details in prose.
+\begingroup
+\definecolor{pipeink}{HTML}{233641}
+\definecolor{pipeblue}{HTML}{286F8C}
+\definecolor{pipepurple}{HTML}{705B8C}
+\definecolor{pipeorange}{HTML}{A64B39}
+\definecolor{pipeteal}{HTML}{26776D}
+\definecolor{pipegray}{HTML}{596873}
+\begin{tikzpicture}[
+  x=1cm,y=1cm,
+  font=\sffamily\fontsize{10}{12}\selectfont,text=pipeink,
+  flow/.style={-{Latex[length=2.1mm,width=1.5mm]},draw=pipegray!80,line width=.85pt},
+  detail/.style={font=\sffamily\fontsize{9}{11}\selectfont,align=center},
+  labeltext/.style={font=\sffamily\fontsize{10}{12}\selectfont,align=center},
+  heading/.style={anchor=west,font=\sffamily\bfseries\fontsize{12}{14}\selectfont},
+  badge/.style={circle,text=white,minimum size=.62cm,inner sep=0pt,
+    font=\sffamily\bfseries\fontsize{12}{14}\selectfont},
+  chip/.style={rounded corners=2pt,draw=pipeblue!40,fill=white,
+    minimum width=.63cm,minimum height=.34cm,inner sep=1pt,
+    font=\sffamily\fontsize{8}{9}\selectfont},
+  doc/.pic={
+    \draw[rounded corners=2pt,fill=white,draw=pipeblue,line width=.8pt]
+      (-.47,-.59) rectangle (.47,.59);
+    \draw[pipeblue!40,line width=1pt] (-.27,-.04)--(.27,-.04)
+      (-.27,-.20)--(.27,-.20) (-.27,-.36)--(.13,-.36);
+  },
+  bubble/.pic={
+    \draw[rounded corners=3pt,fill=white,draw=pipepurple,line width=.8pt]
+      (-.59,.46)--(.59,.46)--(.59,-.31)--(-.12,-.31)
+      --(-.34,-.52)--(-.34,-.31)--(-.59,-.31)--cycle;
+    \foreach \x in {-.24,0,.24}{\fill[pipepurple!50] (\x,.07) circle (.045);}
+  }
+]
+\path (0,.05) rectangle (15.65,-18.05);
+
+% The numbered spine gives the reading order. Each stage reads left to right.
+\foreach \top/\bottom/\col in {0/-4.1/pipeblue,-4.25/-8.05/pipepurple,-8.45/-12.2/pipeorange,-12.6/-18.05/pipeteal}{
+  \fill[\col!4,rounded corners=5pt] (1.0,\top) rectangle (15.65,\bottom);
+}
+\draw[flow,pipegray!45] (.36,-.88)--(.36,-4.39);
+\draw[flow,pipegray!45] (.36,-5.13)--(.36,-8.59);
+\draw[flow,pipegray!45] (.36,-9.33)--(.36,-12.74);
+\foreach \y/\n/\col/\title in {
+  -.5/1/pipeblue/Translate and check the prompts,
+  -4.75/2/pipepurple/Ask the models,
+  -8.95/3/pipeorange/Score the responses,
+  -13.1/4/pipeteal/Compare scores with two possible explanations
+}{
+  \node[badge,fill=\col] at (.36,\y) {\n};
+  \node[heading,text=\col] at (1.3,\y) {\title};
+}
+
+% 1. One source prompt becomes a multilingual set; only retained items proceed.
+\pic at (2.55,-1.82) {doc};
+\node[font=\sffamily\bfseries,text=pipeblue] at (2.55,-1.55) {EN};
+\node[labeltext,text width=3.0cm] at (2.55,-2.66) {\textbf{Harmful prompts}};
+\node[detail] at (2.55,-3.13) {StrongREJECT};
+\draw[flow] (3.35,-1.82)--(4.13,-1.82);
+
+\foreach \x/\y/\t in {
+  4.65/-1.35/ENG,5.40/-1.35/ARA,6.15/-1.35/BUL,6.90/-1.35/DAN,
+  4.65/-1.81/FIN,5.40/-1.81/ITA,6.15/-1.81/NOR,6.90/-1.81/POR,
+  4.65/-2.27/RUS,5.40/-2.27/SPA,6.15/-2.27/SWA,6.90/-2.27/SWE,
+  7.65/-1.81/UKR
+}{\node[chip] at (\x,\y) {\t};}
+\node[chip,fill=pipeblue,text=white,draw=pipeblue] at (4.65,-1.35) {ENG};
+\node[labeltext] at (6.05,-2.66) {\textbf{13 attack languages}};
+\node[detail,text width=3.5cm] at (6.05,-3.29) {English + 12 versions\\with NLLB-200};
+\draw[flow] (8.13,-1.82)--(8.65,-1.82);
+
+% Funnel: translation screening, with an explicit exclusion outlet.
+\draw[draw=pipeblue,line width=.9pt,fill=white]
+  (8.9,-1.22)--(10.42,-1.22)--(9.94,-1.89)--(9.94,-2.27)
+  --(9.38,-2.27)--(9.38,-1.89)--cycle;
+\node[text=pipeblue,font=\fontsize{16}{16}\selectfont] at (9.66,-1.55) {\faIcon{check}};
+\node[labeltext] at (9.66,-2.66) {\textbf{Quality screen}};
+\node[detail,text width=2.8cm] at (9.66,-3.29) {BLASER + LLM\\flagged-item review};
+\draw[flow] (10.68,-1.82)--(11.75,-1.82);
+\node[detail,above,text=pipeblue] at (11.22,-1.78) {retain};
+\pic at (13.23,-1.68) {doc};
+\pic at (13.05,-1.82) {doc};
+\node[text=pipeblue,font=\fontsize{17}{17}\selectfont] at (13.05,-1.58) {\faIcon{check}};
+\node[labeltext] at (13.05,-2.66) {\textbf{Retained prompts}};
+\node[detail] at (13.05,-3.13) {Sent to the models};
+\node[detail,anchor=west,text=pipegray] at (1.4,-3.9)
+  {Round-trip drift: diagnostic only};
+\draw[flow,dashed,pipeorange] (9.66,-2.27)--(9.66,-2.4)--(11.35,-2.4)--(11.35,-3.9)--(11.65,-3.9);
+\node[detail,anchor=west,text=pipeorange] at (11.7,-3.9) {Excluded: logged};
+
+% 2. Four visibly paired target groups, plus a separate descriptive reference.
+\pic at (2.55,-6.15) {doc};
+\node[text=pipeblue,font=\fontsize{17}{17}\selectfont] at (2.55,-5.9) {\faIcon{check}};
+\node[labeltext] at (2.55,-7.18) {\textbf{Retained prompt}};
+\draw[flow] (3.4,-6.15)--(4.25,-6.15);
+\foreach \x/\language in {5.05/Portuguese,6.75/Italian,8.45/Swedish,10.15/Bulgarian}{
+  \fill[pipepurple!9,rounded corners=3pt] (\x-.68,-5.43) rectangle (\x+.68,-6.82);
+  \node[detail,font=\sffamily\bfseries\fontsize{8.5}{10}\selectfont,text=pipepurple]
+    at (\x,-5.68) {\language};
+  \foreach \y/\pole in {-6.1/W,-6.54/S}{
+    \draw[rounded corners=1pt,pipepurple!65,fill=white]
+      (\x-.47,\y-.16) rectangle (\x+.47,\y+.16);
+    \fill[pipepurple] (\x-.30,\y) circle (.035);
+    \fill[pipepurple!40] (\x-.17,\y) circle (.035);
+    \node[font=\sffamily\fontsize{8}{9}\selectfont,anchor=east]
+      at (\x+.40,\y) {\pole};
+  }
+}
+\node[labeltext] at (7.6,-7.17) {\textbf{8 targets in 4 language pairs}};
+\node[detail,text=pipegray] at (7.6,-7.68) {Weak / strong poles (W / S)};
+\draw[flow] (11.08,-6.15)--(11.78,-6.15);
+\pic at (13.28,-5.98) {bubble};
+\pic at (13.05,-6.18) {bubble};
+\node[labeltext] at (13.05,-7.17) {\textbf{Original responses}};
+\node[detail,text=pipegray] at (13.05,-7.68) {Saved with request status};
+\node[detail,text width=2.8cm,text=pipegray] at (2.55,-7.68) {Chat templates\\Temperature 0.0};
+
+% 3. English-oriented scoring, preserving the full [0,1] outcome.
+\pic at (2.55,-10.22) {bubble};
+\node[labeltext] at (2.55,-11.23) {\textbf{Model response}\\Original language};
+\draw[flow] (3.36,-10.22)--(4.53,-10.22);
+\node[detail,above,text=pipegray] at (3.96,-10.17) {NLLB};
+\pic at (5.43,-10.22) {bubble};
+\node[fill=white,inner sep=2pt,font=\sffamily\bfseries,text=pipepurple] at (5.43,-10.15) {EN};
+\node[labeltext] at (5.43,-11.23) {\textbf{English text}\\Back-translation};
+\draw[flow] (6.26,-10.22)--(7.41,-10.22);
+\node[circle,draw=pipeorange!65,fill=white,minimum size=1.08cm,inner sep=0pt,
+  text=pipeorange,font=\fontsize{22}{24}\selectfont] at (8.25,-10.22) {\faIcon{balance-scale}};
+\node[labeltext] at (8.25,-11.23) {\textbf{Automated judge}\\StrongREJECT};
+\draw[flow] (9.08,-10.22)--(10.2,-10.22);
+\shade[left color=pipeorange!7,right color=pipeorange,rounded corners=1pt]
+  (10.65,-10.34) rectangle (14.8,-10.03);
+\foreach \x in {10.65,11.6875,12.725,13.7625,14.8}{\draw[pipeink!50] (\x,-10.39)--(\x,-10.47);}
+\node[detail] at (10.65,-10.7) {0};
+\node[detail] at (14.8,-10.7) {1};
+\node[labeltext,font=\sffamily\bfseries\fontsize{11}{13}\selectfont] at (12.72,-9.71) {Graded score};
+\node[labeltext,text width=4.4cm] at (12.72,-11.37) {Higher = more useful\\unsafe content};
+\node[detail,text=pipegray,anchor=west] at (1.4,-11.87)
+  {English outputs stay unchanged.\quad Missing scores stay unknown.};
+
+% 4. Outcome and measured predictors converge on one association analysis.
+\foreach \x/\title in {3.6/Unsafe-content score,8.28/Language distance,12.95/Specialization proxy}{
+  \draw[rounded corners=3pt,draw=pipeteal!25,fill=white]
+    (\x-2.05,-13.78) rectangle (\x+2.05,-15.76);
+  \node[labeltext,font=\sffamily\bfseries\fontsize{10}{12}\selectfont] at (\x,-14.08) {\title};
+}
+\shade[left color=pipeorange!7,right color=pipeorange] (2.65,-14.71) rectangle (4.55,-14.48);
+\node[detail,anchor=east] at (2.56,-14.60) {0};
+\node[detail,anchor=west] at (4.64,-14.60) {1};
+\node[detail,text width=3.9cm] at (3.6,-15.28) {StrongREJECT\\Zeros included};
+
+\node[circle,draw=pipeteal!60,fill=pipeteal!5,minimum size=.43cm,inner sep=1pt,detail] at (7.4,-14.6) {$L_s$};
+\node[circle,draw=pipeteal!60,fill=pipeteal!5,minimum size=.43cm,inner sep=1pt,detail] at (9.15,-14.6) {$L_t$};
+\draw[{Latex[length=1.4mm]}-{Latex[length=1.4mm]},pipeteal] (7.76,-14.6)--(8.78,-14.6);
+\node[detail,text width=3.9cm] at (8.28,-15.28) {URIEL+\\Aligned $\leftrightarrow$ attack};
+
+\node[text=pipeteal,font=\fontsize{19}{21}\selectfont] at (12.25,-14.6) {\faIcon{book-open}};
+\node[detail,text=pipeteal] at (13.55,-14.6) {SPEC};
+\node[detail,text width=3.9cm] at (12.95,-15.28) {BELEBELE: IF + CONS\\Accuracy + consistency};
+
+\foreach \x in {3.6,8.28,12.95}{\draw[flow,pipeteal!80] (\x,-15.78)--(\x,-16.18);}
+\draw[rounded corners=4pt,fill=pipeteal!10,draw=pipeteal!40]
+  (1.55,-16.2) rectangle (15,-17.65);
+\node[font=\sffamily\bfseries\fontsize{12}{14}\selectfont,text=pipeteal]
+  at (8.28,-16.57) {Which factors are associated with higher scores?};
+\node[labeltext] at (8.28,-17.05) {Fractional-logit GEE\quad\textbullet\quad Prompt-clustered uncertainty};
+\node[detail] at (8.28,-17.43) {8 paired targets\quad\textbullet\quad Model and attack-language controls};
+\node[detail,text=pipegray] at (8.28,-17.88)
+  {Pair comparisons\quad\textbullet\quad Coverage checks\quad\textbullet\quad Tokenizer sensitivity};
+
+\end{tikzpicture}
+\endgroup

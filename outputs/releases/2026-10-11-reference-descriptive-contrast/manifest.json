@@ -1,0 +1,12 @@
+{
+  "role": "Post-review descriptive contrast; no paired regression changes.",
+  "source_sha256": "d61e641f104d87fd79f3b001c0b990c2552a5447129db624d3085ff6675824af",
+  "source": "eval/outputs/releases/2026-09-29-graded-reporting/cell_summary.csv",
+  "code_sha256": "7ff7fa0f517f2af611c020a431cadf986a4c9abafbf4b54a00e514adfabd55ee",
+  "unit": "Observed model-language mean",
+  "scopes": [
+    "13 languages",
+    "12 non-aligned languages"
+  ],
+  "uncertainty": "No inferential intervals or p-values claimed."
+}

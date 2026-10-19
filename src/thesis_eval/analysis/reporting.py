@@ -2,6 +2,8 @@ from __future__ import annotations
 
 from collections import defaultdict
 import math
+import random
+import statistics
 from typing import Any
 
 from thesis_eval.metrics.asr import wilson_ci
@@ -204,7 +206,10 @@ def tokenizer_diagnostics(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
                 "n": len(group_rows),
                 "mean_token_inflation": _mean_numeric(group_rows, "token_inflation"),
                 "mean_tokens_per_char": _mean_numeric(group_rows, "tokens_per_char"),
-                "truncation_risk_rate": _mean_bool(group_rows, "truncation_risk"),
+                "median_token_inflation": statistics.median([float(r["token_inflation"]) for r in group_rows if r.get("token_inflation") is not None]) if any(r.get("token_inflation") is not None for r in group_rows) else None,
+                "n_token_inflation": sum(r.get("token_inflation") is not None for r in group_rows),
+                "n_context_usage": sum(r.get("context_usage_ratio") is not None for r in group_rows),
+                "truncation_risk_rate": _mean_numeric(group_rows, "truncation_risk"),
             }
         )
     return output
@@ -229,27 +234,31 @@ def belebele_scores(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
 
 
 def collinearity_diagnostics(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
-    rows = paired_design_rows(rows)
-    pairs = [
-        (float(row["distance"]), float(row["spec_score"]))
-        for row in rows
-        if not row.get("excluded") and row.get("distance") is not None and row.get("spec_score") is not None
-    ]
-    if len(pairs) < 2:
-        return [
-            {"diagnostic": "vif_distance", "value": None},
-            {"diagnostic": "vif_spec", "value": None},
-            {"diagnostic": "condition_number", "value": None},
-            {"diagnostic": "single_predictor_rerun_triggered", "value": None},
-        ]
-    r = _pearson([pair[0] for pair in pairs], [pair[1] for pair in pairs])
-    vif = 1 / max(1e-12, 1 - r * r)
-    condition = math.sqrt((1 + abs(r)) / max(1e-12, 1 - abs(r)))
+    """VIF on the actual complete-case fixed design, including model indicators."""
+    import numpy as np
+    import pandas as pd
+    import patsy
+    from statsmodels.stats.outliers_influence import variance_inflation_factor
+
+    selected = [r for r in paired_design_rows(rows) if not r.get("excluded")
+                and r.get("unsafe_binary") is not None and r.get("distance") is not None
+                and r.get("spec_score") is not None]
+    if len(selected) < 2:
+        return [{"diagnostic": k, "value": None} for k in
+                ("vif_distance", "vif_spec", "condition_number", "single_predictor_rerun_triggered")]
+    data = pd.DataFrame(selected)
+    for source, target in (("distance", "distance_z"), ("spec_score", "spec_z")):
+        values = data[source].astype(float)
+        sd = values.std(ddof=0)
+        data[target] = (values - values.mean()) / sd if sd else 0.0
+    design = patsy.dmatrix("distance_z + spec_z + C(model)", data, return_type="dataframe")
+    vif = [float(variance_inflation_factor(design.to_numpy(), design.columns.get_loc(k)))
+           for k in ("distance_z", "spec_z")]
     return [
-        {"diagnostic": "vif_distance", "value": vif},
-        {"diagnostic": "vif_spec", "value": vif},
-        {"diagnostic": "condition_number", "value": condition},
-        {"diagnostic": "single_predictor_rerun_triggered", "value": bool(vif > 5)},
+        {"diagnostic": "vif_distance", "value": vif[0]},
+        {"diagnostic": "vif_spec", "value": vif[1]},
+        {"diagnostic": "condition_number", "value": float(np.linalg.cond(design.to_numpy()))},
+        {"diagnostic": "single_predictor_rerun_triggered", "value": bool(max(vif) > 5)},
     ]
 
 
@@ -386,14 +395,53 @@ def _prereg_interpretation(retained: int, panel_complete: bool) -> str:
 
 
 def _correlation_row(model: str, predictor: str, pairs: list[tuple[float, float]]) -> dict[str, Any]:
+    rho = _spearman([pair[0] for pair in pairs], [pair[1] for pair in pairs]) if len(pairs) >= 2 else None
+    ci_low, ci_high = _spearman_bootstrap_interval(model, predictor, pairs)
     return {
         "model": model,
         "predictor": predictor,
         "n": len(pairs),
-        "spearman_rho": _spearman([pair[0] for pair in pairs], [pair[1] for pair in pairs]) if len(pairs) >= 2 else None,
+        "spearman_rho": rho,
+        "ci_low": ci_low,
+        "ci_high": ci_high,
         "p_value": None,
-        "interpretation": "descriptive_only",
+        "interval_method": "paired_language_cell_percentile_bootstrap_10000",
+        "interpretation": "descriptive_only_purposive_language_inventory",
     }
+
+
+def _spearman_bootstrap_interval(
+    model: str,
+    predictor: str,
+    pairs: list[tuple[float, float]],
+    *,
+    samples: int = 10_000,
+) -> tuple[float | None, float | None]:
+    if len(pairs) < 3:
+        return None, None
+    seed = 20260801 + sum((index + 1) * ord(char) for index, char in enumerate(f"{model}:{predictor}"))
+    rng = random.Random(seed)
+    estimates: list[float] = []
+    for _ in range(samples):
+        resampled = [pairs[rng.randrange(len(pairs))] for _ in pairs]
+        estimates.append(
+            _spearman(
+                [pair[0] for pair in resampled],
+                [pair[1] for pair in resampled],
+            )
+        )
+    estimates.sort()
+    return _percentile(estimates, 0.025), _percentile(estimates, 0.975)
+
+
+def _percentile(values: list[float], probability: float) -> float:
+    position = probability * (len(values) - 1)
+    lower = math.floor(position)
+    upper = math.ceil(position)
+    if lower == upper:
+        return values[lower]
+    weight = position - lower
+    return values[lower] * (1 - weight) + values[upper] * weight
 
 
 def _spearman(xs: list[float], ys: list[float]) -> float:

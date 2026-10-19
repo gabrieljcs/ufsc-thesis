@@ -1,0 +1,146 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!DOCTYPE svg
+  PUBLIC '-//W3C//DTD SVG 1.0//EN'
+  'http://www.w3.org/TR/2001/REC-SVG-20010904/DTD/svg10.dtd'>
+<svg width="920" height="1160" preserveAspectRatio="xMinYMin meet" viewBox="0 0 920 1160" xmlns="http://www.w3.org/2000/svg" version="1.0" fill-rule="evenodd" xmlns:xlink="http://www.w3.org/1999/xlink">
+	<title>...</title>
+	<desc>...</desc>
+	<clipPath id="clip">
+		<rect x="0" y="0" width="920" height="1160"/>
+	</clipPath>
+	<g id="group" transform="scale(1,-1) translate(0,-1160)" style="clip-path: url(#clip)">
+		<g transform="">
+			<text x="20" y="1123" style="font-family: Helvetica-Bold; font-size: 29px;fill: rgb(8%,15%,23%); stroke:none;" transform="translate(0,2246) scale(1,-1)">Model families and specialization paths</text>
+			<text x="20" y="1094" style="font-family: Helvetica; font-size: 18px;fill: rgb(32%,39%,45%); stroke:none;" transform="translate(0,2188) scale(1,-1)">Documented ancestry of eight paired targets and one English reference</text>
+			<text x="20" y="1051" style="font-family: Helvetica-Bold; font-size: 13px;fill: rgb(32%,39%,45%); stroke:none;" transform="translate(0,2102) scale(1,-1)">UPSTREAM FAMILY / CHECKPOINT</text>
+			<text x="334" y="1051" style="font-family: Helvetica-Bold; font-size: 13px;fill: rgb(32%,39%,45%); stroke:none;" transform="translate(0,2102) scale(1,-1)">ADAPTATION OR INTERMEDIATE</text>
+			<text x="648" y="1051" style="font-family: Helvetica-Bold; font-size: 13px;fill: rgb(32%,39%,45%); stroke:none;" transform="translate(0,2102) scale(1,-1)">EVALUATED ASSISTANT</text>
+			<rect x="20" y="955" width="245" height="65" rx="10" ry="10" style="stroke: rgb(9%,44%,36%); stroke-linecap: butt; stroke-width: 1.5; fill: rgb(96%,97%,98%); fill-rule: evenodd;"/>
+			<text x="34" y="995" style="font-family: Helvetica-Bold; font-size: 18px;fill: rgb(8%,15%,23%); stroke:none;" transform="translate(0,1990) scale(1,-1)">LLaMA 7B</text>
+			<text x="34" y="973" style="font-family: Helvetica; font-size: 18px;fill: rgb(8%,15%,23%); stroke:none;" transform="translate(0,1946) scale(1,-1)">original base model</text>
+			<rect x="334" y="955" width="245" height="65" rx="10" ry="10" style="stroke: rgb(9%,44%,36%); stroke-linecap: butt; stroke-width: 1.5; fill: rgb(96%,97%,98%); fill-rule: evenodd;"/>
+			<text x="348" y="995" style="font-family: Helvetica-Bold; font-size: 18px;fill: rgb(8%,15%,23%); stroke:none;" transform="translate(0,1990) scale(1,-1)">Sabiá-7B</text>
+			<text x="348" y="973" style="font-family: Helvetica; font-size: 18px;fill: rgb(8%,15%,23%); stroke:none;" transform="translate(0,1946) scale(1,-1)">Portuguese continuation</text>
+			<rect x="648" y="955" width="245" height="65" rx="10" ry="10" style="stroke: rgb(9%,44%,36%); stroke-linecap: butt; stroke-width: 1.5; fill: rgb(9%,44%,36%); fill-rule: evenodd;"/>
+			<text x="662" y="995" style="font-family: Helvetica-Bold; font-size: 18px;fill: rgb(100%,100%,100%); stroke:none;" transform="translate(0,1990) scale(1,-1)">Sagui-7B</text>
+			<text x="662" y="973" style="font-family: Helvetica; font-size: 18px;fill: rgb(100%,100%,100%); stroke:none;" transform="translate(0,1946) scale(1,-1)">Instruct-v0.1</text>
+			<text x="658" y="932" style="font-family: Helvetica-Bold; font-size: 15px;fill: rgb(9%,44%,36%); stroke:none;" transform="translate(0,1864) scale(1,-1)">PORTUGUESE · weak</text>
+			<path d="M 269,988 L 318,988 Z" style="stroke: rgb(32%,39%,45%); stroke-linecap: butt; stroke-width: 2;"/>
+			<polygon points="327 988, 317 993, 317 983" style="stroke: none; stroke-linecap: butt; stroke-width: 1; fill: rgb(32%,39%,45%); fill-rule: evenodd;"/>
+			<path d="M 583,988 L 632,988 Z" style="stroke: rgb(32%,39%,45%); stroke-linecap: butt; stroke-width: 2;"/>
+			<polygon points="641 988, 631 993, 631 983" style="stroke: none; stroke-linecap: butt; stroke-width: 1; fill: rgb(32%,39%,45%); fill-rule: evenodd;"/>
+			<rect x="20" y="850" width="245" height="65" rx="10" ry="10" style="stroke: rgb(15%,38%,63%); stroke-linecap: butt; stroke-width: 1.5; fill: rgb(96%,97%,98%); fill-rule: evenodd;"/>
+			<text x="34" y="890" style="font-family: Helvetica-Bold; font-size: 18px;fill: rgb(8%,15%,23%); stroke:none;" transform="translate(0,1780) scale(1,-1)">LLaMA-2 7B</text>
+			<text x="34" y="868" style="font-family: Helvetica; font-size: 18px;fill: rgb(8%,15%,23%); stroke:none;" transform="translate(0,1736) scale(1,-1)">Chat checkpoint</text>
+			<rect x="334" y="850" width="245" height="65" rx="10" ry="10" style="stroke: rgb(15%,38%,63%); stroke-linecap: butt; stroke-width: 1.5; fill: rgb(96%,97%,98%); fill-rule: evenodd;"/>
+			<text x="348" y="890" style="font-family: Helvetica-Bold; font-size: 18px;fill: rgb(8%,15%,23%); stroke:none;" transform="translate(0,1780) scale(1,-1)">Italian UltraChat</text>
+			<text x="348" y="868" style="font-family: Helvetica; font-size: 18px;fill: rgb(8%,15%,23%); stroke:none;" transform="translate(0,1736) scale(1,-1)">QLoRA / merged weights</text>
+			<rect x="648" y="850" width="245" height="65" rx="10" ry="10" style="stroke: rgb(15%,38%,63%); stroke-linecap: butt; stroke-width: 1.5; fill: rgb(15%,38%,63%); fill-rule: evenodd;"/>
+			<text x="662" y="890" style="font-family: Helvetica-Bold; font-size: 18px;fill: rgb(100%,100%,100%); stroke:none;" transform="translate(0,1780) scale(1,-1)">LLaMAntino-2</text>
+			<text x="662" y="868" style="font-family: Helvetica; font-size: 18px;fill: rgb(100%,100%,100%); stroke:none;" transform="translate(0,1736) scale(1,-1)">chat-UltraChat-ITA</text>
+			<text x="658" y="827" style="font-family: Helvetica-Bold; font-size: 15px;fill: rgb(15%,38%,63%); stroke:none;" transform="translate(0,1654) scale(1,-1)">ITALIAN · weak</text>
+			<path d="M 269,883 L 318,883 Z" style="stroke: rgb(32%,39%,45%); stroke-linecap: butt; stroke-width: 2;"/>
+			<polygon points="327 883, 317 888, 317 878" style="stroke: none; stroke-linecap: butt; stroke-width: 1; fill: rgb(32%,39%,45%); fill-rule: evenodd;"/>
+			<path d="M 583,883 L 632,883 Z" style="stroke: rgb(32%,39%,45%); stroke-linecap: butt; stroke-width: 2;"/>
+			<polygon points="641 883, 631 888, 631 878" style="stroke: none; stroke-linecap: butt; stroke-width: 1; fill: rgb(32%,39%,45%); fill-rule: evenodd;"/>
+			<rect x="20" y="745" width="245" height="65" rx="10" ry="10" style="stroke: rgb(15%,38%,63%); stroke-linecap: butt; stroke-width: 1.5; fill: rgb(96%,97%,98%); fill-rule: evenodd;"/>
+			<text x="34" y="785" style="font-family: Helvetica-Bold; font-size: 18px;fill: rgb(8%,15%,23%); stroke:none;" transform="translate(0,1570) scale(1,-1)">LLaMA-3 8B</text>
+			<text x="34" y="763" style="font-family: Helvetica; font-size: 18px;fill: rgb(8%,15%,23%); stroke:none;" transform="translate(0,1526) scale(1,-1)">Base checkpoint</text>
+			<rect x="334" y="745" width="245" height="65" rx="10" ry="10" style="stroke: rgb(15%,38%,63%); stroke-linecap: butt; stroke-width: 1.5; fill: rgb(96%,97%,98%); fill-rule: evenodd;"/>
+			<text x="348" y="785" style="font-family: Helvetica-Bold; font-size: 18px;fill: rgb(8%,15%,23%); stroke:none;" transform="translate(0,1570) scale(1,-1)">Meta Llama-3 8B</text>
+			<text x="348" y="763" style="font-family: Helvetica; font-size: 18px;fill: rgb(8%,15%,23%); stroke:none;" transform="translate(0,1526) scale(1,-1)">Instruct checkpoint</text>
+			<rect x="648" y="745" width="245" height="65" rx="10" ry="10" style="stroke: rgb(15%,38%,63%); stroke-linecap: butt; stroke-width: 1.5; fill: rgb(15%,38%,63%); fill-rule: evenodd;"/>
+			<text x="662" y="785" style="font-family: Helvetica-Bold; font-size: 18px;fill: rgb(100%,100%,100%); stroke:none;" transform="translate(0,1570) scale(1,-1)">LLaMAntino-3 ANITA</text>
+			<text x="662" y="763" style="font-family: Helvetica; font-size: 18px;fill: rgb(100%,100%,100%); stroke:none;" transform="translate(0,1526) scale(1,-1)">Italian SFT / DPO</text>
+			<text x="658" y="722" style="font-family: Helvetica-Bold; font-size: 15px;fill: rgb(15%,38%,63%); stroke:none;" transform="translate(0,1444) scale(1,-1)">ITALIAN · strong</text>
+			<path d="M 269,778 L 318,778 Z" style="stroke: rgb(32%,39%,45%); stroke-linecap: butt; stroke-width: 2;"/>
+			<polygon points="327 778, 317 783, 317 773" style="stroke: none; stroke-linecap: butt; stroke-width: 1; fill: rgb(32%,39%,45%); fill-rule: evenodd;"/>
+			<path d="M 583,778 L 632,778 Z" style="stroke: rgb(32%,39%,45%); stroke-linecap: butt; stroke-width: 2;"/>
+			<polygon points="641 778, 631 783, 631 773" style="stroke: none; stroke-linecap: butt; stroke-width: 1; fill: rgb(32%,39%,45%); fill-rule: evenodd;"/>
+			<rect x="334" y="640" width="245" height="65" rx="10" ry="10" style="stroke: rgb(46%,32%,63%); stroke-linecap: butt; stroke-width: 1.5; fill: rgb(96%,97%,98%); fill-rule: evenodd;"/>
+			<text x="348" y="680" style="font-family: Helvetica-Bold; font-size: 18px;fill: rgb(8%,15%,23%); stroke:none;" transform="translate(0,1360) scale(1,-1)">AI Sweden Llama-3</text>
+			<text x="348" y="658" style="font-family: Helvetica; font-size: 18px;fill: rgb(8%,15%,23%); stroke:none;" transform="translate(0,1316) scale(1,-1)">Nordic continued pretraining</text>
+			<rect x="648" y="640" width="245" height="65" rx="10" ry="10" style="stroke: rgb(46%,32%,63%); stroke-linecap: butt; stroke-width: 1.5; fill: rgb(46%,32%,63%); fill-rule: evenodd;"/>
+			<text x="662" y="680" style="font-family: Helvetica-Bold; font-size: 18px;fill: rgb(100%,100%,100%); stroke:none;" transform="translate(0,1360) scale(1,-1)">AI Sweden Llama-3</text>
+			<text x="662" y="658" style="font-family: Helvetica; font-size: 18px;fill: rgb(100%,100%,100%); stroke:none;" transform="translate(0,1316) scale(1,-1)">8B-instruct</text>
+			<text x="658" y="617" style="font-family: Helvetica-Bold; font-size: 15px;fill: rgb(46%,32%,63%); stroke:none;" transform="translate(0,1234) scale(1,-1)">SWEDISH · strong comparator</text>
+			<path d="M 583,673 L 632,673 Z" style="stroke: rgb(32%,39%,45%); stroke-linecap: butt; stroke-width: 2;"/>
+			<polygon points="641 673, 631 678, 631 668" style="stroke: none; stroke-linecap: butt; stroke-width: 1; fill: rgb(32%,39%,45%); fill-rule: evenodd;"/>
+			<rect x="20" y="535" width="245" height="65" rx="10" ry="10" style="stroke: rgb(46%,32%,63%); stroke-linecap: butt; stroke-width: 1.5; fill: rgb(96%,97%,98%); fill-rule: evenodd;"/>
+			<text x="34" y="575" style="font-family: Helvetica-Bold; font-size: 18px;fill: rgb(8%,15%,23%); stroke:none;" transform="translate(0,1150) scale(1,-1)">GPT-SW3 6.7B v2</text>
+			<text x="34" y="553" style="font-family: Helvetica; font-size: 18px;fill: rgb(8%,15%,23%); stroke:none;" transform="translate(0,1106) scale(1,-1)">Nordic base model</text>
+			<rect x="334" y="535" width="245" height="65" rx="10" ry="10" style="stroke: rgb(46%,32%,63%); stroke-linecap: butt; stroke-width: 1.5; fill: rgb(96%,97%,98%); fill-rule: evenodd;"/>
+			<text x="348" y="575" style="font-family: Helvetica-Bold; font-size: 18px;fill: rgb(8%,15%,23%); stroke:none;" transform="translate(0,1150) scale(1,-1)">Instruction tuning</text>
+			<text x="348" y="553" style="font-family: Helvetica; font-size: 18px;fill: rgb(8%,15%,23%); stroke:none;" transform="translate(0,1106) scale(1,-1)">Nordic / English data</text>
+			<rect x="648" y="535" width="245" height="65" rx="10" ry="10" style="stroke: rgb(46%,32%,63%); stroke-linecap: butt; stroke-width: 1.5; fill: rgb(46%,32%,63%); fill-rule: evenodd;"/>
+			<text x="662" y="575" style="font-family: Helvetica-Bold; font-size: 18px;fill: rgb(100%,100%,100%); stroke:none;" transform="translate(0,1150) scale(1,-1)">GPT-SW3 6.7B</text>
+			<text x="662" y="553" style="font-family: Helvetica; font-size: 18px;fill: rgb(100%,100%,100%); stroke:none;" transform="translate(0,1106) scale(1,-1)">v2-instruct</text>
+			<text x="658" y="512" style="font-family: Helvetica-Bold; font-size: 15px;fill: rgb(46%,32%,63%); stroke:none;" transform="translate(0,1024) scale(1,-1)">SWEDISH · weak</text>
+			<path d="M 269,568 L 318,568 Z" style="stroke: rgb(32%,39%,45%); stroke-linecap: butt; stroke-width: 2;"/>
+			<polygon points="327 568, 317 573, 317 563" style="stroke: none; stroke-linecap: butt; stroke-width: 1; fill: rgb(32%,39%,45%); fill-rule: evenodd;"/>
+			<path d="M 583,568 L 632,568 Z" style="stroke: rgb(32%,39%,45%); stroke-linecap: butt; stroke-width: 2;"/>
+			<polygon points="641 568, 631 573, 631 563" style="stroke: none; stroke-linecap: butt; stroke-width: 1; fill: rgb(32%,39%,45%); fill-rule: evenodd;"/>
+			<rect x="20" y="430" width="245" height="65" rx="10" ry="10" style="stroke: rgb(71%,41%,12%); stroke-linecap: butt; stroke-width: 1.5; fill: rgb(96%,97%,98%); fill-rule: evenodd;"/>
+			<text x="34" y="470" style="font-family: Helvetica-Bold; font-size: 18px;fill: rgb(8%,15%,23%); stroke:none;" transform="translate(0,940) scale(1,-1)">Mistral 7B</text>
+			<text x="34" y="448" style="font-family: Helvetica; font-size: 18px;fill: rgb(8%,15%,23%); stroke:none;" transform="translate(0,896) scale(1,-1)">v0.1 base checkpoint</text>
+			<rect x="334" y="430" width="245" height="65" rx="10" ry="10" style="stroke: rgb(71%,41%,12%); stroke-linecap: butt; stroke-width: 1.5; fill: rgb(96%,97%,98%); fill-rule: evenodd;"/>
+			<text x="348" y="470" style="font-family: Helvetica-Bold; font-size: 18px;fill: rgb(8%,15%,23%); stroke:none;" transform="translate(0,940) scale(1,-1)">Bulgarian adaptation</text>
+			<text x="348" y="448" style="font-family: Helvetica; font-size: 18px;fill: rgb(8%,15%,23%); stroke:none;" transform="translate(0,896) scale(1,-1)">Continued pretraining / SFT</text>
+			<rect x="648" y="430" width="245" height="65" rx="10" ry="10" style="stroke: rgb(71%,41%,12%); stroke-linecap: butt; stroke-width: 1.5; fill: rgb(71%,41%,12%); fill-rule: evenodd;"/>
+			<text x="662" y="470" style="font-family: Helvetica-Bold; font-size: 18px;fill: rgb(100%,100%,100%); stroke:none;" transform="translate(0,940) scale(1,-1)">BgGPT-7B</text>
+			<text x="662" y="448" style="font-family: Helvetica; font-size: 18px;fill: rgb(100%,100%,100%); stroke:none;" transform="translate(0,896) scale(1,-1)">Instruct-v0.2</text>
+			<text x="658" y="407" style="font-family: Helvetica-Bold; font-size: 15px;fill: rgb(71%,41%,12%); stroke:none;" transform="translate(0,814) scale(1,-1)">BULGARIAN · weak</text>
+			<path d="M 269,463 L 318,463 Z" style="stroke: rgb(32%,39%,45%); stroke-linecap: butt; stroke-width: 2;"/>
+			<polygon points="327 463, 317 468, 317 458" style="stroke: none; stroke-linecap: butt; stroke-width: 1; fill: rgb(32%,39%,45%); fill-rule: evenodd;"/>
+			<path d="M 583,463 L 632,463 Z" style="stroke: rgb(32%,39%,45%); stroke-linecap: butt; stroke-width: 2;"/>
+			<polygon points="641 463, 631 468, 631 458" style="stroke: none; stroke-linecap: butt; stroke-width: 1; fill: rgb(32%,39%,45%); fill-rule: evenodd;"/>
+			<rect x="20" y="325" width="245" height="65" rx="10" ry="10" style="stroke: rgb(71%,41%,12%); stroke-linecap: butt; stroke-width: 1.5; fill: rgb(96%,97%,98%); fill-rule: evenodd;"/>
+			<text x="34" y="365" style="font-family: Helvetica-Bold; font-size: 18px;fill: rgb(8%,15%,23%); stroke:none;" transform="translate(0,730) scale(1,-1)">Gemma 2 9B</text>
+			<text x="34" y="343" style="font-family: Helvetica; font-size: 18px;fill: rgb(8%,15%,23%); stroke:none;" transform="translate(0,686) scale(1,-1)">Base + IT checkpoints</text>
+			<rect x="334" y="325" width="245" height="65" rx="10" ry="10" style="stroke: rgb(71%,41%,12%); stroke-linecap: butt; stroke-width: 1.5; fill: rgb(96%,97%,98%); fill-rule: evenodd;"/>
+			<text x="348" y="365" style="font-family: Helvetica-Bold; font-size: 18px;fill: rgb(8%,15%,23%); stroke:none;" transform="translate(0,730) scale(1,-1)">Branch-and-merge</text>
+			<text x="348" y="343" style="font-family: Helvetica; font-size: 18px;fill: rgb(8%,15%,23%); stroke:none;" transform="translate(0,686) scale(1,-1)">Bulgarian adaptation / SFT</text>
+			<rect x="648" y="325" width="245" height="65" rx="10" ry="10" style="stroke: rgb(71%,41%,12%); stroke-linecap: butt; stroke-width: 1.5; fill: rgb(71%,41%,12%); fill-rule: evenodd;"/>
+			<text x="662" y="365" style="font-family: Helvetica-Bold; font-size: 18px;fill: rgb(100%,100%,100%); stroke:none;" transform="translate(0,730) scale(1,-1)">BgGPT-Gemma 2</text>
+			<text x="662" y="343" style="font-family: Helvetica; font-size: 18px;fill: rgb(100%,100%,100%); stroke:none;" transform="translate(0,686) scale(1,-1)">9B-IT-v1.0</text>
+			<text x="658" y="302" style="font-family: Helvetica-Bold; font-size: 15px;fill: rgb(71%,41%,12%); stroke:none;" transform="translate(0,604) scale(1,-1)">BULGARIAN · strong</text>
+			<path d="M 269,358 L 318,358 Z" style="stroke: rgb(32%,39%,45%); stroke-linecap: butt; stroke-width: 2;"/>
+			<polygon points="327 358, 317 363, 317 353" style="stroke: none; stroke-linecap: butt; stroke-width: 1; fill: rgb(32%,39%,45%); fill-rule: evenodd;"/>
+			<path d="M 583,358 L 632,358 Z" style="stroke: rgb(32%,39%,45%); stroke-linecap: butt; stroke-width: 2;"/>
+			<polygon points="641 358, 631 363, 631 353" style="stroke: none; stroke-linecap: butt; stroke-width: 1; fill: rgb(32%,39%,45%); fill-rule: evenodd;"/>
+			<rect x="20" y="220" width="245" height="65" rx="10" ry="10" style="stroke: rgb(32%,40%,47%); stroke-linecap: butt; stroke-width: 1.5; fill: rgb(96%,97%,98%); fill-rule: evenodd;"/>
+			<text x="34" y="260" style="font-family: Helvetica-Bold; font-size: 18px;fill: rgb(8%,15%,23%); stroke:none;" transform="translate(0,520) scale(1,-1)">Llama 3.1 8B</text>
+			<text x="34" y="238" style="font-family: Helvetica; font-size: 18px;fill: rgb(8%,15%,23%); stroke:none;" transform="translate(0,476) scale(1,-1)">Separate model generation</text>
+			<rect x="334" y="220" width="245" height="65" rx="10" ry="10" style="stroke: rgb(32%,40%,47%); stroke-linecap: butt; stroke-width: 1.5; fill: rgb(96%,97%,98%); fill-rule: evenodd;"/>
+			<text x="348" y="260" style="font-family: Helvetica-Bold; font-size: 18px;fill: rgb(8%,15%,23%); stroke:none;" transform="translate(0,520) scale(1,-1)">Meta instruction</text>
+			<text x="348" y="238" style="font-family: Helvetica; font-size: 18px;fill: rgb(8%,15%,23%); stroke:none;" transform="translate(0,476) scale(1,-1)">and safety post-training</text>
+			<rect x="648" y="220" width="245" height="65" rx="10" ry="10" style="stroke: rgb(32%,40%,47%); stroke-linecap: butt; stroke-width: 1.5; fill: rgb(32%,40%,47%); fill-rule: evenodd;"/>
+			<text x="662" y="260" style="font-family: Helvetica-Bold; font-size: 18px;fill: rgb(100%,100%,100%); stroke:none;" transform="translate(0,520) scale(1,-1)">Llama 3.1 8B</text>
+			<text x="662" y="238" style="font-family: Helvetica; font-size: 18px;fill: rgb(100%,100%,100%); stroke:none;" transform="translate(0,476) scale(1,-1)">Instruct reference</text>
+			<text x="658" y="197" style="font-family: Helvetica-Bold; font-size: 15px;fill: rgb(32%,40%,47%); stroke:none;" transform="translate(0,394) scale(1,-1)">ENGLISH · separate reference</text>
+			<path d="M 269,253 L 318,253 Z" style="stroke: rgb(32%,39%,45%); stroke-linecap: butt; stroke-width: 2;"/>
+			<polygon points="327 253, 317 258, 317 248" style="stroke: none; stroke-linecap: butt; stroke-width: 1; fill: rgb(32%,39%,45%); fill-rule: evenodd;"/>
+			<path d="M 583,253 L 632,253 Z" style="stroke: rgb(32%,39%,45%); stroke-linecap: butt; stroke-width: 2;"/>
+			<polygon points="641 253, 631 258, 631 248" style="stroke: none; stroke-linecap: butt; stroke-width: 1; fill: rgb(32%,39%,45%); fill-rule: evenodd;"/>
+			<rect x="20" y="115" width="245" height="65" rx="10" ry="10" style="stroke: rgb(9%,44%,36%); stroke-linecap: butt; stroke-width: 1.5; fill: rgb(96%,97%,98%); fill-rule: evenodd;"/>
+			<text x="34" y="155" style="font-family: Helvetica-Bold; font-size: 18px;fill: rgb(8%,15%,23%); stroke:none;" transform="translate(0,310) scale(1,-1)">Undisclosed upstream</text>
+			<text x="34" y="133" style="font-family: Helvetica; font-size: 18px;fill: rgb(8%,15%,23%); stroke:none;" transform="translate(0,266) scale(1,-1)">No public ancestry asserted</text>
+			<rect x="334" y="115" width="245" height="65" rx="10" ry="10" style="stroke: rgb(9%,44%,36%); stroke-linecap: butt; stroke-width: 1.5; fill: rgb(96%,97%,98%); fill-rule: evenodd;"/>
+			<text x="348" y="155" style="font-family: Helvetica-Bold; font-size: 18px;fill: rgb(8%,15%,23%); stroke:none;" transform="translate(0,310) scale(1,-1)">Private model training</text>
+			<text x="348" y="133" style="font-family: Helvetica; font-size: 18px;fill: rgb(8%,15%,23%); stroke:none;" transform="translate(0,266) scale(1,-1)">Details not established</text>
+			<rect x="648" y="115" width="245" height="65" rx="10" ry="10" style="stroke: rgb(9%,44%,36%); stroke-linecap: butt; stroke-width: 1.5; fill: rgb(9%,44%,36%); fill-rule: evenodd;"/>
+			<text x="662" y="155" style="font-family: Helvetica-Bold; font-size: 18px;fill: rgb(100%,100%,100%); stroke:none;" transform="translate(0,310) scale(1,-1)">Sabiá-3</text>
+			<text x="662" y="133" style="font-family: Helvetica; font-size: 18px;fill: rgb(100%,100%,100%); stroke:none;" transform="translate(0,266) scale(1,-1)">Closed API</text>
+			<text x="658" y="92" style="font-family: Helvetica-Bold; font-size: 15px;fill: rgb(9%,44%,36%); stroke:none;" transform="translate(0,184) scale(1,-1)">PORTUGUESE · strong</text>
+			<path d="M 269,148 L 318,148 Z" style="stroke: rgb(32%,39%,45%); stroke-linecap: butt; stroke-width: 2; stroke-dasharray: 5, 4;"/>
+			<polygon points="327 148, 317 153, 317 143" style="stroke: none; stroke-linecap: butt; stroke-width: 1; fill: rgb(32%,39%,45%); fill-rule: evenodd;"/>
+			<path d="M 583,148 L 632,148 Z" style="stroke: rgb(32%,39%,45%); stroke-linecap: butt; stroke-width: 2; stroke-dasharray: 5, 4;"/>
+			<polygon points="641 148, 631 153, 631 143" style="stroke: none; stroke-linecap: butt; stroke-width: 1; fill: rgb(32%,39%,45%); fill-rule: evenodd;"/>
+			<path d="M 142,745 L 142,673 Z" style="stroke: rgb(46%,32%,63%); stroke-linecap: butt; stroke-width: 2.5;"/>
+			<path d="M 142,673 L 318,673 Z" style="stroke: rgb(32%,39%,45%); stroke-linecap: butt; stroke-width: 2;"/>
+			<polygon points="327 673, 317 678, 317 668" style="stroke: none; stroke-linecap: butt; stroke-width: 1; fill: rgb(32%,39%,45%); fill-rule: evenodd;"/>
+			<text x="20" y="60" style="font-family: Helvetica; font-size: 16px;fill: rgb(32%,39%,45%); stroke:none;" transform="translate(0,120) scale(1,-1)">Solid arrows: documented derivation or training stage. Dashed arrows: undisclosed API lineage.</text>
+			<text x="20" y="33" style="font-family: Helvetica; font-size: 16px;fill: rgb(32%,39%,45%); stroke:none;" transform="translate(0,66) scale(1,-1)">Weak/strong are design labels; arrows do not establish safety gains or losses.</text>
+		</g>
+	</g>
+</svg>

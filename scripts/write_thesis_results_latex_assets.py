@@ -38,7 +38,7 @@ DISPLAY = {
     "ai_sweden_llama3_8b": "AI Sweden Llama-3",
     "bggpt_7b": "BgGPT-7B",
     "bggpt_gemma_9b": "BgGPT-Gemma-9B",
-    "llama3_1_8b_reference": "LLaMA-3.1-8B reference",
+    "llama3_1_8b_reference": "Llama-3.1-8B reference",
 }
 
 FULL_DISPLAY = {
@@ -50,7 +50,7 @@ FULL_DISPLAY = {
     "ai_sweden_llama3_8b": "AI Sweden Llama-3-8B-instruct",
     "bggpt_7b": "BgGPT-7B-Instruct-v0.2",
     "bggpt_gemma_9b": "BgGPT-Gemma-2-9B-Instruct",
-    "llama3_1_8b_reference": "\\makecell[l]{LLaMA-3.1-8B\\\\reference}",
+    "llama3_1_8b_reference": "\\makecell[l]{Llama-3.1-8B\\\\reference}",
 }
 
 LANG_DISPLAY = {
@@ -103,7 +103,10 @@ def wilson(k: int, n: int, z: float = 1.96) -> tuple[float, float]:
 
 def load_rows() -> list[dict[str, object]]:
     rows = []
-    with (OUTPUTS / "dataset_frozen.jsonl").open() as handle:
+    source = OUTPUTS / "dataset_corrected.jsonl"
+    if not source.exists():
+        source = OUTPUTS / "dataset_frozen.jsonl"
+    with source.open() as handle:
         for line in handle:
             rows.append(json.loads(line))
     return rows
@@ -160,7 +163,7 @@ def table_coverage(rows: list[dict[str, object]]) -> str:
         r"\setlength{\tabcolsep}{4pt}",
         r"\scriptsize",
         r"\begin{tabularx}{\linewidth}{>{\raggedright\arraybackslash}X|c|c|c|c|c|c}",
-        r"\caption[Evaluation coverage by model]{Evaluation coverage and data quality by model.}",
+        r"\caption[Evaluation coverage by model]{Evaluation coverage and data quality by model}",
         r"\label{tab:results-coverage} \\",
         r"\hline",
         r"\textbf{Model} & \textbf{Langs.} & \textbf{Attempts} & \shortstack{\textbf{HTTP/API}\\\textbf{fail. (\%)}} & \shortstack{\textbf{Provider}\\\textbf{block (\%)}} & \shortstack{\textbf{Scoring}\\\textbf{fail. (\%)}} & \shortstack{\textbf{Refusal}\\\textbf{(\%)}} \\",
@@ -175,7 +178,7 @@ def table_coverage(rows: list[dict[str, object]]) -> str:
         )
         lines.append(r"\hline")
     lines.extend([
-        r"\multicolumn{7}{p{\dimexpr\linewidth-2\tabcolsep\relax}}{\fonte{Author.}} \\",
+        r"\multicolumn{7}{p{\dimexpr\linewidth-2\tabcolsep\relax}}{\fonte{Prepared by the author (2026).}} \\",
         r"\end{tabularx}",
         r"\end{table}",
     ])
@@ -209,7 +212,7 @@ def table_audit() -> str:
         lines.append(f"{LANG_DISPLAY[lang]} (\\texttt{{{lang}}}) & {queue} & {med} & {passed} & {excluded} & {caveat} \\\\")
         lines.append(r"\hline")
     lines.extend([
-        r"\multicolumn{6}{p{\dimexpr\linewidth-2\tabcolsep\relax}}{\fonte{Author.}} \\",
+        r"\multicolumn{6}{p{\dimexpr\linewidth-2\tabcolsep\relax}}{\fonte{Prepared by the author (2026).}} \\",
         r"\end{tabularx}",
         r"\end{table}",
     ])
@@ -237,7 +240,7 @@ def table_aligned(rows: list[dict[str, object]]) -> str:
         lines.append(f"{FULL_DISPLAY[model]} & {lang} & {pct(row['asr'])}\\% & [{pct(row['ci_low'])}, {pct(row['ci_high'])}] & {num(row['mean_score'])} \\\\")
         lines.append(r"\hline")
     lines.extend([
-        r"\multicolumn{5}{p{\dimexpr\linewidth-2\tabcolsep\relax}}{\fonte{Author.}} \\",
+        r"\multicolumn{5}{p{\dimexpr\linewidth-2\tabcolsep\relax}}{\fonte{Prepared by the author (2026).}} \\",
         r"\end{tabularx}",
         r"\end{table}",
     ])
@@ -263,7 +266,7 @@ def table_cross(rows: list[dict[str, object]]) -> str:
         lines.append(f"{FULL_DISPLAY[model]} & {pct(row['asr'])}\\% & [{pct(row['ci_low'])}, {pct(row['ci_high'])}] & {num(row['mean_score'])} & {pct(row['refusal'])} \\\\")
         lines.append(r"\hline")
     lines.extend([
-        r"\multicolumn{5}{p{\dimexpr\linewidth-2\tabcolsep\relax}}{\fonte{Author.}} \\",
+        r"\multicolumn{5}{p{\dimexpr\linewidth-2\tabcolsep\relax}}{\fonte{Prepared by the author (2026).}} \\",
         r"\end{tabularx}",
         r"\end{table}",
     ])
@@ -292,7 +295,7 @@ def table_closest_farthest() -> str:
         )
         lines.append(r"\hline")
     lines.extend([
-        r"\multicolumn{6}{p{\dimexpr\linewidth-2\tabcolsep\relax}}{\fonte{Author.}} \\",
+        r"\multicolumn{6}{p{\dimexpr\linewidth-2\tabcolsep\relax}}{\fonte{Prepared by the author (2026).}} \\",
         r"\end{tabularx}",
         r"\end{table}",
     ])
@@ -318,7 +321,7 @@ def table_reference_curve() -> str:
         lines.append(f"{LANG_DISPLAY[lang]} (\\texttt{{{lang}}}) & {num(row['distance_from_english'])} & {pct(row['asr'])}\\% & {num(row['mean_strongreject_score'])} & {pct(row['refusal_rate'])} \\\\")
         lines.append(r"\hline")
     lines.extend([
-        r"\multicolumn{5}{p{\dimexpr\linewidth-2\tabcolsep\relax}}{\fonte{Author.}} \\",
+        r"\multicolumn{5}{p{\dimexpr\linewidth-2\tabcolsep\relax}}{\fonte{Prepared by the author (2026).}} \\",
         r"\end{tabularx}",
         r"\end{table}",
     ])
@@ -348,7 +351,7 @@ def table_counterfactual() -> str:
         )
         lines.append(r"\hline")
     lines.extend([
-        r"\multicolumn{5}{p{\dimexpr\linewidth-2\tabcolsep\relax}}{\fonte{Author.}} \\",
+        r"\multicolumn{5}{p{\dimexpr\linewidth-2\tabcolsep\relax}}{\fonte{Prepared by the author (2026).}} \\",
         r"\end{tabularx}",
         r"\end{table}",
     ])
@@ -380,7 +383,7 @@ def table_corr(filename: str, label: str, caption: str) -> str:
         lines.append(f"{FULL_DISPLAY[model]} & {row['n']} & {num(rho)} & {corr_interpretation(rho, row['predictor'])} \\\\")
         lines.append(r"\hline")
     lines.extend([
-        r"\multicolumn{4}{p{\dimexpr\linewidth-2\tabcolsep\relax}}{\fonte{Author.}} \\",
+        r"\multicolumn{4}{p{\dimexpr\linewidth-2\tabcolsep\relax}}{\fonte{Prepared by the author (2026).}} \\",
         r"\end{tabularx}",
         r"\end{table}",
     ])
@@ -395,17 +398,18 @@ def table_glmm() -> str:
         r"\centering",
         r"\setlength\extrarowheight{2pt}",
         r"\begin{tabularx}{\linewidth}{X|c|c|c|c}",
-        r"\caption[Approximate mixed-effects logistic regression]{Approximate fixed effects from the crossed-random-effects logistic regression.}",
+        r"\caption[Crossed-effects logistic regression]{Converged Laplace/MAP fixed effects from the crossed-random-effects logistic regression.}",
         r"\label{tab:glmm-main-effects} \\",
         r"\hline",
-        r"\textbf{Predictor} & \textbf{Estimate} & \textbf{Std. error} & \textbf{Odds ratio} & \textbf{Fit} \\",
+        r"\textbf{Predictor} & \textbf{Estimate} & \textbf{Std. error} & \textbf{OR [95\% CrI]} & \textbf{Fit} \\",
         r"\hline",
     ]
     for row in rows:
-        lines.append(f"{names[row['predictor']]} & {num(row['estimate'])} & {num(row['std_error'])} & {num(row['odds_ratio'])} & VB \\\\")
+        interval = f"{num(row['odds_ratio'])} [{num(row['odds_ratio_ci_lower'])}, {num(row['odds_ratio_ci_upper'])}]"
+        lines.append(f"{names[row['predictor']]} & {num(row['estimate'])} & {num(row['std_error'])} & {interval} & Laplace/MAP \\\\")
         lines.append(r"\hline")
     lines.extend([
-        r"\multicolumn{5}{p{\dimexpr\linewidth-2\tabcolsep\relax}}{\fonte{Author.}} \\",
+        r"\multicolumn{5}{p{\dimexpr\linewidth-2\tabcolsep\relax}}{\fonte{Prepared by the author (2026).}} \\",
         r"\end{tabularx}",
         r"\end{table}",
     ])
@@ -432,7 +436,7 @@ def table_collinearity() -> str:
         r"\hline",
         f"Single-predictor rerun triggered? & {'No' if values['single_predictor_rerun_triggered'] == 'False' else 'Yes'} \\\\",
         r"\hline",
-        r"\multicolumn{2}{p{\dimexpr0.75\linewidth-2\tabcolsep\relax}}{\fonte{Author.}} \\",
+        r"\multicolumn{2}{p{\dimexpr0.75\linewidth-2\tabcolsep\relax}}{\fonte{Prepared by the author (2026).}} \\",
         r"\end{tabularx}",
         r"\end{table}",
     ]
@@ -447,17 +451,18 @@ def table_spec_components() -> str:
         r"\centering",
         r"\setlength\extrarowheight{2pt}",
         r"\begin{tabularx}{\linewidth}{X|c|c|c|c}",
-        r"\caption[Decomposed specialization model]{Approximate mixed-effects model replacing SPEC with IF and CONS.}",
+        r"\caption[Decomposed specialization model]{Converged Laplace/MAP mixed-effects model replacing SPEC with IF and CONS.}",
         r"\label{tab:glmm-spec-components} \\",
         r"\hline",
-        r"\textbf{Predictor} & \textbf{Estimate} & \textbf{Std. error} & \textbf{Odds ratio} & \textbf{$n$} \\",
+        r"\textbf{Predictor} & \textbf{Estimate} & \textbf{Std. error} & \textbf{OR [95\% CrI]} & \textbf{$n$} \\",
         r"\hline",
     ]
     for row in rows:
-        lines.append(f"{names[row['predictor']]} & {num(row['estimate'])} & {num(row['std_error'])} & {num(row['odds_ratio'])} & {row['n']} \\\\")
+        interval = f"{num(row['odds_ratio'])} [{num(row['odds_ratio_ci_lower'])}, {num(row['odds_ratio_ci_upper'])}]"
+        lines.append(f"{names[row['predictor']]} & {num(row['estimate'])} & {num(row['std_error'])} & {interval} & {row['n']} \\\\")
         lines.append(r"\hline")
     lines.extend([
-        r"\multicolumn{5}{p{\dimexpr\linewidth-2\tabcolsep\relax}}{\fonte{Author.}} \\",
+        r"\multicolumn{5}{p{\dimexpr\linewidth-2\tabcolsep\relax}}{\fonte{Prepared by the author (2026).}} \\",
         r"\end{tabularx}",
         r"\end{table}",
     ])
@@ -472,17 +477,18 @@ def table_tokenizer_model() -> str:
         r"\centering",
         r"\setlength\extrarowheight{2pt}",
         r"\begin{tabularx}{\linewidth}{X|c|c|c|c}",
-        r"\caption[Tokenizer robustness model]{Approximate tokenizer robustness model with standardized token inflation.}",
+        r"\caption[Tokenizer robustness model]{Converged Laplace/MAP tokenizer robustness model with standardized token inflation.}",
         r"\label{tab:glmm-tokenizer-robustness} \\",
         r"\hline",
-        r"\textbf{Predictor} & \textbf{Estimate} & \textbf{Std. error} & \textbf{Odds ratio} & \textbf{$n$} \\",
+        r"\textbf{Predictor} & \textbf{Estimate} & \textbf{Std. error} & \textbf{OR [95\% CrI]} & \textbf{$n$} \\",
         r"\hline",
     ]
     for row in rows:
-        lines.append(f"{names[row['predictor']]} & {num(row['estimate'])} & {num(row['std_error'])} & {num(row['odds_ratio'])} & {row['n']} \\\\")
+        interval = f"{num(row['odds_ratio'])} [{num(row['odds_ratio_ci_lower'])}, {num(row['odds_ratio_ci_upper'])}]"
+        lines.append(f"{names[row['predictor']]} & {num(row['estimate'])} & {num(row['std_error'])} & {interval} & {row['n']} \\\\")
         lines.append(r"\hline")
     lines.extend([
-        r"\multicolumn{5}{p{\dimexpr\linewidth-2\tabcolsep\relax}}{\fonte{Author.}} \\",
+        r"\multicolumn{5}{p{\dimexpr\linewidth-2\tabcolsep\relax}}{\fonte{Prepared by the author (2026).}} \\",
         r"\end{tabularx}",
         r"\end{table}",
     ])
@@ -507,7 +513,7 @@ def table_slope_retention() -> str:
         lines.append(f"{PAIR_LABEL[row['model_pair_language']]} & {num(row['weak_distance_slope'])} & {num(row['strong_distance_slope'])} & {'Yes' if row['slope_sign_retained'] == 'True' else 'No'} \\\\")
         lines.append(r"\hline")
     lines.extend([
-        r"\multicolumn{4}{p{\dimexpr\linewidth-2\tabcolsep\relax}}{\fonte{Author.}} \\",
+        r"\multicolumn{4}{p{\dimexpr\linewidth-2\tabcolsep\relax}}{\fonte{Prepared by the author (2026).}} \\",
         r"\end{tabularx}",
         r"\end{table}",
     ])
@@ -527,7 +533,7 @@ def table_external_validation() -> str:
         r"\hline",
         r"External harmful-benchmark validation using native multilingual jailbreak items & Not present in the final handoff outputs & Useful as future robustness evidence, but not necessary for the central StrongREJECT-based hypothesis tests reported here. \\",
         r"\hline",
-        r"\multicolumn{3}{p{\dimexpr\linewidth-2\tabcolsep\relax}}{\fonte{Author.}} \\",
+        r"\multicolumn{3}{p{\dimexpr\linewidth-2\tabcolsep\relax}}{\fonte{Prepared by the author (2026).}} \\",
         r"\end{tabularx}",
         r"\end{table}",
     ])
@@ -547,11 +553,11 @@ def table_hypothesis() -> str:
         r"\hline",
         r"H\textsubscript{1}: ASR increases with linguistic distance & Not supported & Pooled distance coefficient is negative; only 1 of 4 paired comparisons retained the distance-slope sign. \\",
         r"\hline",
-        r"H\textsubscript{2}: stronger specialization reduces ASR & Not supported & SPEC is positive in the approximate joint model (OR = 3.147), and model-level correlations are heterogeneous. \\",
+        r"H\textsubscript{2}: stronger specialization reduces ASR & Not supported & SPEC is positive in the converged joint model (OR = 3.110), and model-level correlations are heterogeneous. \\",
         r"\hline",
-        r"H\textsubscript{3}: distance remains stronger and more stable than specialization & Not supported & Distance and SPEC have signs contrary to the preregistered expectations; collinearity is low, so this is not a collinearity artifact. \\",
+        r"H\textsubscript{3}: distance remains stronger and more stable than specialization & Not supported & Distance and SPEC have signs contrary to the pre-specified expectations; collinearity is low, so this is not a collinearity artifact. \\",
         r"\hline",
-        r"\multicolumn{3}{p{\dimexpr\linewidth-2\tabcolsep\relax}}{\fonte{Author.}} \\",
+        r"\multicolumn{3}{p{\dimexpr\linewidth-2\tabcolsep\relax}}{\fonte{Prepared by the author (2026).}} \\",
         r"\end{tabularx}",
         r"\end{table}",
     ])
@@ -588,7 +594,7 @@ def heatmap_figure(
     for x, lang in enumerate(LANGS):
         lines.append(f"\\node[rotate=45,anchor=west,font=\\tiny] at ({x + 0.16},0.35) {{\\texttt{{{lang}}}}};")
     for y, model in enumerate(models):
-        lines.append(f"\\node[anchor=east,font=\\tiny] at (-0.15,{-y - 0.5}) {{\\texttt{{{DISPLAY[model]}}}}};")
+        lines.append(f"\\node[anchor=east,font=\\tiny] at (-0.15,{-y - 0.5}) {{{DISPLAY[model]}}};")
         for x, lang in enumerate(LANGS):
             value = metric.get((model, lang))
             if value is None:
@@ -608,13 +614,135 @@ def heatmap_figure(
         f"\\fill[{color}!50!white] (2.4,{legend_y}) rectangle ++(0.8,-0.3);\\draw (2.4,{legend_y}) rectangle ++(0.8,-0.3);\\node[anchor=west,font=\\tiny] at (3.35,{legend_y - 0.15}) {{mid}};",
         f"\\fill[{color}!100!white] (4.9,{legend_y}) rectangle ++(0.8,-0.3);\\draw (4.9,{legend_y}) rectangle ++(0.8,-0.3);\\node[anchor=west,font=\\tiny] at (5.85,{legend_y - 0.15}) {{high}};",
         r"\end{tikzpicture}",
+    ])
+    lines.extend([
         f"\\caption[{caption}]{{{caption}.}}",
         f"\\label{{{label}}}",
-        r"\fonte{Author.}",
+        r"\fonte{Prepared by the author (2026).}",
         r"\end{figure}",
         r"}",
     ])
     return "\n".join(lines)
+
+
+TOKEN_ROW_DISPLAY = {
+    "sagui_7b": "Sagui-7B",
+    "sabia_3": "Sabi\\'a-3",
+    "llamantino_2_ultrachat_7b": "LLaMAntino-2",
+    "llamantino_anita_8b": "ANITA",
+    "gpt_sw3": "GPT-SW3",
+    "ai_sweden_llama3_8b": "AI Sweden",
+    "bggpt_7b": "BgGPT-7B",
+    "bggpt_gemma_9b": "BgGPT-Gemma",
+    "llama3_1_8b_reference": "English reference",
+}
+TOKEN_ROW_ALIGNED = {
+    "sagui_7b": "por", "sabia_3": "por",
+    "llamantino_2_ultrachat_7b": "ita", "llamantino_anita_8b": "ita",
+    "gpt_sw3": "swe", "ai_sweden_llama3_8b": "swe",
+    "bggpt_7b": "bul", "bggpt_gemma_9b": "bul",
+    "llama3_1_8b_reference": "eng",
+}
+
+
+def uriel_style_metric_figure(
+    metric: dict[tuple[str, str], float],
+    *,
+    command: str,
+    label: str,
+    caption: str,
+    note: str,
+    decimals: int,
+    per_model: bool,
+    log_scale: bool = False,
+) -> str:
+    """Landscape model-by-language table styled like the URIEL+ distance matrix."""
+    from write_uriel_latex_assets import FAMILY, FAMILY_COLORS, ORDER, distance_color, text_color
+
+    def scaled(value: float) -> float:
+        return math.log(value) if log_scale else value
+
+    present = [scaled(v) for v in metric.values()]
+    lines = [
+        f"\\newcommand{{\\{command}}}{{%",
+        r"\begin{landscape}",
+        r"\begin{figure}[p]",
+        r"\centering",
+        caption,
+        r"\begingroup",
+        *(f"\\definecolor{{{name}}}{{HTML}}{{{FAMILY_COLORS[name]}}}" for name in ("UrielClose", "UrielMiddle", "UrielFar")),
+        r"\scriptsize",
+        r"\setlength{\tabcolsep}{3.2pt}",
+        r"\renewcommand{\arraystretch}{1.18}",
+        r"\begin{adjustbox}{width=0.9\linewidth,center}",
+        r"\begin{tabular}{>{\raggedright\arraybackslash}p{3.75cm}|*{13}{>{\centering\arraybackslash}p{0.88cm}}}",
+        r"\hline",
+        r"\textbf{Model} & " + " & ".join(f"\\cellcolor[HTML]{{{FAMILY[lang][2]}}}\\textbf{{\\texttt{{{lang}}}}}" for lang in ORDER) + r" \\",
+        r"\hline",
+    ]
+    for index, model in enumerate(REPORT_MODELS):
+        aligned = TOKEN_ROW_ALIGNED[model]
+        values = [scaled(metric[(model, lang)]) for lang in ORDER if (model, lang) in metric]
+        low, high = (min(values), max(values)) if per_model and values else (min(present), max(present))
+        row = [f"\\cellcolor[HTML]{{{FAMILY[aligned][2]}}}\\textbf{{\\mbox{{{TOKEN_ROW_DISPLAY[model]} (\\texttt{{{aligned}}})}}}}"]
+        for lang in ORDER:
+            value = metric.get((model, lang))
+            if value is None:
+                row.append(r"\cellcolor[HTML]{E6E6E6}\textemdash")
+                continue
+            color = distance_color(scaled(value), low, high) if high > low else distance_color(0, 0, 1)
+            text = f"{value:.{decimals}f}"
+            if lang == aligned:
+                text = f"\\textbf{{{text}}}"
+            row.append(f"\\cellcolor[HTML]{{{color}}}\\textcolor{{{text_color(color)}}}{{{text}}}")
+        lines.append(" & ".join(row) + r" \\")
+        if index % 2 == 1 or index == len(REPORT_MODELS) - 1:
+            lines.append(r"\hline")
+    lines.extend([
+        r"\end{tabular}",
+        r"\end{adjustbox}",
+        r"\vspace{0.55em}",
+        r"\begin{tikzpicture}[x=1cm,y=0.28cm]",
+        r"\fill[UrielClose] (0,0) rectangle (0.55,1);\node[anchor=west,font=\scriptsize] at (0.65,0.5) {lower};",
+        r"\fill[UrielMiddle] (2.1,0) rectangle (2.65,1);\node[anchor=west,font=\scriptsize] at (2.75,0.5) {intermediate};",
+        r"\fill[UrielFar] (5.0,0) rectangle (5.55,1);\node[anchor=west,font=\scriptsize] at (5.65,0.5) {higher};",
+        f"\\node[anchor=west,font=\\scriptsize] at (8.25,0.5) {{{note}}};",
+        r"\end{tikzpicture}",
+        f"\\label{{{label}}}",
+        r"\par\fonte{Prepared by the author (2026).}",
+        r"\endgroup",
+        r"\end{figure}",
+        r"\end{landscape}",
+        r"}",
+    ])
+    return "\n".join(lines)
+
+
+def token_inflation_figure() -> str:
+    """Token inflation on one shared log scale, since the values are ratios."""
+    return uriel_style_metric_figure(
+        collect_metric("tokenizer_diagnostics.csv", "mean_token_inflation"),
+        command="TokenizerDiagnosticsFigure",
+        label="fig:tokenizer-diagnostics",
+        caption=r"\caption[Mean token inflation by model and attack language]{Mean token inflation by model and attack language: the attack-language prompt's token count relative to the same prompt in the model's aligned language, after applying its chat template. Shading uses one log scale for all models. Bold values mark each model's aligned language. Dashes indicate unavailable measurements. The English reference is descriptive.}",
+        note=r"Rows show each model with its aligned language; columns are grouped by broad family as in Table~\ref{tab:urielplus-distances}.",
+        decimals=2,
+        per_model=False,
+        log_scale=True,
+    )
+
+
+def tokens_per_character_figure() -> str:
+    """Show recorded density; normalize shading within each tokenizer only."""
+    return uriel_style_metric_figure(
+        collect_metric("tokenizer_diagnostics.csv", "mean_tokens_per_char"),
+        command="TokensPerCharacterFigure",
+        label="fig:tokens-per-character",
+        caption=r"\caption[Mean tokens per character by model and attack language]{Mean tokens per character by model and attack language. Each value averages prompt-level chat-template token counts divided by the number of characters in the attack-language prompt before chat-template rendering. Characters are Unicode code points, not UTF-8 bytes. Shading is normalized separately within each model's row. Bold values mark each model's aligned language. Dashes indicate unavailable measurements. The English reference is descriptive. These values reflect tokenizer segmentation and template overhead, not comprehension or safety.}",
+        note=r"Shading compares languages within a model, not across models.",
+        decimals=3,
+        per_model=True,
+    )
 
 
 def linear_fit(points: list[tuple[float, float]]) -> tuple[float, float]:
@@ -717,7 +845,7 @@ def paired_scatter(command: str, label: str, caption: str, xfield: str, xlabel: 
                 r"tick label style={font=\tiny},label style={font=\tiny},title style={font=\small},",
                 r"legend style={font=\tiny,at={(0.5,-0.45)},anchor=north,draw=none,fill=none}]",
                 f"\\addplot+[only marks,mark=*,mark size=1.2pt,black!75!white] coordinates {{{ref_coords}}};",
-                r"\addlegendentry{LLaMA-3.1-8B}",
+                r"\addlegendentry{Llama-3.1-8B}",
                 f"\\addplot+[no markers,densely dashed,black!75!white] coordinates {{({ref_x_min:.4f},{ref_y_min:.4f}) ({ref_x_max:.4f},{ref_y_max:.4f})}};",
                 r"\end{axis}",
                 r"\end{tikzpicture}",
@@ -726,7 +854,7 @@ def paired_scatter(command: str, label: str, caption: str, xfield: str, xlabel: 
     lines.extend([
         f"\\caption[{caption}]{{{caption}.}}",
         f"\\label{{{label}}}",
-        r"\fonte{Author.}",
+        r"\fonte{Prepared by the author (2026).}",
         r"\end{figure}",
         r"}",
     ])
@@ -736,7 +864,6 @@ def paired_scatter(command: str, label: str, caption: str, xfield: str, xlabel: 
 def write_assets() -> None:
     rows = load_rows()
     asr = collect_metric("asr_by_model_language.csv", "asr")
-    token = collect_metric("tokenizer_diagnostics.csv", "mean_token_inflation")
     belebele_if = collect_metric("belebele_scores.csv", "if_score")
     def macro(name: str, body: str) -> str:
         return f"\\newcommand{{\\{name}}}{{%\n{body}\n}}"
@@ -747,11 +874,18 @@ def write_assets() -> None:
         paired_scatter("DistanceAsrFigure", "fig:distance-vs-asr", "Language-risk curves relating ASR to URIEL+ distance", "distance", "URIEL+ distance"),
         heatmap_figure(belebele_if, command="BelebeleIfHeatmapFigure", label="fig:belebele-if-heatmap", caption="BELEBELE IF score by model and attack language", title="Cell values are BELEBELE IF percentages.", color="green", models=REPORT_MODELS),
         paired_scatter("SpecAsrFigure", "fig:spec-vs-asr", "ASR versus BELEBELE-derived specialization", "spec_score", "SPEC"),
-        heatmap_figure(token, command="TokenizerDiagnosticsFigure", label="fig:tokenizer-diagnostics", caption="Mean token inflation by model and attack language", title="Cell values are mean token-inflation ratios.", color="blue", scale=40.0, models=REPORT_MODELS),
+        token_inflation_figure(),
     ]
+    parts.append(tokens_per_character_figure())
     OUT.write_text("\n\n".join(parts) + "\n", encoding="utf-8")
     print(f"Wrote {OUT}")
 
 
 if __name__ == "__main__":
+    import argparse
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--outputs-dir", type=Path, default=OUTPUTS)
+    args = parser.parse_args()
+    OUTPUTS = args.outputs_dir.resolve()
+    TABLES = OUTPUTS / "tables"
     write_assets()

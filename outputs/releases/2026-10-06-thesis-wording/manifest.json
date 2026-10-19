@@ -1,0 +1,11 @@
+{
+  "revision": "Editorial revision of recent results, discussion and hypothesis comparison labels; statistical estimates unchanged.",
+  "files_sha256": {
+    "ufscthesisx/ufscthesisx/chapters/results.tex": "fe37d7df879ac6e72f1d69cfd73680da1c08b4852ff587cb761ae003dc16fbb6",
+    "ufscthesisx/ufscthesisx/chapters/discussion.tex": "52c182cca8161e09be20a3629eca070879f45d028b839dff686c9bf36a4a80c2",
+    "eval/scripts/write_hypothesis_comparison.py": "c2b09eefd04bd4c3c0ca72e8a5dcff4cd35727278995bcd9609920fde2e44e54",
+    "ufscthesisx/ufscthesisx/figures/hypothesis_expected_observed.pdf": "92428c5e3531f6a86dbab5582726e52b3d753abedaeb9b1acbbeeed6dc869009"
+  },
+  "pdf_sha256": "faba1aeab7e6d7cdad0cb815eecfaaf6ab3d15171f65778a7069698c5b63da88",
+  "validation": "Successful latexmk build; no overfull boxes or unresolved references; revised prose and discussion pages visually inspected."
+}

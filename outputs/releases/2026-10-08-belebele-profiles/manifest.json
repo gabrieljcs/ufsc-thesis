@@ -1,0 +1,17 @@
+{
+  "revision": "Native TikZ/PGFPlots presentation; frozen measurements unchanged.",
+  "spec_standardization": "All 117 evaluated cells, including English reference.",
+  "sparse_marker_rule": "n_cons_comparable < 100; sparse CONS and SPEC points do not connect.",
+  "checksums": {
+    "eval/outputs/releases/2026-09-09-corrected/tables/belebele_coverage.csv": "1386562eafd0fdac2314b061bada3b66318a8d547be5245fc1f3dfcc1fff9a5e",
+    "eval/outputs/releases/2026-09-29-graded-reporting/cell_summary.csv": "d61e641f104d87fd79f3b001c0b990c2552a5447129db624d3085ff6675824af",
+    "eval/scripts/write_belebele_profiles.py": "d81e8addc13828090ff208245d89be87b00f7febe9a51cb4112f6c37558bf972",
+    "ufscthesisx/ufscthesisx/figures/belebele_profiles.tex": "a1e554efe758578bee77c2f7941b25c7d6c5214921ddcac3cff8461b36ea482e",
+    "eval/outputs/releases/2026-10-08-belebele-profiles/plotted_cells.csv": "6889952303ad9e88f1d0e7c8d4d4133620a7071ee5fd8e3b1003235ba25fedb5",
+    "eval/outputs/releases/2026-10-08-belebele-profiles/thesis.pdf": "d4719aad39b8b5fde1e34331718fd2b62b801eb75cb08e438a7aa38cca7c782e",
+    "eval/outputs/releases/2026-10-08-belebele-profiles/results.tex": "e974a58da152f83b002a113c5c4881aed2ac71bca46aa3c340fe6ced002c37d5",
+    "eval/outputs/releases/2026-10-08-belebele-profiles/belebele_profiles.pdf": "10557fc7d4d13125fe16c4fc43a48c4cf9b33104caf136fee2fae782f98ff344",
+    "eval/outputs/releases/2026-10-08-belebele-profiles/belebele_profiles.png": "353bb4a4f07c3647d835055924124a2a7cdb97b49fd24d2d39b16974f0873f38"
+  },
+  "validation": "Successful full latexmk build including Biber; native figure and final thesis page visually checked; figure cross-reference resolved."
+}

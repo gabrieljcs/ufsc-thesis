@@ -1,0 +1,7 @@
+{
+  "revision": "Figure 18 redesigned as a three-column worked example with text-dependent spacing. Question, gold, complete responses and scoring unchanged.",
+  "figure_source_sha256": "b7f2b0ac31b5197018d2615bc21ce9a66e3e7ed5267369ba6f9c5803f211173b",
+  "saved_predictions_sha256": "29d95f78b05d485df42b6dbe5dbce676852b64f2be3be302a5037e79f2be8da6",
+  "pdf_sha256": "a6e2b98be2e8edb3ffd469dfae929559b87a905b403617d247ab38ea4848acf6",
+  "validation": "Successful latexmk build; redesigned figure visually checked and overlaps repaired."
+}

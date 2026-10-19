@@ -1,0 +1,138 @@
+{
+  "release": "2026-10-18-methodology-evidence",
+  "purpose": "Retrospective documentation only; no generation, rescoring, or frozen-file edits.",
+  "inputs": [
+    {
+      "path": "eval/outputs/audit/ara.xsts_decisions.csv",
+      "sha256": "6db651c2ab0551c2d70436ece5fdb8788fd20de495613cc68e1985fb826aae67"
+    },
+    {
+      "path": "eval/outputs/audit/bul.xsts_decisions.csv",
+      "sha256": "7ed0dc9323924b00f339448e83e86b3297009d44a2d9301baca7a08e803851da"
+    },
+    {
+      "path": "eval/outputs/audit/dan.xsts_decisions.csv",
+      "sha256": "264bfc152a362bcad254160620bdc4bd9628e0beb016ec7a6bee5c957f9e497e"
+    },
+    {
+      "path": "eval/outputs/audit/eng.xsts_decisions.csv",
+      "sha256": "9f3ee2ab24874b6044b47fdf89e19b379920f0e0c638a84c921aa64af8f4d29b"
+    },
+    {
+      "path": "eval/outputs/audit/fin.xsts_decisions.csv",
+      "sha256": "8b38501cf9d53fcf3be2080f0a3a722b7425bb8486c852f24614507209bb5edc"
+    },
+    {
+      "path": "eval/outputs/audit/ita.xsts_decisions.csv",
+      "sha256": "b4ca85ae368ebbaefa8be61162ddf4a9aa07325224a52e3454049fd7d255cc06"
+    },
+    {
+      "path": "eval/outputs/audit/nor.xsts_decisions.csv",
+      "sha256": "998fadacc9632ec9c80c3cf376dacd79bf201a41b6d3d03f8958496163a495ac"
+    },
+    {
+      "path": "eval/outputs/audit/por.xsts_decisions.csv",
+      "sha256": "2b2f92877706b864435bb8dc100f3665424228d5e62ce51a4eada030485cafd0"
+    },
+    {
+      "path": "eval/outputs/audit/rus.xsts_decisions.csv",
+      "sha256": "17acad7017a7d1bd38ad4f37f46177e50d7ee74164af1528fac3d6822020cb3c"
+    },
+    {
+      "path": "eval/outputs/audit/spa.xsts_decisions.csv",
+      "sha256": "cb2e7ee0a752c54e9e7423288166da49677437454683ad7b6654b9b8c761b8e5"
+    },
+    {
+      "path": "eval/outputs/audit/swa.xsts_decisions.csv",
+      "sha256": "f69b64f9c369c89731c089454ab65acd8a52bc01b5ebaad0ca57eeed3c782166"
+    },
+    {
+      "path": "eval/outputs/audit/swe.xsts_decisions.csv",
+      "sha256": "5aecba44f45fc83fca7f0809364d2db9a2cc31490b221ee35a62a58d293784cf"
+    },
+    {
+      "path": "eval/outputs/audit/ukr.xsts_decisions.csv",
+      "sha256": "285ca473c5b66832156653c3c045038f36535e2dca474c6f1eee6a6d65bd0d3d"
+    },
+    {
+      "path": "eval/outputs/dataset_frozen.jsonl",
+      "sha256": "7b3a01bf653a03d374a92e6eda5579e361c23b74d80a71c837bd6544c1c0d0fc"
+    },
+    {
+      "path": "eval/outputs/releases/2026-10-18-methodology-evidence/source_templates/ai_sweden_llama3_8b/README.md",
+      "sha256": "2ce01c58f4b6e572dbd3530cf9582537e1994231f647cbf30d95755672a5fc40"
+    },
+    {
+      "path": "eval/outputs/releases/2026-10-18-methodology-evidence/source_templates/ai_sweden_llama3_8b/tokenizer_config.json",
+      "sha256": "da0e3a7cce6e4d787e85eb1c24d548420e0d7fe2c7a214e192795c46e40d75bb"
+    },
+    {
+      "path": "eval/outputs/releases/2026-10-18-methodology-evidence/source_templates/bggpt_7b/README.md",
+      "sha256": "32f5edb3a1499d29a1d104cf0b2df3767383b2af44cb49af7d5584905e40a095"
+    },
+    {
+      "path": "eval/outputs/releases/2026-10-18-methodology-evidence/source_templates/bggpt_7b/tokenizer_config.json",
+      "sha256": "4bf32ceb371ce2ddfb60be317fbd2b7987668c5ddc850dfa969f911576c64c31"
+    },
+    {
+      "path": "eval/outputs/releases/2026-10-18-methodology-evidence/source_templates/bggpt_gemma_9b/README.md",
+      "sha256": "aaac17ae82acf2521ecfdd6cded61ba633e61a96fc08cb68a7a5b78cb1a3e4f5"
+    },
+    {
+      "path": "eval/outputs/releases/2026-10-18-methodology-evidence/source_templates/bggpt_gemma_9b/tokenizer_config.json",
+      "sha256": "cb32b7929c62608d46572e813112b3ad8a841fb98fdd6a4da8559e368a951c89"
+    },
+    {
+      "path": "eval/outputs/releases/2026-10-18-methodology-evidence/source_templates/gpt_sw3/README.md",
+      "sha256": "ce12e97070c97141be58ff7e7cda05f1481a301ac4c7281f5fbce8018a3cb7e4"
+    },
+    {
+      "path": "eval/outputs/releases/2026-10-18-methodology-evidence/source_templates/llama3_1_8b_reference/README.md",
+      "sha256": "ed0e2e86f7a40c38b793b0a04dfd993b2c1dfb34906804f96b999f0bbd8d70e6"
+    },
+    {
+      "path": "eval/outputs/releases/2026-10-18-methodology-evidence/source_templates/llamantino_2_ultrachat_7b/README.md",
+      "sha256": "33c1fe56ca9ebb00714662c1e6a29c29f726869440c16e0cb83b0f542f8a1344"
+    },
+    {
+      "path": "eval/outputs/releases/2026-10-18-methodology-evidence/source_templates/llamantino_2_ultrachat_7b/tokenizer_config.json",
+      "sha256": "e2fd34ce7555fe5a4e5f73f2f8cdda9fa37c4d09dd01cf1e2cf3040b7f6fe266"
+    },
+    {
+      "path": "eval/outputs/releases/2026-10-18-methodology-evidence/source_templates/llamantino_anita_8b/README.md",
+      "sha256": "e1b9c399572bc40eef5b4f467fd6aed538e546a6ec081d04c2a1adf996c2053e"
+    },
+    {
+      "path": "eval/outputs/releases/2026-10-18-methodology-evidence/source_templates/llamantino_anita_8b/tokenizer_config.json",
+      "sha256": "da0e3a7cce6e4d787e85eb1c24d548420e0d7fe2c7a214e192795c46e40d75bb"
+    },
+    {
+      "path": "eval/outputs/releases/2026-10-18-methodology-evidence/source_templates/sagui_7b/README.md",
+      "sha256": "3919ed9bc568131a745900d338aae218bb30b19fa3b03ab7f2b242b1d4832b8e"
+    },
+    {
+      "path": "eval/outputs/releases/2026-10-18-methodology-evidence/source_templates/sagui_7b/tokenizer_config.json",
+      "sha256": "64f1a42f30d64cb2547ab96305808ffcbf3ec5401080edd2c785c2c52c231550"
+    },
+    {
+      "path": "eval/outputs/translations/all_audited_translations.jsonl",
+      "sha256": "b893b81aca74318ed89f5cff3c26cf30d979ba34c8eac45c86f869e1a72f4b61"
+    },
+    {
+      "path": "eval/src/thesis_eval/benchmarks/belebele.py",
+      "sha256": "2229335995e82d31b6d7180638a5c01b64dcc3b836ea80f26b4cef4acf2a6220"
+    },
+    {
+      "path": "eval/src/thesis_eval/evaluation/strongreject.py",
+      "sha256": "00d305aeaadd996c3803181cb6a87ebb5d75d9883d33f06c07f1ba1ee44d3540"
+    },
+    {
+      "path": "eval/src/thesis_eval/models/generation.py",
+      "sha256": "5d682f139ba8130fa0af6463529802ca47feba8895d35e106e3aef606029cf48"
+    },
+    {
+      "path": "eval/src/thesis_eval/translation/llm_audit.py",
+      "sha256": "546deb04048502aafdc92bcb16afefdc5bdacd66593deaf2df0cea1532cab6f1"
+    }
+  ]
+}

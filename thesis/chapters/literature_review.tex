@@ -1,0 +1,528 @@
+
+% The \phantomsection command is needed to create a link to a place in the document that is not a
+% figure, equation, table, section, subsection, chapter, etc.
+% https://tex.stackexchange.com/questions/44088/when-do-i-need-to-invoke-phantomsection
+\phantomsection
+
+% Multiple-language document - babel - selectlanguage vs begin/end{otherlanguage}
+% https://tex.stackexchange.com/questions/36526/multiple-language-document-babel-selectlanguage-vs-begin-endotherlanguage
+
+
+\begin{otherlanguage*}{english}
+
+    \chapter{Literature Review}
+
+\section{Natural Language Processing and Large Language Models}\label{sec:nlp-llms}
+Natural Language Processing (NLP) is a field that deals with the understanding of natural language by computing machines \cite{goldbergPrimerNeuralNetwork2015}. Although other approaches are also possible, the neural network approach has also reached state-of-the-art in NLP tasks and has become the preferred method.
+
+The introduction of the transformer architecture and its attention mechanism \cite{vaswaniAttentionAllYou2023} greatly advanced the field and led to the creation of large language models (LLMs) \cite{grattafioriLlama3Herd2024, openaiGPT4oSystemCard2024}. LLMs take a range of parameters and are trained on extremely large and varied datasets. The dataset is first tokenized, mapping raw text to a sequence of discrete symbols (\emph{tokens}) from a fixed vocabulary. Transformer language models are then pre-trained with objectives that depend on their architecture, creating a base model that is later adapted for downstream tasks such as question answering, chatbot interaction, and safety alignment.
+
+Although tokenization is often presented as a preprocessing detail, it is one of the main interfaces between multilingual text and the model. The same sentence can be segmented into very different numbers and types of subword units depending on the tokenizer, which in turn affects sequence length, local pattern learning, and the share of context budget consumed by a prompt. This is particularly important in multilingual settings, where script, morphology, diacritics, and orthographic conventions can make some languages much more fragmented than others under a fixed vocabulary. \textcite{rust2021tokenizer} show that tokenizer design can materially affect monolingual performance in multilingual models, while \textcite{magnusson2023paloma} introduce PALOMA (\emph{Perplexity Analysis for Language Model Assessment}), a benchmark for measuring how well language models predict held-out text across 546 English and code domains. PALOMA evaluates model fit separately across domains, including web text and programming languages, rather than relying on a single aggregate perplexity value. For comparisons involving different vocabularies, it uses bits per byte, which normalizes negative log-likelihood by the number of UTF-8\footnote{UTF-8 is a standard encoding that represents Unicode characters using one to four bytes. Because characters can occupy different numbers of bytes, a text's byte count may differ from its character count.} bytes in the text, instead of raw token-level perplexity\footnote{Perplexity is a metric that quantifies how well a language model predicts a text sequence. Lower perplexity indicates that the model assigns higher likelihood to the observed text. However, perplexity values are not directly comparable across models with different tokenizers, since differences in token segmentation affect the probability computation.}. In the present dissertation, tokenization is therefore treated as a secondary explanatory layer: it does not replace linguistic distance or post-training specialization, but it may help explain why some cross-lingual prompts are easier or harder for a model to process safely.
+
+\defensenote{Tokenizer intuition}{A tokenizer maps text to token IDs; tokens need not be letters or words. The same request can occupy more tokens in one language. Fragmentation is a candidate explanation to test, not a demonstrated cause of unsafe compliance.}
+
+Two model families are particularly important for this dissertation: \textbf{BERT} and \textbf{GPT}. \textbf{BERT} (\emph{Bidirectional Encoder Representations from Transformers}) is an \emph{encoder-only} transformer trained with a \emph{masked language modeling} objective: some tokens are hidden, and the model learns to recover them using both left and right context \cite{devlinBERTPretrainingDeep2019}. This makes BERT especially strong at building contextual text representations for understanding-oriented tasks such as classification, retrieval, and token labeling. \textbf{GPT} (\emph{Generative Pre-trained Transformer}), by contrast, is a \emph{decoder-only} autoregressive transformer trained to predict the \emph{next token} from the preceding context \cite{radfordLanguageModelsAre}. Because it generates text one token at a time, GPT is naturally suited to open-ended generation and conversational systems.
+
+This distinction matters for the present study. Jailbreak evaluation concerns whether a model can be induced to \emph{generate} unsafe answers, not merely whether it can classify or encode text. For this reason, the experimental comparison in this dissertation focuses on GPT-style generative models rather than mixing them with BERT-style encoder models, whose architecture and pre-training objective are designed for substantially different uses.
+\defensenote{Architecture boundary}{A panel may ask why BERT-like models are absent. The answer is methodological: jailbreak ASR is about generated assistant responses. Mixing encoders and decoder-only chat models would make architecture and objective a confound.}
+
+\begin{figure}[htbp!]
+\centering
+\caption[BERT and GPT transformer objectives]{BERT and GPT transformer objectives.}
+\label{fig:bert-gpt-comparison}
+\resizebox{\linewidth}{!}{%
+\begin{tikzpicture}[
+  font=\small,
+  x=1cm, y=1cm,
+  panel/.style={draw=black!18, rounded corners=10pt, fill=#1, minimum width=6.55cm, minimum height=4.75cm, inner sep=0pt},
+  title/.style={draw=black!18, rounded corners=7pt, fill=white, align=center, text width=5.55cm, minimum height=0.58cm, inner sep=3pt, font=\bfseries},
+  rowlabel/.style={font=\bfseries\scriptsize, text=black!58, align=center},
+  token/.style={draw=black!70, rounded corners=5pt, align=center, minimum width=1.02cm, minimum height=0.56cm, inner sep=2pt, fill=white, font=\ttfamily\footnotesize},
+  widetoken/.style={token, minimum width=1.45cm},
+  contexttoken/.style={token, fill=blue!7},
+  prefixtoken/.style={token, fill=green!8},
+  targettoken/.style={token, minimum width=1.35cm, fill=orange!18},
+  futuretoken/.style={targettoken, dashed},
+  summary/.style={draw=black!35, rounded corners=7pt, fill=#1, align=center, text width=5.25cm, minimum height=0.72cm, inner sep=4pt, font=\footnotesize},
+  role/.style={draw=black!18, rounded corners=7pt, fill=#1, align=center, text width=5.05cm, minimum height=0.58cm, inner sep=4pt, font=\footnotesize},
+  arrow/.style={-{Latex[length=2.2mm]}, line width=0.9pt},
+  contextarrow/.style={-{Latex[length=2mm]}, line width=0.95pt, draw=black!64, shorten <=1.5pt, shorten >=1.5pt}
+]
+
+\def\LeftX{-3.65}
+\def\RightX{3.65}
+\def\TitleY{0}
+\def\TokenY{-1.35}
+\def\ObjectiveY{-2.7}
+\def\RoleY{-3.7}
+
+\node[panel=blue!4] at (\LeftX,-1.95) (bertpanel) {};
+\node[panel=green!5] at (\RightX,-1.95) (gptpanel) {};
+
+\node[title] at (\LeftX,\TitleY) {\faIcon{search}\quad BERT};
+\node[title] at (\RightX,\TitleY) {\faIcon{pen}\quad GPT};
+
+% BERT: a masked token is predicted from both surrounding sides.
+\node[rowlabel] at (\LeftX,\TokenY+0.84) {masked-token view};
+\node[contexttoken] at (\LeftX-2.28,\TokenY) (b1) {THE};
+\node[futuretoken] at (\LeftX-0.72,\TokenY) (b2) {?};
+\node[contexttoken] at (\LeftX+0.9,\TokenY) (b3) {IS};
+\node[contexttoken, minimum width=1.45cm] at (\LeftX+2.3,\TokenY) (b4) {UNSAFE};
+\draw[contextarrow, draw=blue!52!black] (b1.north) to[out=66,in=114,looseness=0.72] (b2.north);
+\draw[contextarrow, draw=blue!52!black] (b3.north) to[out=114,in=66,looseness=0.72] (b2.north);
+\draw[contextarrow, draw=blue!52!black] ([xshift=-3pt]b4.south west) to[out=232,in=318,looseness=1.12] ([xshift=3pt]b2.south east);
+\node[summary=blue!8] at (\LeftX,\ObjectiveY) (bertobjective) {\faIcon{bullseye}\quad \textbf{Masked LM}\\recover the missing token};
+\node[role=blue!8] at (\LeftX,\RoleY) {\faIcon{tasks}\quad understanding tasks};
+
+% GPT: the prefix is visible; the next token is the prediction target.
+\node[rowlabel] at (\RightX,\TokenY+0.84) {next-token view};
+\node[prefixtoken] at (\RightX-2.15,\TokenY) (g1) {THE};
+\node[prefixtoken, minimum width=1.58cm] at (\RightX-0.62,\TokenY) (g2) {REQUEST};
+\node[prefixtoken] at (\RightX+.8,\TokenY) (g3) {IS};
+\node[futuretoken] at (\RightX+2.5,\TokenY) (g4) {?};
+\draw[black!35, line width=0.8pt] ([yshift=0.47cm]g4.north west) -- ([yshift=-0.47cm]g4.south west);
+\draw[-{Latex[length=2.7mm,width=2.6mm]}, line width=1.45pt, draw=green!42!black, shorten <=2pt, shorten >=2pt] (g3.east) -- (g4.west);
+\node[summary=green!12] at (\RightX,\ObjectiveY) (gptobjective) {\faIcon{forward}\quad \textbf{Autoregressive LM}\\predict the next token};
+\node[role=green!10] at (\RightX,\RoleY) {\faIcon{comments}\quad generation tasks};
+
+\end{tikzpicture}%
+}
+\fonte{Prepared by the author (2026).}
+\end{figure}
+
+\subsection{Training Pipeline}\label{subsec:training-pipeline}
+
+In modern LLMs, training typically unfolds in two phases: \emph{pre-training} to learn general language modeling, followed by \emph{fine-tuning and safety alignment} to shape instruction following and refusal behavior. A final, optional \emph{specialization} step adapts the model to a domain or language. Figure~\ref{fig:llm-training-diagram} summarizes this training pipeline.
+\defensebox{Pre-training, alignment, specialization}{A compact way to explain the training stack is: pre-training teaches the model broad statistical language behavior; instruction tuning teaches it the conversational task format; safety alignment teaches it when not to comply; specialization adapts that assistant behavior to a language or domain. The thesis lives in the tension between the last two steps. A language-specific model may become more useful locally, but that extra tuning can preserve, weaken, or reorganize refusal behavior inherited from the base model.}
+
+\subsubsection{Pre-training}
+\begin{description}
+  \item[Data collection \& curation:] Large data corpora (web, books, news, code) are collected and filtered (e.g., deduplication, OCR cleanup, quality control) \cite{duSurveyLLMDatasets2024};
+  \item[Tokenization:] Text is mapped to a fixed vocabulary of (subword) tokens used for both training and inference.
+  \item[Autoregressive learning:] The model is trained to predict the next token given the previous tokens, producing a general \emph{foundation} (base) model that captures broad linguistic regularities.
+\end{description}
+
+\subsubsection{Fine-tuning and safety alignment}
+\begin{description}
+  \item[Supervised fine-tuning (SFT):] The base model is adapted with prompt-response demonstrations to improve instruction following and helpfulness \cite{ouyangTrainingLanguageModels2022}.
+  \item[Safety \& preference alignment:] Safety is reinforced using preference signals that encourage refusals for unsafe requests and compliant behavior, e.g., Reinforcement Learning from Human Feedback (RLHF) \cite{baiTrainingHelpfulHarmless2022}, Reinforcement Learning from AI Feedback (RLAIF), or constitutional approaches \cite{baiConstitutionalAIHarmlessness2022}.
+\end{description}
+
+\subsubsection{Specialization}
+\begin{description}
+  \item[Language-/domain-specific fine-tuning:] Further adaptation on high-quality, niche data (often with parameter-efficient methods such as LoRA/QLoRA) yields a language- or domain-specific model \cite{huLoRALowRankAdaptation2021, dettmersQLoRAEfficientFinetuning2023a}.
+\end{description}
+
+\begin{figure}[htbp!]
+\centering
+\caption{Diagram of the LLM training pipeline}
+\label{fig:llm-training-diagram}
+\resizebox{0.92\linewidth}{!}{%
+\begin{tikzpicture}[
+  font=\small,
+  x=1cm, y=1cm,
+  box/.style={draw, rounded corners=6pt, align=center, text width=4.1cm, minimum height=1.05cm, inner sep=5pt},
+  corpusbox/.style={box, fill=blue!6},
+  processbox/.style={box, fill=orange!12},
+  modelbox/.style={box, fill=teal!9},
+  alignbox/.style={box, fill=violet!9},
+  specbox/.style={box, fill=purple!8},
+  finalbox/.style={box, fill=green!10},
+  mini/.style={draw, rounded corners=6pt, align=center, text width=4.1cm, minimum height=0.9cm, inner sep=4pt, fill=gray!7},
+  datamini/.style={mini, fill=blue!5},
+  prefmini/.style={mini, fill=violet!7},
+  instrmini/.style={mini, fill=purple!7},
+  specmini/.style={mini, fill=green!8},
+  arrow/.style={-{Latex[length=2mm]}, line width=0.9pt},
+  branch/.style={-{Latex[length=2.1mm]}, line width=0.8pt, rounded corners=8pt}
+]
+
+% ----- adjustable spacing -----
+\def\ColWide{5.05}   % input boxes
+\def\ColNarrow{3.4} % preference/instruction data + RLHF/SFT
+\def\ColHQpos{-5.3} % high-quality data independent position (negative = left of center)
+
+\def\ryTop{0}
+\def\ryPre{-2.65}
+\def\ryBase{-5.25}
+\def\ryData{-7.8}
+\def\ryAlign{-10.65}
+\def\ryAligned{-13.45}
+\def\rySpec{-15.75}
+\def\ryFinal{-17.95}
+
+% ----- columns -----
+\coordinate (ColL)  at (-\ColWide, 0);       % far left input
+\coordinate (ColC)  at ( 0,        0);       % center
+\coordinate (ColR)  at ( \ColWide, 0);       % far right input
+\coordinate (ColNL) at (-\ColNarrow, 0);     % narrow left
+\coordinate (ColNR) at ( \ColNarrow, 0);     % narrow right
+\coordinate (ColHQ) at (\ColHQpos, 0);       % high-quality data
+
+% ----- Row: Inputs -----
+\node[corpusbox] at ($(ColL)+(0,\ryTop)$) (d1) {\faIcon{globe}\quad Web / CC / OSCAR\textsuperscript{1}};
+\node[corpusbox] at ($(ColC)+(0,\ryTop)$) (d2) {\faIcon{newspaper}\quad News / Books};
+\node[corpusbox] at ($(ColR)+(0,\ryTop)$) (d3) {\faIcon{code}\quad Code corpora};
+
+% ----- Row: Pre-training -----
+\node[processbox, text width=7.2cm] at ($(ColC)+(0,\ryPre)$) (pre) {\faIcon{cogs}\quad \textbf{Pre-training}
+\\ \footnotesize dedup/filtering, tokenization, language modeling};
+
+% Inputs → Pre-training
+\draw[branch] (d1.south) |- (pre.west);
+\draw[arrow] (d2.south) -- (pre.north);
+\draw[branch] (d3.south) |- (pre.east);
+
+% ----- Row: Base model -----
+\node[modelbox] at ($(ColC)+(0,\ryBase)$) (base) {\faIcon{database}\quad \textbf{Base model} \\ (foundation checkpoint\textsuperscript{2})};
+\draw[arrow] (pre) -- (base);
+
+% ----- Row: Data inputs -----
+\node[prefmini, text width=6.2cm] at ($(ColNL)+(0,\ryData)$) (prefs) {\faIcon{users}\quad \textbf{Preference data} (rankings / comparisons)};
+\node[instrmini] at ($(ColNR)+(0,\ryData)$) (idata) {\faIcon{comments}\quad \textbf{Instruction data} (QA / chat / demos)};
+
+% Base → data inputs
+\coordinate (basefork) at ($(base.south)+(0,-0.55)$);
+\draw[line width=0.8pt] (base.south) -- (basefork);
+\draw[branch] (basefork) -| (prefs.north);
+\draw[branch] (basefork) -| (idata.north);
+
+% ----- Row: Alignment branches -----
+\node[alignbox, text width=7.1cm] at ($(ColNL)+(0,\ryAlign)$) (rlhf) {\faIcon{balance-scale}\quad \textbf{Safety \& Preference Alignment}
+\\ \footnotesize RLHF / RLAIF / Constitutional AI
+\\ \footnotesize Preference data $\rightarrow$ Reward model $\rightarrow$ Policy};
+\node[alignbox] at ($(ColNR)+(0,\ryAlign)$) (sft) {\faIcon{tasks}\quad \textbf{Supervised Fine-Tuning (SFT)}
+\\ \footnotesize Prompt-response demonstrations to improve instruction following};
+
+% Data inputs → branches
+\draw[arrow] (prefs) -- (rlhf);
+\draw[arrow] (idata) -- (sft);
+
+% Taller brace
+\node[draw=none, fit=(prefs)(idata)(rlhf)(sft), inner sep=3pt] (aligngrp) {};
+\draw[decorate,decoration={brace,amplitude=10pt}, thick]
+  ([xshift=20pt]aligngrp.north east) -- ([xshift=20pt]aligngrp.south east)
+  node[midway, xshift=22pt, rotate=270]{\bfseries Alignment};
+
+% ----- Row: Aligned model -----
+\node[modelbox] at ($(ColC)+(0,\ryAligned)$) (aligned) {\faIcon{database}\quad \textbf{Aligned LLM}};
+\draw[branch] (rlhf.south) |- (aligned.west);
+\draw[branch] (sft.south)  |- (aligned.east);
+
+% ----- Row: Specialization -----
+\node[specbox]  at ($(ColC)+(0,\rySpec)$) (spec) {\faIcon{project-diagram}\quad \textbf{Specialization}
+\\ \footnotesize Language/domain fine-tuning};
+\node[specmini] at ($(ColHQ)+(0,\rySpec)$) (specdata) {\faIcon{language}\quad \textbf{High-quality language/domain data}};
+\draw[arrow] (aligned) -- (spec);
+\draw[arrow] (specdata.east) -- (spec.west);
+
+% ----- Row: Final model -----
+\node[finalbox, text width=7.0cm] at ($(ColC)+(0,\ryFinal)$) (final) {\faIcon{database}\quad \textbf{Language/Domain-specific LLM}};
+\draw[arrow] (spec) -- (final);
+
+
+% ---- Example labels (right-side, same horizontal line) ----
+% Tweak these knobs to taste:
+\def\ExampleXshift{8mm}     % horizontal gap from the bubble to the examples text
+\def\ExampleWidth{3.0cm}    % text width for the examples block
+\tikzset{
+  exlabel/.style={
+    align=left,
+    text width=\ExampleWidth,
+    inner sep=1.5pt,
+    font=\footnotesize,
+  },
+  exlead/.style={densely dotted, line width=0.6pt} % leader line style (optional)
+}
+
+
+% Common x-anchor for all example labels, derived from the widest pipeline box ('final')
+% so the three side labels share a left edge regardless of box width.
+\coordinate (ExampleX) at ($(final.east)+(\ExampleXshift,0)$);
+
+% Base model examples (same row as 'base')
+\node[exlabel, anchor=west] at (ExampleX |- base.east) (ex_base)
+  {\faIcon{tags}\, LLaMA, Mistral};
+\draw[exlead] (base.east) -- (ex_base.west); % delete this line if you don't want the dotted leader
+
+% Aligned LLM examples (same row as 'aligned')
+\node[exlabel, anchor=west] at (ExampleX |- aligned.east) (ex_aligned)
+  {\begin{tabular}{@{}c@{\hspace{3pt}}l@{}}
+    \faIcon{tags} & \begin{tabular}[t]{@{}l@{}}Llama-2-Chat,\\Mistral-Instruct\end{tabular}
+  \end{tabular}};
+\draw[exlead] (aligned.east) -- (ex_aligned.west);
+
+% Language-/Domain-specific LLM examples (same row as 'final')
+\node[exlabel, anchor=west] at (ExampleX |- final.east) (ex_final)
+  {\faIcon{tags}\, Code Llama (code), Med-PaLM (medical), BloombergGPT (finance), Sagui (Brazilian Portuguese instruct)};
+\draw[exlead] (final.east) -- (ex_final.west);
+
+
+
+\end{tikzpicture}%
+}
+
+\fonte{Prepared by the author (2026).}
+\nota{\textsuperscript{1} Web / CC / OSCAR denotes large web-crawl sources used during pre-training, including Common Crawl (CC) and OSCAR, the Open Super-large Crawled ALMAnaCH coRpus. These corpora are normally filtered, deduplicated, and mixed with other sources before training. \textsuperscript{2} A foundation checkpoint is the saved base-model artifact produced after large-scale self-supervised pre-training and before task-specific instruction tuning or language/domain specialization. Some public foundation model releases may already include safety and preference alignment to reduce security and safety risks \cite{grattafioriLlama3Herd2024}.}
+
+\end{figure}
+
+\section{Attacks and Security Risks}
+
+LLMs have revolutionized natural language processing but also introduced significant security and privacy concerns. Vulnerabilities exist across training, inference, and availability phases \cite{Xu2025Survey}. Researchers have identified various vulnerabilities, including adversarial attacks \cite{Schwinn2023Adversarial}, data poisoning, and privacy leaks \cite{Das2025Security}, which can manipulate model outputs, exploit training data, and compromise model integrity. Specific attack types include goal hijacking, prompt leaking and jailbreaking \cite{Perez2022Ignore, shayeganiSurveyVulnerabilitiesLarge2023}. Widespread deployment of LLMs in critical sectors like healthcare and finance amplifies these risks \cite{Debar2024Emerging}. To address these challenges, researchers are exploring mitigation strategies and defense mechanisms \cite{abdaliSecuringLargeLanguage2024a}.
+
+
+Figure~\ref{fig:overview-attacks} provides an overview of these attacks and security risks, highlighting jailbreaking as the focus of this thesis.
+
+\begin{figure}[ht!]
+\centering
+\caption[Overview of attacks and security risks on large language models]{Overview of attacks and security risks on large language models. Jailbreaking is highlighted as the focus of this thesis.}
+\label{fig:overview-attacks}
+\begin{tikzpicture}[
+   level distance=2.5cm,
+   level 1/.style={sibling distance=55mm},
+   edge from parent/.style={->,draw},
+   >=latex
+]
+
+% root
+\node[root] {\textbf{\small LLM Attacks and Security Risks}}
+% First level
+  child {node[level 2 red] (c1) {\scriptsize \textbf{Security \& Privacy Risks}}}
+  child {node[level 2 red] (c2) {\scriptsize \textbf{Adversarial Risks}}}
+  child {node[level 2 red] (c3) {\scriptsize \textbf{Misuse Risks}}};
+
+% Second level
+\begin{scope}[every node/.style={level 3 red}]
+\scriptsize
+\node [below of = c1, xshift=5pt,yshift=-25pt] (c11) {Leaking Sensitive Information};
+\node [below of = c11,yshift=-25pt] (c12) {Memorizing Training Data};
+\node [below of = c12,yshift=-25pt] (c13) {Security Holes in LLM-Generated Code};
+
+\node [below of = c2 ,xshift=5pt,yshift=-25pt] (c21) {Model-based Vulnerabilities};
+\node [below of = c2 ,xshift=5pt,yshift=-150pt] (c22) {Training-Time Vulnerabilities};
+\node [below of = c2 ,xshift=5pt,yshift=-240pt] (c23) {Inference-Time Vulnerabilities};
+
+\node [below of = c3,yshift=-30pt] (c31) {Factual Inconsistency};
+\node [below of = c31,yshift=-30pt] (c32) {Generating Toxic Content};
+\node [below of = c32,yshift=-30pt] (c33) {Copyright Infringement};
+\node [below of = c33,yshift=-30pt] (c34) {Plagiarism};
+\node [below of = c34,yshift=-30pt] (c35) {Spreading Misinformation};
+\end{scope}
+
+% Third level red
+\begin{scope}[every node/.style={level 4 red}]
+\scriptsize
+\node [below of = c21,xshift=5pt] (c211) {Model Extraction Attacks};
+\node [below of = c21,xshift=5pt,yshift=-30pt] (c212) {Model Leeching Attacks};
+\node [below of = c21,xshift=5pt,yshift=-60pt] (c213) {Model Imitation Attacks};
+
+\node [below of = c22 ,xshift=5pt] (c221) {Data Poisoning Attacks};
+\node [below of = c22 ,xshift=5pt,yshift=-30pt] (c222) {Backdoor Attacks};
+
+\node [below of = c23,xshift=5pt] (c231) {Paraphrasing Attacks};
+\node [below of = c23,xshift=5pt,yshift=-30pt] (c232) {Spoofing Attacks};
+\node [below of = c23,xshift=5pt,yshift=-60pt] (c233) {Prompt Injection Attacks};
+\node [below of = c23,xshift=5pt,yshift=-90pt,
+       draw=teal!75!black, fill=teal!15, line width=1.2pt]
+       (c234) {\textbf{Jailbreaking Attacks}};
+\end{scope}
+
+% Connections
+\foreach \value in {1,2,3}
+  \draw[->] (c1.180) |- (c1\value.west);
+\foreach \value in {1,...,3}
+  \draw[->] (c2.180) |- (c2\value.west);
+\foreach \value in {1,...,5}
+  \draw[->] (c3.180) |- (c3\value.west);
+\foreach \value in {1,2,3}
+  \draw[->] (c21.180) |- (c21\value.west);
+\foreach \value in {1,2}
+  \draw[->] (c22.180) |- (c22\value.west);
+\foreach \value in {1,2,3}
+  \draw[->] (c23.180) |- (c23\value.west);
+\draw[->, draw=teal!75!black, line width=1.2pt] (c23.180) |- (c234.west);
+
+\end{tikzpicture}
+\fonte{Adapted from \textcite{abdaliSecuringLargeLanguage2024a}.}
+\end{figure}
+
+\subsection{Terminology}
+
+To avoid ambiguity and keep consistency, we refine and operationalize the terminology adopted by \textcite{abdaliSecuringLargeLanguage2024a}, further aligning it with recent community guidance \cite{owasp_top_10_llm}.
+
+\begin{description}
+%  \item[\textbf{Emergent Misalignment}] unintended, unpredictable behavior that arises during fine-tuning, leading models to exhibit unsafe or unaligned responses across multiple dimensions.
+
+  \item[\textbf{Adversarial Attacks:}] To leverage a model's vulnerabilities to induce erroneous or deceptive outputs \cite{bachuLayerwiseAlignmentExamining2025, shayeganiSurveyVulnerabilitiesLarge2023}.
+
+  \item[\textbf{Attack Success Rate (ASR):}] The measure of efficacy of an adversarial attack on a model, computed as the fraction of successful attacks over the total number of attacks \cite{wuPerformanceEvaluationAdversarial2021}. This is a common metric in the cited literature. The present manuscript instead retains the official graded StrongREJECT score, defined in Section~\ref{sec:strongreject-graded}.
+
+  \item[\textbf{Prompt injection:}] Any adversarial instruction override delivered either directly by a user or indirectly via untrusted content (e.g., web pages, PDFs, emails, or retrieved documents) that causes an LLM or its connected tools to ignore, override, or conflict with intended instructions, resulting in attacker-chosen behavior (e.g., data exfiltration, unsafe tool calls, or policy evasion). In this broader sense, jailbreaking is one form of prompt injection. Indirect injection hides instructions in content the system ingests (RAG, browsing, file uploads), which the model may misinterpret as trusted directives.
+  
+  \item[\textbf{Jailbreaking:}] The direct-prompt subset of prompt injection whose primary aim is to circumvent safety policies or guardrails and elicit otherwise refused or harmful content. Jailbreaking mainly targets safety alignment (i.e., what the model will say) and does not by itself grant new data or system access, except when harmful outputs coincide with data exfiltration or tool misuse. In this thesis, the term is reserved for text-only user-supplied prompts; indirect prompt injection, tool-mediated override, and multimodal attack vectors are treated as related but out-of-scope classes.
+  
+\end{description}
+
+	\section{Multilingual Robustness and Alignment}
+    
+Recent studies have identified multilingual prompts as vectors for bypassing safety mechanisms in LLMs. \textcite{huangTowerBabelRevisited2025} compared English and Chinese jailbreak prompts on four closed-source systems and found language-dependent differences in attack success. Their results establish vulnerabilities within that two-language comparison; they do not establish a general effect for all non-English or mixed-language inputs, nor isolate insufficient multilingual safety-training coverage as the causal mechanism.
+
+Complementary to this, \textcite{dengMultilingualJailbreakChallenges2024} systematically analyzed multilingual jailbreak issues, introducing the MultiJail dataset, in which harmful queries were manually translated into nine languages with the help of native speakers. This dataset illuminated the severity of multilingual threats, demonstrating how prompts translated from English into less commonly modeled languages disproportionately bypass safety constraints. The study proposed a defense mechanism, termed SELF-DEFENCE, which integrates multilingual inputs during training to significantly reduce multilingual vulnerabilities without extra annotations.
+
+\textcite{upadhayaySandwichAttackMultilanguage2024} study prompts that sandwich a harmful request within multilingual context. Their evaluation includes Bard, Gemini Pro, GPT-3.5-Turbo, GPT-4, Claude-3-Opus, and Llama-2-70B-Chat. This supports multilingual prompt composition as an attack surface; it does not by itself establish that a continuously adapting feedback loop is necessary or that linguistic distance causes the observed failures.
+
+Orthographic variations and transliteration can expose multilingual safety vulnerabilities. \textcite{ghanimJailbreakingLLMsArabic2024} evaluated Arabic transliteration, including Arabizi, against GPT-4 and Claude-3-Sonnet and reported successful jailbreaks. These results show that changing script can affect safety behavior. They motivate further investigation of multilingual alignment and orthographic coverage, but do not by themselves establish how transliteration changes the underlying alignment mechanism or demonstrate an effective script-agnostic training remedy.
+
+These orthographic findings also motivate a tokenizer-centered interpretation of multilingual safety failures. A translated prompt is not only a semantic variant of the same attack, but also a different token sequence, with different subword boundaries, prompt lengths, and local cues for refusal. When a language or transliterated form is represented inefficiently, the model may receive a more fragmented version of the same malicious intent. This provides a plausible bridge between script change, transliteration, and safety degradation without reducing the problem solely to training-data scarcity \cite{ghanimJailbreakingLLMsArabic2024,rust2021tokenizer}.
+
+The implications of multilingual prompt injection extend to machine translation (MT). \textcite{sunScalingBehaviorMachine2024a} investigated how injected instructions affect translation systems across model sizes and training regimes. They report inverse-scaling behavior under some conditions: larger models can be more susceptible to injection, rather than uniformly more robust. Their findings therefore caution against treating increased model size alone as a defense for translation applications.
+
+\textcite{abbasiMultilingualPromptInjection2025} evaluated malicious-prompt detection across 19 pre-trained models and four adversarial datasets, comparing English inputs with Spanish translations. Their inventory included general-purpose, domain-specific, multilingual, and injection-detection-tuned models. Detection accuracy varied across models and after translation. This is evidence about cross-lingual prompt classification; it should be distinguished from the resistance of generative assistants to producing harmful responses.
+
+\textcite{liCrossLanguageInvestigationJailbreak2024} evaluated multilingual jailbreak attacks and investigated differences in model responses through interpretability analysis. Their dataset construction began with 745 malicious English questions and retained 365 multilingual question combinations after semantic-similarity filtering across nine languages. They also evaluated multilingual refusal fine-tuning as a mitigation on Vicuna-7B-v1.5. This supports targeted multilingual fine-tuning as a mitigation in their experimental setting, rather than a claim that multiple prompt-tuning defenses were rigorously compared.
+
+\textcite{yongLowResourceLanguagesJailbreak2023} uniquely explored the exploitation of low-resource languages\footnote{Language resource level refers to the availability of text data and NLP tools for a language. The high-, mid-, and low-resource labels are qualitative and context-dependent.} to jailbreak GPT-4. Their experimental pipeline is especially relevant for the present dissertation: they translated the harmful prompt into the target language, queried the victim model with that translated prompt, translated the response back, and then evaluated the resulting output. Their analysis revealed that GPT-4's safety constraints were significantly more vulnerable when prompts were crafted in low-resource languages, where training data scarcity limited the model's contextual understanding and alignment. The authors argue that these vulnerabilities highlight critical gaps in current multilingual training protocols, underscoring the need for broader, more inclusive datasets and dedicated fine-tuning for underrepresented languages to bolster model robustness.
+
+\textcite{singhaniaMultilingualMultiturnAutomated2025} introduce MM-ART, which combines multilingual testing with multi-turn dialogues. Relative to their English single-turn baseline, the authors report increases in unsafe response rates of 71\% for English multi-turn attacks and up to 195\% for non-English multi-turn attacks. These comparisons jointly change interaction structure and, in the latter case, language; they do not identify an isolated typological-distance effect.
+
+    
+Narrow supervised fine-tuning can also produce broader misalignment. \textcite{betleyEmergentMisalignmentNarrow2025} fine-tuned aligned models to emit insecure code without disclosure and observed misaligned behavior on non-coding prompts, including harmful advice and anti-human statements. This demonstrates that safety behavior can change beyond the narrow fine-tuning task. Any extension to language-specific safety representations or linguistic distance is a hypothesis of this dissertation; the cited experiment does not test those mechanisms.
+
+Taken together, \textcite{yongLowResourceLanguagesJailbreak2023} and \textcite{dengMultilingualJailbreakChallenges2024} establish the immediate methodological foundation for this thesis. The present work adopts a translation-mediated attack pipeline in which harmful prompts are translated into the attack language, submitted to the target model in that language, and subsequently normalized back into English for evaluation, following the procedure introduced by \textcite{yongLowResourceLanguagesJailbreak2023}. Similar to MultiJail, multilingual prompt construction is treated as a controlled benchmark-design problem rather than as incidental preprocessing.
+
+The main contribution of this thesis is a comparative analysis of how linguistic distance and post-training specialization relate to jailbreak effectiveness across languages. Distance is measured relative to each model's aligned language, while specialization is estimated from benign reading-comprehension performance and cross-lingual answer consistency.
+
+\newpage
+
+\begin{landscape}
+
+\begin{table}[h]
+
+\setlength\extrarowheight{2pt}
+\begin{tabularx}{\linewidth}{>{\RaggedRight}p{4cm}|>{\RaggedRight}p{7.5cm}|>{\RaggedRight}p{7.5cm}|>{\arraybackslash}X}
+\caption{Summary of multilingual jailbreak and prompt-injection evaluation studies analyzed}
+\label{tab:paper-summary} \\
+\hline
+\textbf{Paper} & \textbf{Models} & \textbf{Datasets/Tasks} & \textbf{Languages (ISO)} \\
+\hline
+\endfirsthead
+\multicolumn{4}{p{\dimexpr\textwidth-2\tabcolsep\relax}}{\ufsccaptionsize\tablename~\thetable~--
+Summary of multilingual jailbreak and prompt-injection evaluation studies analyzed (continued)} \\
+\hline
+\textbf{Paper} & \textbf{Models} & \textbf{Datasets/Tasks} & \textbf{Languages (ISO)} \\
+\hline
+\endhead
+\hline
+\multicolumn{4}{p{\dimexpr\textwidth-2\tabcolsep\relax}}{\footnotesize continued on next page}
+\endfoot
+\hline
+
+\multicolumn{4}{p{\dimexpr\textwidth-2\tabcolsep\relax}}{\fonte{Prepared by the author (2026).}}
+\endlastfoot
+\textcite{huangTowerBabelRevisited2025} & GPT-4o, DeepSeek-R1, Gemini-1.5-Pro, Qwen-Max & 32 jailbreak attack types; ~38.4k responses (security) & \texttt{EN}, \texttt{ZH} \\ \hline
+\textcite{dengMultilingualJailbreakChallenges2024} & ChatGPT, GPT-4 & MultiJail harmful queries & \texttt{EN}, \texttt{ZH}, \texttt{IT}, \texttt{VI}, \texttt{AR}, \texttt{KO}, \texttt{TH}, \texttt{BN}, \texttt{SW}, \texttt{JV} \\ \hline
+\textcite{upadhayaySandwichAttackMultilanguage2024} & Bard, Gemini Pro, GPT-4, GPT-3.5-Turbo, Claude-3-Opus, Llama-2-70B-Chat & Multilingual adversarial prompt (``Sandwich'') & \texttt{EN}, \texttt{ES}, \texttt{ZH}, \texttt{AR}, \texttt{RU} \\ \hline
+\textcite{ghanimJailbreakingLLMsArabic2024} & GPT-4-0613, Claude-3-Sonnet-20240229 & Arabic transliteration and Arabizi jailbreak & \texttt{AR}, Arabizi \\ \hline
+\textcite{sunScalingBehaviorMachine2024a} & Multiple LLM sizes & MT with prompt injection & \texttt{EN}$\leftrightarrow$\texttt{DE}, \texttt{EN}$\leftrightarrow$\texttt{FR}, \texttt{EN}$\leftrightarrow$\texttt{RO}, \texttt{EN}$\leftrightarrow$\texttt{RU} \\ \hline
+\textcite{abbasiMultilingualPromptInjection2025} & BERT, DistilBERT, BioBERT, SciBERT, ProtectAI-DeBERTa, Indic-BERT, LaBSE, mBERT, XLM-R, ReMBERT & 4 adversarial datasets (EN→ES) & \texttt{EN}, \texttt{ES} \\ \hline
+\textcite{liCrossLanguageInvestigationJailbreak2024} & GPT-3.5, GPT-4, Vicuna, LLaMA & 745 initial questions; 365 retained multilingual combinations & \texttt{EN}, \texttt{ZH}, \texttt{ES}, \texttt{FR}, \texttt{AR}, \texttt{RU}, \texttt{PT}, \texttt{JA}, \texttt{SW} \\ \hline
+\textcite{yongLowResourceLanguagesJailbreak2023} & GPT-4 & AdvBench dataset & \texttt{ZU}, \texttt{GD}, \texttt{HMN}, \texttt{GN}, \texttt{UK}, \texttt{BN}, \texttt{TH}, \texttt{HE}, \texttt{ZH}, \texttt{AR}, \texttt{IT}, \texttt{HI}, \texttt{EN} \\ \hline
+\textcite{singhaniaMultilingualMultiturnAutomated2025} & Llama 3.2-1B/3B, Llama 3.1-8B/70B, Mistral-Large-2 & MM-ART Human, Multi-Jail, Vanilla, Red-Team & \texttt{EN}, \texttt{ES}, \texttt{FR}, \texttt{DE}, \texttt{AR}, \texttt{HI}, \texttt{JA} \\ \hline
+\end{tabularx}
+\par\smallskip{\scriptsize \texttt{VI}: Vietnamese; \texttt{KO}: Korean; \texttt{JV}: Javanese; \texttt{EN}: English; \texttt{ZH}: Chinese; \texttt{FR}: French; \texttt{DE}: German; \texttt{ES}: Spanish; \texttt{AR}: Arabic; \texttt{RU}: Russian; \texttt{TH}: Thai; \texttt{PT}: Portuguese; \texttt{JA}: Japanese; \texttt{SW}: Swahili; \texttt{ZU}: Zulu; \texttt{GD}: Scots Gaelic; \texttt{HMN}: Hmong; \texttt{GN}: Guarani; \texttt{UK}: Ukrainian; \texttt{BN}: Bengali; \texttt{HE}: Hebrew; \texttt{IT}: Italian; \texttt{HI}: Hindi. Arabizi = Romanized Arabic.\par}
+
+
+\end{table}
+
+
+
+\end{landscape}
+
+\newpage
+
+\section{Jailbreak Benchmarks and Automated Evaluation}
+\label{sec:jailbreak-benchmarks-review}
+
+Empirical jailbreak research depends strongly on the choice of harmful-prompt inventory and response evaluator. Early resources such as \textbf{AdvBench} helped standardize harmful-behavior prompts for adversarial instruction-following experiments, while later benchmarks such as \textbf{HarmBench} broadened the taxonomy of harmful behaviors and systematized evaluation across attack and defense settings \cite{Zou2023Universal,mazeikaHarmBench2024}. These benchmarks remain important lineage resources because many newer safety evaluations inherit their threat categories, prompt styles, or evaluation assumptions.
+
+More recent work has focused not only on prompt collections, but also on reproducible evaluator design. \textbf{JailbreakBench} provides a shared evaluation framework and emphasizes that evaluator choice can change false-positive and false-negative profiles, making paper-specific scoring rules difficult to compare across studies \cite{chaoJailbreakBenchOpenRobustness2025}. \textbf{StrongREJECT} addresses a related problem: some apparent jailbreaks are ``empty'' successes that bypass refusal phrasing without producing materially useful unsafe content. Its benchmark therefore couples a curated harmful-prompt set with an automated evaluator designed to score unsafe compliance in terms of specificity and convincingness \cite{soulyStrongREJECT2024}.
+
+Multilingual jailbreak evaluation adds another layer because prompts must remain comparable across languages. \textbf{MultiJail} addresses this through manually translated harmful queries and shows that non-English prompts can expose safety failures that are less visible in English-only testing \cite{dengMultilingualJailbreakChallenges2024}. Studies such as \textcite{yongLowResourceLanguagesJailbreak2023} instead use machine translation to produce attack prompts and back-translate model responses for evaluation. These approaches differ in how translations are produced and checked, making translation quality part of the evaluation design. The present experiment uses translated StrongREJECT prompts; MultiJail remains a possible external validation dataset and is not included in the reported results.
+
+\newpage
+
+\begin{landscape}
+
+\begin{table}[h]
+
+\setlength\extrarowheight{2pt}
+\begin{tabularx}{\linewidth}{>{\RaggedRight}p{3.5cm}|>{\RaggedRight}p{4cm}|>{\RaggedRight}p{7cm}|>{\arraybackslash}X}
+\caption{Harmful-prompt benchmarks and evaluation frameworks}
+\label{tab:academic-jailbreak-datasets} \\
+\hline
+\textbf{Benchmark} & \textbf{Reference} & \textbf{Coverage}
+  & \textbf{Evaluation approach} \\
+\hline
+\textbf{StrongREJECT}
+  & \textcite{soulyStrongREJECT2024}
+  & English harmful prompts with an official unsafe-compliance evaluator.
+  & Scores responses by refusal, specificity, and convincingness to assess how much they help fulfill the harmful request. \\
+\hline
+\textbf{MultiJail}
+  & \textcite{dengMultilingualJailbreakChallenges2024}
+  & Multilingual jailbreak prompts spanning high-, mid-, and low-resource languages.
+  & Compares responses to corresponding harmful queries across languages to examine multilingual safety vulnerabilities. \\
+\hline
+\textbf{JailbreakBench}
+  & \textcite{chaoJailbreakBenchOpenRobustness2025}
+  & English harmful behaviors and open evaluation infrastructure.
+  & Standardizes threat models, harmful behaviors, and evaluation procedures to support comparable jailbreak testing. \\
+\hline
+\textbf{HarmBench}
+  & \textcite{mazeikaHarmBench2024}
+  & Predominantly English harmful-behavior framework.
+  & Provides standardized procedures for evaluating attacks and defenses across categories of harmful behavior. \\
+\hline
+\textbf{AdvBench}
+  & \textcite{Zou2023Universal}
+  & English harmful-behavior prompts reused in later studies.
+  & Provides a shared set of harmful instructions for testing whether adversarial prompts elicit the requested behavior. \\
+\hline
+\multicolumn{4}{p{\dimexpr\linewidth-2\tabcolsep\relax}}{\fonte{Prepared by the author (2026).}} \\
+\end{tabularx}
+\end{table}
+
+\end{landscape}
+
+\subsection{Translation Quality in Multilingual Evaluation}
+\label{sec:translation-quality-review}
+
+Translation can affect both stages of a multilingual jailbreak evaluation. Before a model is queried, translating a harmful prompt may change the requested action, omit a constraint, or reduce its specificity. After the model responds, back-translation may change details that the evaluator uses to judge how much assistance the response provides. Differences between languages may therefore reflect changes introduced by translation as well as differences in model behavior.
+
+\emph{No Language Left Behind} (NLLB) is a multilingual machine-translation program whose NLLB-200 models provide a common system for translation across languages. Its evaluation framework considers translation quality through automatic metrics, human judgments of meaning preservation using the XSTS protocol, and checks for added toxicity \cite{NLLBTeamScalingNeuralMachine2024,lichtConsistentHumanEvaluation2022}. XSTS ratings assess how closely a translation preserves the source meaning. Checks for added toxicity address a separate question: whether the translation introduces toxic content that was absent from the source.
+
+BLASER 2.0 provides automatic translation-quality estimates, including a reference-free mode that compares the source and translated text without requiring a trusted reference translation \cite{daleBLASER2024}. This makes it useful for screening multilingual prompt collections when reference translations are unavailable. However, a high quality score does not establish that every constraint or detail of a harmful request has been preserved. Fluency, preservation of meaning, and preservation of the harmful request must therefore be considered separately. Section~\ref{sec:translation-protocol} explains how NLLB-200, BLASER screening, and an LLM-based XSTS review were used in the completed experiment, including their limitations.
+
+\newpage
+
+
+
+%%%
+
+	\section{Linguistic Proximity and Language Modeling}
+
+\textcite{zhou-etal-2025-linguistic} study linguistic similarities through activation differences associated with linguistic phenomena. Their findings show both within-language structure and limited cross-language alignment, with variation across models and languages. They motivate examining how multilingual representations relate to transfer, but do not directly establish that training exposure compresses typologically close languages or strengthens their safety guardrails.
+	
+Similarly, \textcite{changGeometryMultilingualLanguage2022} identify shared and language-specific structure in XLM-R representations across 88 languages. This evidence concerns representation geometry in a multilingual encoder. The possibility that language-specific directions in generative assistants receive uneven safety coverage is a hypothesis motivating the present study, rather than a finding established by that paper.
+
+This representational view connects to a mechanistic account of refusal itself: \textcite{arditiRefusalLanguageModels2024} showed that refusal in open-weight chat models is mediated by a single difference-in-means direction in the residual stream, and \textcite{wangRefusalDirectionUniversal2025} extended this cross-lingually, reporting that the refusal direction is approximately parallel across typologically diverse safety-aligned languages. Their key finding qualifies the linguistic-distance account: cross-lingual jailbreaks succeed not because the refusal direction is missing in other languages, but because models fail to separate harmful from harmless representations outside English, with separation quality degrading systematically. Importantly, that evidence comes from English-centric multilingual models; whether the same universality holds after \emph{language-specific} post-training, where the alignment anchor is not English, is open. The present dissertation evaluates exactly such models, and the exploratory mechanistic audit in Appendix~\ref{app:mechanistic-audit} revisits this question on a same-family safer-versus-more-vulnerable contrast whose starting checkpoints differ.
+
+\textcite{mahowaldDissociatingLanguageThought2024} distinguish formal linguistic competence from functional competence involving reasoning and goal-directed language use. This conceptual distinction motivates caution when treating fluent responses or multiple-choice accuracy as evidence of safety alignment. The paper does not directly establish a distance-dependent multilingual jailbreak mechanism.
+	
+\textcite{philippyIdentifyingCorrelationLanguage2023} study correlations between language distance and cross-lingual transfer performance. Their findings motivate distance as a candidate predictor here, but transfer on downstream tasks does not establish a causal effect on unsafe compliance. Extending that relationship to jailbreak behavior is a hypothesis tested in this dissertation.
+
+\textcite{tantiLanguagespecificityMultilingualBERT2021} examine language specificity in multilingual BERT. Their encoder findings motivate further tests but do not directly establish safety erosion in instruction-tuned decoder assistants.
+
+
+\end{otherlanguage*}

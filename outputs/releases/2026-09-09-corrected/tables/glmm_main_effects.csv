@@ -1,0 +1,3 @@
+fit,predictor,estimate,std_error,ci_lower,ci_upper,odds_ratio,odds_ratio_ci_lower,odds_ratio_ci_upper,posterior_probability_positive,p_value,interval_type,n,fit_method
+pooled,distance_z,-0.09013672189749444,0.023040653927770598,-0.13529640359592482,-0.044977040199064074,0.913806239407011,0.8734569775263974,0.9560194315969582,4.575360559995138e-05,,laplace_approx_95_credible,32090,laplace_map_crossed_logistic_glmm
+pooled,spec_z,1.1030035802446583,0.055842905942637446,0.9935514845970889,1.2124556758922276,3.013202842278341,2.700809342562988,3.36172984358022,1.0,,laplace_approx_95_credible,32090,laplace_map_crossed_logistic_glmm

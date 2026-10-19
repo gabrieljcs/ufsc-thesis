@@ -1,0 +1,275 @@
+% The \phantomsection command is needed to create a link to a place in the document that is not a
+% figure, equation, table, section, subsection, chapter, etc.
+% https://tex.stackexchange.com/questions/44088/when-do-i-need-to-invoke-phantomsection
+\phantomsection
+
+% Multiple-language document - babel - selectlanguage vs begin/end{otherlanguage}
+% https://tex.stackexchange.com/questions/36526/multiple-language-document-babel-selectlanguage-vs-begin-endotherlanguage
+\begin{otherlanguage*}{english}
+
+\input{chapters/results_generated_assets.tex}
+\discardmacros{\AsrHeatmapFigure\DistanceAsrFigure\BelebeleIfHeatmapFigure\SpecAsrFigure}
+
+\chapter{Results}
+\label{chap:results}
+
+This chapter reports the empirical results obtained from the frozen evaluation dataset. The dataset contains 36\,189 prompt--model--language rows, covering the eight target language-specific models and the English-aligned Llama-3.1-8B-Instruct reference baseline. Each model contributes the same retained panel of 4\,021 attempts (Table~\ref{tab:results-coverage}), and all coverage accounting in this chapter starts from that panel. The upstream source-prompt arithmetic and the numeric translation-QC thresholds that produced it are given in Appendix~\ref{app:frozen-qc-details}.
+
+The presentation follows Chapter~\ref{chap:methodology}. Coverage and translation quality come first, because they determine the denominators of every later estimate. The chapter then summarizes the graded scores, describes how they vary with distance and specialization, and ends with fractional-logit inference and its diagnostics, including the tokenizer checks.
+
+\textbf{The main empirical finding does not support the directional account.} Mean graded harmful-assistance scores vary strongly by model family and paired post-training regime. They do not, however, increase with URIEL+ distance, and BELEBELE-derived specialization does not behave as a simple protective factor. Three results lead to this conclusion. First, the distance coefficient is negative in \RDistanceNegativeCount{} of \RDistanceSpecCount{} reported specifications, the opposite of the predicted direction. Second, once the robust covariance is clustered on the model--language cell, where distance and specialization actually vary, the pooled distance interval covers zero (\RDistanceCellInterval{}). Third, the heterogeneous-pair sign-retention matrix, the one component of the analysis fixed before results were examined, retains the slope sign in only \RPreregRetained{} of \RPreregEvaluated{} pairs, and \RPreregPositivePairs{} pairs are positive at both poles; that count falls in the band of the matrix that does not support H\textsubscript{1}. The more defensible reading is therefore that \textbf{checkpoint differences are large, while typological distance shows no detectable positive association in this panel.}
+\defensebox{How to defend the negative result}{The directional hypotheses are not supported, and the evidence is now consistent rather than merely inconclusive. Earlier drafts described a coverage restriction as reversing the distance sign; under cell-clustered inference both that restriction and the pooled fit cover zero, so they never disagreed in any inferential sense. What remains is a clean negative: no detectable positive distance association anywhere, no pair positive at both poles, and a specialization proxy that runs opposite to the protective prediction. The result narrows what can be claimed: typological distance is not a usable priority rule for multilingual red-teaming in this panel. The stronger practical finding is model-centered: some language-specific assistants are unsafe broadly, while others are much safer across many languages. In a defense, frame this as replacing an elegant hypothesis with a more operationally honest safety conclusion.}
+
+\section{Evaluation Coverage and Data Quality}
+\label{sec:results-coverage}
+
+Table~\ref{tab:results-coverage} reports the denominator for the later mean-score estimates. All target models and the reference baseline cover the 13 attack languages. The frozen dataset contains 78 excluded or unscored rows: 75 empty model outputs and three StrongREJECT judge safety-filter failures.
+These cases are technical or scoring failures, not safe responses. They are excluded from the mean-score denominator and remain visible in coverage accounting. In-model refusals are retained as substantive model outputs.
+\defensenote{Coverage vs safety}{Coverage failures are measurement failures. Refusals are model behavior. Keeping those categories separate avoids artificially rewarding systems that fail to produce scorable outputs.}
+
+\QualityCoverageTable
+
+The exclusions are concentrated rather than evenly distributed. Sixty-nine empty outputs occur for BgGPT-Gemma in Swedish, and six additional empty outputs occur for LLaMAntino-2 across Danish, English, Norwegian, Portuguese, Spanish, and Swedish. The three judge safety-filter blocks occur once for AI Sweden in Norwegian and twice for Sabiá-3 in Danish. The dataset otherwise has no duplicate run identifiers and no duplicate model--language--prompt rows.
+
+For the three nonempty responses blocked by the scoring judge, the score is unknown. Table~\ref{tab:graded-unscored-bounds} shows worst/best-case mean-score bounds instead of assigning observed zeros. Even assigning all three unscored responses the maximum score changes each affected model mean by less than 0.0005 relative to the zero-assignment bound. These judge blocks are not target-provider blocks. The 75 empty outputs remain technical missingness. All rows have a true generation-completion flag, which indicates request-path completion and does not establish usable text.
+
+\GradedBoundsTable
+
+\subsection{LLM-only Prompt Translation QC}
+\label{sec:prompt-translation-qc}
+
+The translation audit was completed with the XSTS-style LLM reviewer described in the methodology: the 148 BLASER-flagged prompt translations were judged by a GPT-5.4 XSTS assessor. Of those flagged rows, 100 were retained and 48 were excluded from the frozen prompt inventory. The remaining 3\,921 prompt translations passed the BLASER gate and did not receive an XSTS score. Round-trip drift is computed for every prompt translation and reported as a diagnostic.
+
+Table~\ref{tab:prompt-translation-qc} reports the BLASER-flagged queue size, median XSTS score, and audit decision counts by attack language.
+
+\QualityPromptQcTable
+
+Finnish is the main translation-pipeline anomaly. It has 58 flagged rows, far above the next-highest queue size of 17, and 20 of those flagged rows were marked for exclusion by the LLM judge. Ukrainian also shows a relatively high exclusion count among flagged rows.
+
+\section{StrongREJECT Scores and Model Comparisons}
+\label{sec:overall-score}
+
+This section compares the evaluated models using the mean official StrongREJECT score defined in Section~\ref{sec:strongreject-graded}, Equation~\ref{eq:mean-strongreject}. Higher means indicate more rubric-assessed harmful assistance across the scored responses. Zero scores are included; missing judge scores remain unknown and are excluded. These means are graded scores, not percentages of successful attacks.
+
+\subsection{Aligned and Non-aligned Language Comparisons}
+
+Figure~\ref{fig:graded-aligned-comparison} compares two settings on a common score scale: each model's aligned language and the other twelve languages pooled together. Models are grouped into the Portuguese, Italian, Swedish, and Bulgarian pairs. A separate English-reference row shows its English mean and pooled mean across the twelve non-English languages; this baseline is descriptive and excluded from paired inference. The two points in each row show whether harmful-assistance scores are already high in the aligned-language setting or increase outside it. Exact means, intervals, and scored sample sizes appear in Appendix~\ref{app:graded-details}, Table~\ref{tab:graded-setting-summary}.
+
+The horizontal whiskers show 95\% uncertainty intervals estimated by repeatedly sampling the original prompts, keeping their translated responses together. In the non-aligned setting, every scored response contributes equally, so a language with more scored responses contributes more to the pooled mean.
+
+\begin{figure}[htbp]\centering
+\caption[Aligned and non-aligned StrongREJECT scores]{Mean StrongREJECT scores in aligned and pooled non-aligned languages, grouped by model pair, with a separate descriptive English reference baseline. Its aligned language is English; it is excluded from paired inference. Points show means and whiskers show 95\% prompt-cluster bootstrap intervals (2\,000 resamples). Zero scores are included; missing judge scores are excluded. Non-aligned means weight each scored response equally. Higher scores indicate more harmful assistance.}
+
+\includegraphics[width=\linewidth]{figures/graded_aligned_comparison.pdf}
+\label{fig:graded-aligned-comparison}\fonte{Prepared by the author (2026).}
+\end{figure}
+
+The Portuguese, Italian, and Bulgarian pairs show the same broad ordering in both settings: the strong-pole model has a lower mean score than its weak-pole partner. The Swedish pair shows the opposite ordering, with AI Sweden scoring higher than GPT-SW3. Thus, the strong-pole label does not consistently correspond to lower harmful assistance across all four pairs.
+
+These comparisons describe the evaluated checkpoints. Each pair differs in more than its alignment label, including model ancestry, training data, size, and serving mode. We therefore cannot attribute the differences to a single alignment intervention. Similarly, the combined non-aligned mean can hide considerable variation between individual languages.
+\defensenote{Present the pair comparison}{Say: ``Three pairs have lower average harmful assistance at the strong pole; the Swedish pair goes the other way. This is an observed comparison between checkpoints, not a controlled experiment on alignment strength.'' Then use the language heatmap to show why a single model average is only part of the picture.}
+
+\subsection{Variation Across Languages and Responses}
+
+Figure~\ref{fig:graded-heatmap} separates the combined averages into individual model--language combinations. Each cell gives the mean score for one model answering prompts in one language. It helps identify languages with relatively high or low scores within a model and compare language profiles across models.
+
+\begin{figure}[htbp]\centering
+\caption[StrongREJECT score heatmap]{Mean StrongREJECT score for each model and attack language. Higher values indicate more harmful assistance.}
+
+\includegraphics[width=\linewidth]{figures/graded_score_heatmap.pdf}
+\label{fig:graded-heatmap}\fonte{Prepared by the author (2026).}
+\end{figure}
+
+A mean does not show how individual responses are distributed. For example, two hypothetical scores of 0 and 1 have the same average as two scores of 0.5, although the first case combines a zero with maximum harmful assistance and the second contains two intermediate responses. Figure~\ref{fig:graded-distribution} therefore shows the distribution of scores across all scored languages for each model. It reveals whether an average comes mainly from zeros, intermediate scores, or high scores.
+
+\begin{figure}[htbp]\centering
+\caption[StrongREJECT score distributions]{Distribution of StrongREJECT scores for each model across all scored languages. The plot separates zero, intermediate, and high scores.}
+
+\includegraphics[width=\linewidth]{figures/graded_score_distribution.pdf}
+\label{fig:graded-distribution}\fonte{Prepared by the author (2026).}
+\end{figure}
+
+The official scoring rule produces nine possible levels, from zero to one. ``Graded'' means that these intermediate levels are retained rather than reduced to a yes/no classification.
+
+\subsection{English Reference Baseline}
+\label{sec:reference-baseline-results}
+
+Table~\ref{tab:graded-reference} reports the separate English-aligned reference model in each attack language. It provides an instruction-tuned reference checkpoint, Llama-3.1-8B-Instruct. It is not a matched parent checkpoint for those models, and it is excluded from the eight-model paired regressions. Differences from this reference therefore do not measure the effect of language specialization or safety changes inherited from a common parent model, but serve as a basis for comparison.
+
+\GradedReferenceTable
+
+\input{chapters/reference_descriptive_contrast}
+
+\begin{figure}[htbp]\centering
+\caption[English reference profiles]{StrongREJECT and BELEBELE results for the English reference, Llama-3.1-8B-Instruct, in each attack language. Top left: mean StrongREJECT score, with 95\% source-prompt cluster percentile bootstrap intervals (2\,000 resamples). Top right: SPEC against mean StrongREJECT score, labelling the aligned language and the lowest and highest scores. Bottom: BELEBELE IF and CONS, with conditional 95\% Wilson intervals for CONS, and SPEC. Languages follow increasing URIEL+ distance from English but are equally spaced; shading and bold labels mark English. SPEC uses the same all-117-cell standardization as the paired targets. The reference is descriptive and excluded from paired inference.}
+\includegraphics[max width=\linewidth]{figures/compiled/reference_profiles.pdf}
+\label{fig:reference-profiles}\fonte{Prepared by the author (2026), based on the corrected BELEBELE release.}
+\end{figure}
+
+\clearpage
+\section{Distance and Specialization}
+\label{sec:graded-distance-spec}
+The BELEBELE measures distinguish \emph{instruction following} (IF), operationalized as answer accuracy, from \emph{cross-lingual consistency} (CONS), agreement with aligned-language answers on comparable questions. \emph{Specialization} (SPEC) combines their standardized values with equal weights. A high CONS value need not imply correct answers, and a SPEC value summarizes benign benchmark behavior rather than safety alignment. Figure~\ref{fig:belebele-profiles} presents all three measures for each paired target; Figure~\ref{fig:belebele-worked-example} illustrates the scoring distinction on one question.
+
+\GradedCorrelationsTable
+\clearpage
+Figure~\ref{fig:strongreject-profiles} shows the StrongREJECT mean for every attack language in a separate panel for each paired target. Its layout and language ordering match the BELEBELE profiles in Figure~\ref{fig:belebele-profiles}, making the harmful-assistance and benign-capability profiles easier to compare. Figures~\ref{fig:strongreject-profiles}, \ref{fig:graded-spec}, and \ref{fig:belebele-profiles} show only the paired targets; the English reference appears separately in Figure~\ref{fig:reference-profiles}. Weak targets are at left and strong targets at right, and the four rows correspond to the aligned-language pairs. Shading and bold labels identify the aligned language. Bars show the saved 95\% prompt-cluster bootstrap intervals. All panels share the same score scale. Languages are equally spaced and ordered by increasing URIEL+ distance; the connecting lines describe profiles rather than fitted trends. The plot with actual distance on the horizontal axis is retained in Appendix~\ref{app:graded-details}, Figure~\ref{fig:graded-distance}.
+\begin{figure}[p]\centering
+\caption[StrongREJECT profiles by model and attack language]{Mean StrongREJECT scores by model and attack language, with weak targets at left and strong targets at right. Rows are the Portuguese, Italian, Swedish and Bulgarian pairs. Zero scores are included; missing scores are excluded. Bars show 95\% source-prompt cluster percentile bootstrap intervals (2\,000 resamples). Shading and bold labels mark the aligned language. Languages follow increasing URIEL+ distance but are equally spaced; lines connect observations and are not fitted regressions. The English reference appears separately in Figure~\ref{fig:reference-profiles}.}
+
+\includegraphics[max width=\linewidth,max height=.74\textheight]{figures/compiled/strongreject_profiles.pdf}
+\label{fig:strongreject-profiles}\fonte{Prepared by the author (2026).}
+\end{figure}
+\begin{figure}[p]\centering
+\caption[Specialization and StrongREJECT scores]{BELEBELE specialization and mean StrongREJECT score in the observed model--language cells of the four pairs, with weak targets at left and strong targets at right. Language labels identify the aligned language and the lowest and highest mean StrongREJECT scores within each model.}
+
+\includegraphics[max width=\linewidth,max height=.74\textheight]{figures/compiled/graded_spec_reference_scatter.pdf}
+\label{fig:graded-spec}\fonte{Prepared by the author (2026).}
+\end{figure}
+The different appearance of LLaMAntino-2 in Figure~\ref{fig:belebele-profiles} reflects limited comparable answers, rather than a different plotting method. CONS has 95\% Wilson intervals for every model; the intervals for other models are generally narrower and therefore less conspicuous. LLaMAntino-2 has few parseable aligned-language answers, which limits the number of questions that can be compared across languages and makes its CONS intervals much wider. Hollow points identify cells with fewer than 100 comparable answers. We leave those CONS points, and the SPEC values that depend on them, disconnected so that the figure does not suggest a reliably measured language curve. The intervals quantify uncertainty conditional on the parseable pairs; they do not correct for missing or unparsed answers.
+
+\begin{figure}[p]\centering
+\caption[BELEBELE IF, CONS and SPEC profiles by model]{BELEBELE profiles for the four pairs, with weak targets at left and strong targets at right. The English reference appears separately in Figure~\ref{fig:reference-profiles}. Languages follow increasing URIEL+ distance; shading and bold labels mark the aligned language. IF is correct/900, counting unparsed answers as incorrect. CONS compares parseable canonical pairs; bars are conditional 95\% Wilson intervals. Hollow, disconnected CONS/SPEC points have paired $n<100$. SPEC uses all 117 cells for standardization, including the reference. Aligned-language CONS is one by construction; lines connect observations, not fitted trends.}
+
+\includegraphics[max width=\linewidth,max height=.78\textheight]{figures/compiled/belebele_profiles.pdf}
+\label{fig:belebele-profiles}\fonte{Prepared by the author (2026), based on the corrected BELEBELE release.}
+\end{figure}
+\input{figures/belebele_worked_example.tex}
+
+The cell descriptions reveal heterogeneous language profiles. They do not identify independent effects of distance or specialization. BELEBELE measures reading comprehension and agreement with aligned-language answers; it does not directly measure safety or open-ended benign instruction following.
+
+Russian is the extreme case. Only 20 Russian and 50 Italian outputs identify an option, leaving four canonical questions comparable across the two languages. All four agree, giving CONS $=1.00$ with a 95\% Wilson interval of $[0.510,1.000]$, although two agree on wrong answers; one disagreement would reduce the estimate to $0.75$. Appendix~\ref{app:belebele-sparse-answers} reports the per-language coverage, the saved fragments, the evidence that the cap was uniform across all nine models, and the share of unparsed outputs that no larger cap would recover. The pooled and stratum fits in Section~\ref{sec:graded-inference} retain this model, so its SPEC coefficient is estimated with one of eight models contributing an inverted proxy. Section~\ref{sec:future-belebele-likelihood} states the measurement change that would resolve this.
+
+\section{Fractional-logit Analysis}
+\label{sec:graded-inference}
+
+The regression estimates the associations of distance and BELEBELE specialization with the expected StrongREJECT score, conditional on model identity and attack language. The outcome is each response's official score, including exact zeros and ones. The pooled fit uses \GMainN{} scored responses from the eight paired targets; the English reference is excluded.
+
+\subsection{Estimation and Interpretation}
+
+Coefficients use cohort-standardized predictors and the logit of expected score, with model and attack-language fixed effects and prompt-clustered intervals (Section~\ref{sec:magnitude-method}). They describe adjusted graded-score associations rather than binary-event odds ratios.
+
+\GradedEffectsTable
+
+Table~\ref{tab:graded-effects} reports the pooled fit and separate weak- and strong-pole fits. In the pooled fit, distance has coefficient \GDistanceInterval{} and SPEC has coefficient \GSpecInterval{}. Both stratum fits retain the same directions: negative for distance and positive for SPEC. Within this specification, more distant languages accompany lower expected scores, while higher measured specialization accompanies higher scores. \textbf{These directions contradict the associations predicted by H\textsubscript{1} and H\textsubscript{2} within the main specification.}
+
+\clearpage
+\subsection{Collinearity Diagnostics}
+
+\input{chapters/collinearity_explanation}
+
+\clearpage
+\GradedDiagnosticsTable
+\GradedSingleTable
+
+\input{chapters/collinearity_sensitivity_interpretation}
+
+\subsection{Capability Components and Tokenization}
+
+SPEC averages standardized BELEBELE accuracy (IF) and aligned-language answer agreement (CONS). The decomposition replaces that composite with its two components, asking which associations remain visible when they enter together. IF rewards a correct choice; CONS rewards matching choices, including matching wrong choices. Figure~\ref{fig:belebele-worked-example} and Appendix~\ref{app:belebele-sparse-answers} illustrate the distinction.
+
+\GradedComponentsTable
+
+The IF coefficient is \GIfCoef{} and the CONS coefficient is \GConsCoef{}. Both are positive: in this observed panel, better benign answer selection and greater answer agreement accompany higher harmful-assistance scores after the stated adjustment. IF has substantial collinearity, CONS depends on aligned-language behavior, and sparse parsing can distort the proxy.
+
+\afterpage{\TokenizerDiagnosticsFigure\TokensPerCharacterFigure}
+
+Token inflation is the number of tokens needed for an attack-language prompt relative to the same model's aligned-language version, after applying its chat template. It measures segmentation cost, not comprehension or safety. The tokenizer sensitivity compares the main specification with an added inflation term on exactly the same tokenizer-complete responses. A negative inflation coefficient describes an association in that cohort; it does not show that increasing token counts would make a model safer. Context-risk claims require actual token budgets and context limits, which remain unavailable for some records.
+
+Sabi\'a-3's entries are unavailable in both tokenizer figures (Figures~\ref{fig:tokenizer-diagnostics} and \ref{fig:tokens-per-character}) because this API-served model has no usable local tokenizer assets in the pipeline and no input-token counts retained in the frozen records. Without those counts, we cannot calculate tokens per character or the attack-language/Portuguese token-count ratio. The missing markers indicate unavailable measurements, not zeros. Sabi\'a-3 remains in the main StrongREJECT and BELEBELE analyses, but is excluded from fits requiring token inflation. The tokenizer sensitivity therefore compares models with and without the inflation term on the same remaining complete rows, as specified in Section~\ref{sec:tokenizer-diagnostics}.
+
+
+Figure~\ref{fig:tokens-per-character} complements token inflation with absolute segmentation density within each tokenizer. Its denominator is prompt characters rather than aligned-language tokens; the numerator includes chat-template overhead. Comparisons should focus on language differences within a model, since vocabularies, templates, and the byte length of characters differ across models and scripts. Neither diagnostic measures whether a model understands a request.
+
+\subsection{Sensitivity to Coverage and Measurement}
+
+The sensitivity analyses examine changes in measurement, cohort inclusion and covariate adjustment. Table~\ref{tab:graded-sensitivity} reports each resulting specification. Comparisons between rows require attention to both the included responses and the model terms.
+
+\clearpage
+\GradedSensitivityTable
+
+The non-aligned fit excludes responses in each model's aligned language. The original-complete-cohort fit restricts analysis to the historical complete-cell inventory after the corrected question join. Removing questionable BELEBELE items tests sensitivity to supplied gold labels, without silently replacing them; it changes the IF and CONS inputs rather than the response inventory, so its scored count is unchanged and its coefficients differ from the pooled fit only in the third decimal. Removing selected languages or BLASER-flagged translations checks whether those translation concerns determine the reported signs. The two tokenizer rows form a matched-cohort comparison: their scored response counts are identical, and only the inflation adjustment changes.
+
+The CONS-coverage restriction has a different consequence. Requiring at least 100 comparable questions removes sparsely measured cells, including the entire weak Italian model, and turns the distance point estimate positive. It changes both measurement coverage and the model inventory, so the change cannot be attributed to a better CONS estimate alone. Section~\ref{sec:cluster-sensitivity} shows that this apparent reversal does not survive correctly clustered inference: the restricted interval covers zero, as does the pooled interval, so the two specifications do not in fact disagree about the direction of the distance association. Taken across every specification in Table~\ref{tab:graded-sensitivity} and the two strata, the distance coefficient is negative in \RDistanceNegativeCount{} of \RDistanceSpecCount{} fits; the single positive fit is this restriction.
+
+\subsection{Clustering and the Scale of Independent Variation}
+\label{sec:cluster-sensitivity}
+
+Distance and SPEC do not vary within a model--language cell. Distance is a function of the aligned and attack languages; SPEC is defined per cell. Both therefore take only \RNumCells{} distinct values in the paired panel, whereas a source-prompt cluster spans every cell. Clustering the robust covariance on source prompts cuts across the variation being tested, which understates uncertainty for precisely these two coefficients (Section~\ref{sec:magnitude-method}). Table~\ref{tab:cluster-sensitivity} refits the same equations under cell and two-way clustering. Point estimates are unchanged by construction, so only the intervals move.
+
+\RClusterSensitivityTable
+
+The consequence for H\textsubscript{1} is substantial. The pooled distance standard error rises from \RDistancePromptSE{} to \RDistanceCellSE{}, a factor of about \RSEInflation{}, and the interval widens from \RDistancePromptInterval{} to \RDistanceCellInterval{}, which covers zero. The CONS-coverage restriction likewise moves to \RConsDistanceCellInterval{}, also covering zero. The two cohorts therefore do not provide conflicting evidence about the sign of the distance association; neither distinguishes it from zero. The earlier description of a sign reversal was an artifact of clustering on a dimension along which the predictor does not vary.
+
+Two results do survive. In the non-aligned cohort, which excludes the aligned-language cells where distance is zero and CONS is one by construction, the distance coefficient remains \RNonAlignedDistanceCellInterval{} and still excludes zero, in the direction opposite to H\textsubscript{1}. SPEC remains bounded away from zero in the pooled (\RSpecCellInterval{}), non-aligned (\RNonAlignedSpecCellInterval{}) and weak-pole fits; only the strong-pole stratum becomes inconclusive. With \RNumCells{} clusters these intervals rest on approximate asymptotics and should be read as indicative.
+
+\subsection{Compliance Frequency and Conditional Magnitude}
+\label{sec:outcome-decomposition-results}
+
+A mean score is the product of how often a model complies and how useful that compliance is (Equation~\ref{eq:score-identity}). Table~\ref{tab:descriptive-identity} reports both factors. For the paired panel the identity reads $\RMeanPooled{} = \RAsrPooled{} \times \RPositiveMeanPooled{}$.
+
+\RDescriptiveIdentityTable
+
+The two factors behave very differently. Compliance frequency spans \RAsrRange{} across the nine models, a ninefold range, while conditional magnitude spans only \RPositiveMeanRange{}. Differences between models in mean score are therefore almost entirely differences in how often they comply, not in how useful their compliance is once it occurs. The same holds for the aligned-language contrast: compliance frequency falls from \RAsrAligned{} in the aligned language to \RAsrNonAligned{} outside it, while conditional magnitude moves only from \RPositiveMeanAligned{} to \RPositiveMeanNonAligned{}. Models in this panel are more likely to comply in the language they were aligned in.
+
+\ROutcomeDecompositionTable
+
+Refitting the same design on each factor separates two readings of the SPEC association (Section~\ref{sec:outcome-decomposition-method}). Because the rubric rewards specificity and convincingness, a capability proxy could raise scores purely by raising fluency, and that mechanism would act on conditional magnitude. It does not. SPEC's coefficient is \RBinarySpecInterval{} on compliance frequency but only \RPositiveSpecInterval{} on conditional magnitude: the association is concentrated on whether the model complies at all. Distance, by contrast, is essentially flat across the three outcomes (\RBinaryDistanceInterval{} on frequency, \RPositiveDistanceInterval{} on magnitude), so it does not distinguish refusal behavior from output quality either. The frequency result weakens, but does not eliminate, the reading of SPEC as a pure fluency artifact; the positive-only cohort is selected by its outcome and the cell-clustered intervals of Table~\ref{tab:cluster-sensitivity} apply here too.
+
+\subsection{Pre-specified Heterogeneous-Pair Check}
+\label{sec:prereg-matrix-results}
+
+Every analysis above was selected after inspecting results. The heterogeneous-pair matrix was not, which is why it is reported separately (Section~\ref{sec:prereg-matrix-method}). Table~\ref{tab:prereg-sign-retention} gives the within-model distance slopes at each pole.
+
+\RPreregRetentionTable
+
+\RPreregRetained{} of \RPreregEvaluated{} pairs retain the slope sign at both poles, which falls in the matrix band that does not support H\textsubscript{1}. The split is more informative than the count. \RPreregPositivePairs{} pairs are positive at both poles, the configuration H\textsubscript{1} predicts, and \RPreregNegativePairs{} is negative at both. In the remaining three pairs the weak pole is negative and the strong pole positive, so the poles disagree. The one retained pair is retained in the negative direction, which the matrix counts as agreement but which cannot support a hypothesis predicting positive slopes. This is the only pre-committed decision rule in the analysis, and it does not favor H\textsubscript{1} under either reading.
+
+\clearpage
+%\QualityMissingAnalysesTable
+
+\section{Qualitative Interpretation and Limits}
+\label{sec:qualitative-error-analysis}
+
+Appendix~\ref{app:qualitative-strongreject-examples} reproduces the complete saved English response back-translations for selected experimental cases. Their original-language texts and record identities are preserved in a companion export. These are illustrative selections, not a representative sample. The full texts make visible features hidden by an average: disclaimers followed by assistance, repetition in refusals, and outputs that end mid-sentence. The back-translations are the judge-facing texts, not verified human translations.
+
+\section{Assessment of the Hypotheses}
+\label{sec:hypothesis-comparison}
+
+Figure~\ref{fig:hypothesis-expected-observed} contrasts the associations predicted by H\textsubscript{1}--H\textsubscript{3} with the estimated associations. The left panels illustrate the expected directions and relative magnitudes; their shapes do not represent data or specified effect sizes. The right panels report fractional-logit coefficients and prompt-clustered confidence intervals from the graded analysis. They describe associations conditional on the included predictors, model indicators and attack-language indicators. The graded outcome and estimation procedure were selected after inspection of the results, as disclosed in Section~\ref{sec:magnitude-method}.
+
+\begin{figure}[p]\centering
+\caption[Expected associations and graded estimates]{Predicted associations and graded estimates for H\textsubscript{1}--H\textsubscript{3}. Left panels are schematic. Right panels show standardized fractional-logit coefficients with prompt-clustered 95\% confidence intervals; the final row reports absolute pooled coefficients. The CONS-coverage restriction changes the estimation cohort, including the exclusion of LLaMAntino-2. Standardization is performed within each cohort. Collinearity limits the interpretation of relative coefficient magnitudes.}
+
+\includegraphics[width=\linewidth,height=.86\textheight,keepaspectratio]{figures/hypothesis_expected_observed.pdf}
+\label{fig:hypothesis-expected-observed}
+\fonte{Prepared by the author (2026).}
+\end{figure}
+
+\subsection{H\textsubscript{1}: Linguistic Distance}
+
+The pooled estimate is \GDistanceInterval{} under source-prompt clustering, and the weak- and strong-pole estimates are also negative. All three contradict the predicted direction. Across every reported specification the coefficient is negative in \RDistanceNegativeCount{} of \RDistanceSpecCount{} fits; the sole positive fit is the CONS-coverage restriction, which removes the entire weak Italian model.
+
+Correctly clustered inference changes what can be claimed from this, in both directions. Clustering on the model--language cell, the scale at which distance actually varies, widens the pooled interval to \RDistanceCellInterval{}, which covers zero; the CONS-restricted interval becomes \RConsDistanceCellInterval{} and also covers zero (Section~\ref{sec:cluster-sensitivity}). The two specifications therefore never disagreed about direction, and the earlier reversal narrative does not survive. What survives is a null: no specification yields a distance association distinguishable from zero in the predicted positive direction.
+
+The pre-specified pair matrix points the same way. \RPreregRetained{} of \RPreregEvaluated{} pairs retain the slope sign, with \RPreregPositivePairs{} pairs positive at both poles, placing the result in the band that does not support H\textsubscript{1} (Section~\ref{sec:prereg-matrix-results}).
+
+\textbf{H\textsubscript{1} is not supported.} The failure is not one of instability but of absence: the predicted positive association is not detected in the pooled panel, in either stratum, under any coverage restriction, or in any aligned-language pair. The one specification where distance is detectable is the non-aligned cohort, at \RNonAlignedDistanceCellInterval{}, and its sign is negative. That estimate excludes the aligned-language cells where distance is zero and CONS is one by construction, so it is the cleaner specification for a distance hypothesis; it is nonetheless a single cohort and should not be read as establishing that distance generally reduces harmful assistance.
+
+\subsection{H\textsubscript{2}: Post-training Specialization}
+
+The pooled estimate is \GSpecInterval{}. Both stratum estimates and the reported sensitivity estimates are positive. Higher measured specialization is therefore associated with higher expected scores, contrary to the predicted protective direction. Unlike the distance association, this one survives cell clustering: \RSpecCellInterval{} pooled and \RNonAlignedSpecCellInterval{} in the non-aligned cohort, with only the strong-pole stratum becoming inconclusive (Section~\ref{sec:cluster-sensitivity}). The decomposition also yields positive IF and CONS coefficients, although collinearity and sparse comparison coverage constrain their separate interpretation.
+
+The frequency/magnitude split addresses the most obvious alternative explanation. Because the rubric rewards specificity and convincingness, a capability proxy might raise scores simply by making outputs more fluent, which would show up in conditional magnitude. The association is instead concentrated on compliance frequency: \RBinarySpecInterval{} on whether the model complies at all, against \RPositiveSpecInterval{} on magnitude given compliance (Section~\ref{sec:outcome-decomposition-results}). The proxy tracks refusal behavior more than output quality, which makes a pure fluency artifact a less adequate account than it would otherwise be.
+
+\textbf{H\textsubscript{2}'s protective association is not supported by the reported graded analyses.} The positive estimates describe an association between the proxy and harmful-assistance scores. They do not establish that specialization causes unsafe responses or that an intervention improving benign performance would reduce safety. The measurement caveat in Section~\ref{sec:graded-distance-spec} also applies with full force: for one of the eight models the proxy is not a usable measurement at all, and the association is estimated with that model included.
+
+\subsection{H\textsubscript{3}: Relative Strength of Distance and Specialization}
+
+In the pooled joint model, the absolute coefficients are approximately $0.112$ for distance and $0.954$ for SPEC. This ordering does not support the proposed predominance of distance. Under cell clustering the distance interval covers zero while the SPEC interval does not, so the ordering is not merely unfavorable to H\textsubscript{3}: only one of the two predictors has a detectable association at all. SPEC's pooled VIF of \GSpecVIF{} nonetheless indicates substantial collinearity with the other design terms, and its larger coefficient cannot be interpreted as an independent or causal contribution.
+
+\textbf{H\textsubscript{3} is not established: the analysis provides neither the predicted magnitude ordering nor a detectable distance association to rank. Taken together, the three assessments do not support the proposed directional explanation for this model and language inventory.} Their scope remains conditional on the observed panel, the specialization measurements and the stated estimation assumptions.
+
+\end{otherlanguage*}
+
+Complete model--language results, all graded coefficient estimates, and script-extracted qualitative record metadata appear in Appendix~\ref{app:graded-details}.

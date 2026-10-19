@@ -1,0 +1,66 @@
+% Conceptual guide; statistical estimates are not shown.
+\begin{figure}[p]\centering
+\begin{tikzpicture}[font=\fontsize{9.5}{11.5}\selectfont,
+wide/.style={draw=black!20,rounded corners=3pt,text width=13.6cm,align=left,inner sep=8pt},
+panel/.style={draw=black!20,rounded corners=3pt,text width=6.05cm,align=left,inner sep=8pt},
+flow/.style={-{Latex[length=2mm]},thick,draw=black!40}]
+\definecolor{statsblue}{HTML}{286F8C}
+\definecolor{statsorange}{HTML}{A64B39}
+\node[wide,fill=black!3,anchor=north west] (data) at (0,0) {
+\textbf{One shared starting point: saved response scores}\\[5pt]
+Each row records a prompt, model, attack language, and score between 0 and 1. Include zero scores; missing scores remain unknown. Responses to the same source prompt form a group.
+};
+\node[panel,fill=statsblue!5,anchor=north west] (left) at ([yshift=-.5cm]data.south west) {
+{\color{statsblue}\textbf{A. What did we observe?}}\\[7pt]
+\textbf{1. Summarize the scores}\\[4pt]
+Calculate model/language means. Plot language profiles; describe rank associations with Spearman correlations.\\[7pt]
+\textbf{Output:} observed means and patterns.\\[4pt]
+The English reference stays descriptive.
+};
+\node[panel,fill=statsorange!5,anchor=north west] (right) at ([xshift=7.5cm,yshift=-.5cm]data.south west) {
+{\color{statsorange}\textbf{B. What varies after adjustment?}}\\[7pt]
+\textbf{1. Fit the fractional-logit model}\\[4pt]
+Use complete rows from the eight paired models. Predict expected score using distance, SPEC, model, and attack language.\\[7pt]
+\textbf{Output:} adjusted associations.\\[4pt]
+Standardize distance and SPEC within the fit.
+};
+\draw[flow] (data.south -| left.north) -- (left.north);
+\draw[flow] (data.south -| right.north) -- (right.north);
+\node[fit=(left)(right),inner sep=0] (rowone) {};
+\coordinate (nextrow) at ([yshift=-.5cm]rowone.south);
+\node[panel,fill=statsblue!5,anchor=north west] (boot) at (0,0 |- nextrow) {
+{\color{statsblue}\textbf{2. Estimate uncertainty in a mean}}\\[6pt]
+\textbf{Bootstrap:} draw whole prompt groups, recalculate the mean, and repeat 2,000 times.\\[6pt]
+Use the middle 95\% of resampled means as the interval (Figure~\ref{fig:bootstrap-worked-example}).\\[6pt]
+\textbf{Read it as:} sensitivity of the mean to the mix of observed prompts.
+};
+\node[panel,fill=statsorange!5,anchor=north west] (gee) at (7.5,0 |- nextrow) {
+{\color{statsorange}\textbf{2. Estimate coefficient uncertainty}}\\[6pt]
+\textbf{GEE:} estimate associations and use robust covariance grouped by source prompt.\\[6pt]
+Related translations and model responses contribute together to coefficient uncertainty.\\[6pt]
+\textbf{Read it as:} direction, size, and interval of each adjusted association.
+};
+\draw[flow] (left.south) -- (boot.north -| left.south);
+\draw[flow] (right.south) -- (gee.north -| right.south);
+\node[fit=(boot)(gee),inner sep=0] (rowtwo) {};
+\coordinate (checksrow) at ([yshift=-.5cm]rowtwo.south);
+\node[wide,fill=black!3,anchor=north west] (checks) at (0,0 |- checksrow) {
+\textbf{3. Test whether the regression findings are dependable}\\[6pt]
+\textbf{Valid fit?} Check convergence, finite estimates, and positive-definite covariance.\\[5pt]
+\textbf{Predictors overlap?} Check full-design VIF and condition number. VIF $>5$ for a substantive predictor triggers one-predictor fits.\\[5pt]
+\textbf{Results change?} Repeat by weak/strong group and under coverage, item, cohort, and translation restrictions. Separate IF/CONS; compare tokenizer fits on the same rows.
+};
+\draw[flow] (gee.south) -- (checks.north -| gee.south);
+\node[wide,fill=statsorange!5,anchor=north west] (conclude) at ([yshift=-.45cm]checks.south west) {
+\textbf{4. Evaluate H\textsubscript{1}--H\textsubscript{3}}\\[6pt]
+\textbf{H\textsubscript{1}:} positive distance association?\quad \textbf{H\textsubscript{2}:} negative SPEC association?\\[5pt]
+\textbf{H\textsubscript{3}:} distance stronger and more stable, considering coefficient scale, intervals, and predictor overlap? A smaller $p$-value alone is insufficient.
+};
+\draw[flow] (checks.south) -- (conclude.north);
+\node[anchor=north west,text width=14cm,align=left,font=\fontsize{9}{11}\selectfont] at ([yshift=-.3cm]conclude.south west) {
+\textbf{Scope:} associations in the observed model/language inventory. These procedures do not establish causation, resolve missing scores, or validate the judge.
+};
+\end{tikzpicture}
+\caption[How the statistical analyses fit together]{Two complementary paths through the graded analysis. Means and plots describe the observed scores; regression estimates adjusted associations. Bootstrap intervals for means and prompt-clustered GEE uncertainty for coefficients are different procedures. Both retain the shared identity of source prompts. The graded model and added sensitivities are post-review revisions.}\label{fig:statistical-analysis-overview}
+\fonte{Author; analysis specification.}
+\end{figure}

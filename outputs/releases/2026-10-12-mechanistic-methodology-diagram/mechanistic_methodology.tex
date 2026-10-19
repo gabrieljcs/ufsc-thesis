@@ -1,0 +1,61 @@
+% Workflow of the completed exploratory audit; no illustrative activations or results.
+\begin{figure}[p]\centering
+\begin{tikzpicture}[font=\fontsize{9.5}{11.5}\selectfont,
+wide/.style={draw=black!20,rounded corners=3pt,text width=13.6cm,align=left,inner sep=7pt},
+panel/.style={draw=black!20,rounded corners=3pt,text width=4cm,align=left,inner sep=7pt},
+flow/.style={-{Latex[length=2mm]},thick,draw=black!45}]
+\definecolor{auditblue}{HTML}{286F8C}
+\definecolor{auditorange}{HTML}{A64B39}
+
+\node[wide,fill=black!3,anchor=north west] (sample) at (0,0) {
+\textbf{1. Select prompts using their saved response outcomes}\\[5pt]
+English reference, ANITA, and AI Sweden; seven languages. For each model--language cell, select up to 24 prompts with refused outcomes and up to 24 with unsafe outcomes, where available: 952 activation rows. Historical response labels determine selection; samples differ between models.
+};
+\node[wide,fill=auditblue!5,anchor=north west] (extract) at ([yshift=-.4cm]sample.south west) {
+\textbf{2. Extract one hidden vector per prompt, at each candidate layer}\\[5pt]
+Apply the native chat template and pass each prompt through the model. Record its 4,096-value residual-stream vector at the \textbf{final prompt token}, at indices $8,10,\ldots,24$.
+};
+\draw[flow] (sample.south) -- (extract.north);
+\node[wide,fill=auditblue!5,anchor=north west] (select) at ([yshift=-.4cm]extract.south west) {
+\textbf{3. Select the layer for the remaining measurements}\\[5pt]
+For each model, split the rows into two label-stratified halves. Estimate a direction on one half and assess AUC on the other, across nine candidate layers. Select index 22 by the three-model mean AUC. The evaluation halves also select the layer; they are not independent final tests.
+};
+\draw[flow] (extract.south) -- (select.north);
+\node[wide,fill=auditblue!5,anchor=north west] (direction) at ([yshift=-.4cm]select.south west) {
+\textbf{4. Estimate refusal-outcome directions at the selected layer}\\[5pt]
+Subtract the mean unsafe-outcome vector from the mean refused-outcome vector, then normalize the difference. Construct pooled and language-specific directions \textbf{separately within each model}. These are estimated directions in activation space; model weights are not retrained.
+};
+\draw[flow] (select.south) -- (direction.north);
+\coordinate (branchrow) at ([yshift=-.8cm]direction.south west);
+
+\node[panel,fill=auditblue!5,anchor=north west] (within) at (branchrow) {
+\textbf{5A. Projection and cosine}\\[6pt]
+Project vectors onto the pooled direction.\\[5pt]
+\textbf{AUC:} ranking of refused versus unsafe outcomes; these cells reuse estimation rows.\\[5pt]
+\textbf{Cosine:} similarity of direction orientations within a model.
+};
+\node[panel,fill=auditblue!5,anchor=north west] (transfer) at ([xshift=4.8cm]branchrow) {
+\textbf{5B. Language transfer}\\[6pt]
+Estimate a direction in language A; project prompts in language B onto it.\\[5pt]
+\textbf{Transfer AUC:} does the refusal-outcome contrast remain separable in another language?\\[5pt]
+Evaluate 126 ordered language pairs across three models. Source and target sets share some prompt identities.
+};
+\node[panel,fill=auditorange!6,anchor=north west] (addition) at ([xshift=9.6cm]branchrow) {
+\textbf{5C. Add the direction}\\[6pt]
+Add $+\alpha\hat r$ at index 22 during prompt and generation passes, scaled by the model's mean residual norm.\\[5pt]
+\textbf{Outputs:} refusal indicators and graded StrongREJECT scores after perturbation.\\[5pt]
+Prompts are reused; reported strengths are chosen post hoc. High strengths can cause degenerate text.
+};
+\coordinate (hub) at ([yshift=-.3cm]direction.south);
+\draw[flow] (direction.south) -- (hub) -| (within.north);
+\draw[flow] (hub) -| (transfer.north);
+\draw[flow] (hub) -| (addition.north);
+\node[fit=(within)(transfer)(addition),inner sep=0] (outputs) {};
+\node[wide,fill=black!3,anchor=north west] at ([yshift=-.4cm]outputs.south west) {
+\textbf{Interpretation boundary}\\[5pt]
+Harmful prompts only: the contrast does not separate harm recognition from refusal execution. Independent question holdouts, a zero-strength rerun, and random/norm-matched direction controls remain incomplete. Findings are exploratory; a unique safety mechanism is not identified.
+};
+\end{tikzpicture}
+\caption[Methodology of the exploratory mechanistic audit]{Methodology of the completed exploratory mechanistic audit. Steps 1--4 prepare the outcome-selected activation sample and estimate directions; step 5 branches into descriptive diagnostics, language transfer, and addition interventions. The workflow depicts the actual procedure and its limitations, rather than an independent validation design.}\label{fig:mechanistic-methodology}
+\fonte{Author.}
+\end{figure}

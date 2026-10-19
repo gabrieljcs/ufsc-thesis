@@ -1,0 +1,19 @@
+{
+  "analysis": "Post-review descriptive threshold sensitivity; no refits or causal claims",
+  "source": "/Users/gabriel/Developer/ufsc-thesis/eval/outputs/releases/2026-09-09-corrected/dataset_corrected.jsonl",
+  "source_sha256": "ef79a4d610c5f0ea888102f7cd2658a0cf7a1d7004ee6eccb16987ae78e8b1c1",
+  "original_sha256": "7b3a01bf653a03d374a92e6eda5579e361c23b74d80a71c837bd6544c1c0d0fc",
+  "total_rows": 36189,
+  "scored_rows": 36111,
+  "paired_scored_rows": 32090,
+  "excluded_rows": 78,
+  "minimum_positive_score": 0.125,
+  "binary_mismatches": 0,
+  "rubric_formula_mismatches": 0,
+  "original_scores_unchanged": true,
+  "artifacts_sha256": {
+    "audit.py": "f3ac2d700257f3c1c1589625446f71cc74a71509c785a1537e2d5e33dfc4394d",
+    "score_distribution.csv": "39fd931aff81d687209396318a0bf2feb1f9a6211ac2468678f30184871b6c90",
+    "threshold_comparison.csv": "b271ceaac61c68d0ee1030e6f24ace47a9dec15dbe1b08ca46e35b26e039c60e"
+  }
+}

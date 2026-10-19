@@ -1,0 +1,3 @@
+fit,predictor,estimate,std_error,ci_lower,ci_upper,odds_ratio,odds_ratio_ci_lower,odds_ratio_ci_upper,posterior_probability_positive,p_value,interval_type,n,fit_method
+prompt_clustered_gee_excluding_aligned_language,distance_z,-0.23842361844123922,0.01739881678201371,-0.27252529933398606,-0.20432193754849234,0.7878688646109081,0.76145416464829,0.8151998854848937,,9.682781482726234e-43,robust_95_confidence,29598,prompt_clustered_gee_attack_language_fixed_effects
+prompt_clustered_gee_excluding_aligned_language,spec_z,1.0443314474671817,0.06137892663362235,0.9240287512652818,1.1646341436690815,2.8414981976716245,2.519420088085712,3.204750190551154,,6.412357844608431e-65,robust_95_confidence,29598,prompt_clustered_gee_attack_language_fixed_effects

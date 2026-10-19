@@ -1,0 +1,22 @@
+{
+  "translation_records": 4069,
+  "excluded_translations": 48,
+  "excluded_with_recorded_notes": 48,
+  "excluded_by_language": {
+    "ara": 4,
+    "bul": 2,
+    "dan": 1,
+    "fin": 20,
+    "nor": 2,
+    "por": 1,
+    "rus": 1,
+    "swa": 4,
+    "swe": 3,
+    "ukr": 10
+  },
+  "frozen_rows": 36189,
+  "empty_outputs": 75,
+  "nonempty_unscored": 3,
+  "scored_rows": 36111,
+  "excluded_variants_absent_from_frozen": true
+}

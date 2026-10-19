@@ -1,0 +1,41 @@
+{
+  "version": "2026-09-29-graded-reporting",
+  "post_review_outcome_change": true,
+  "source_sha256": {
+    "/Users/gabriel/Developer/ufsc-thesis/eval/outputs/releases/2026-09-29-score-magnitude-v2/effects.csv": "25bc239cf56a4057843e764a9e6768bc3f5e33d29554c4f84432686561a2d5c1",
+    "/Users/gabriel/Developer/ufsc-thesis/eval/outputs/releases/2026-09-29-score-magnitude-v2/model_summary.csv": "c453d4b6b3e3c3306dd2437390fd81703b403a88e746a01694c53fd8a38e8197",
+    "/Users/gabriel/Developer/ufsc-thesis/eval/outputs/releases/2026-09-29-score-magnitude-v2/cell_summary.csv": "4137c38f6dfb6367c64554d5559507f680a7ac07bc28d84f2fbc850c13c8c967",
+    "/Users/gabriel/Developer/ufsc-thesis/eval/outputs/releases/2026-09-29-score-magnitude-v2/diagnostics.json": "7430da22802391fa62ec806aded6de47c63abdbf8eebaa3d59394616e65e5d21",
+    "/Users/gabriel/Developer/ufsc-thesis/eval/outputs/releases/2026-09-09-corrected/dataset_corrected.jsonl": "ef79a4d610c5f0ea888102f7cd2658a0cf7a1d7004ee6eccb16987ae78e8b1c1",
+    "/Users/gabriel/Developer/ufsc-thesis/eval/outputs/mechanistic/results/separability_vs_asr.csv": "dcffcc418546f9d81910a0e4dd0240ec11448c4c6972a2130d5939efcadbefba"
+  },
+  "graded_fits": 38,
+  "all_valid": true,
+  "code_sha256": "1683d4f4e80ab5d110e64cdb00d49d7fad56964b46913ed546b42549030150e2",
+  "provenance": "No pre-results specification is claimed for graded inference; previous binary reporting backed up.",
+  "outputs_sha256": {
+    "effects.csv": "cab7c9c461d8e0dc8ef86dd7a3481a54080ba874e943613a8ef768296e9c4901",
+    "cell_summary.csv": "d61e641f104d87fd79f3b001c0b990c2552a5447129db624d3085ff6675824af",
+    "graded_mechanistic_association.png": "b13510bee98c64a0bd131e6ee4236c3cd7e6a8e7caea5e2df09513023d31f70e",
+    "graded_score_heatmap.png": "36ad93f328032fe05e542b0a040b3a74e4a61c44df38a064be87b05d249c422d",
+    "score_distribution.csv": "134861e9908d0a09080cc4154ae66d0058a905ce5736b262a16ebff059bc16cf",
+    "qualitative_example_records.json": "3b3e9eef8dbb5fc5dd1a2924815b78d15e6e80f522cea5f62da04aca5408c84e",
+    "REPORT.md": "007fcd7503ef773787748b93ab55be60624cc044cba0aa29d22bb92d773c75a0",
+    "descriptive_correlations.csv": "ad08658822293e1439ad5f2683583825a5d25a72a7de4d9223c926f540fad826",
+    "graded_aligned_comparison.png": "e5200f815e44b3949bcaf122a11fac2f33fadec25b591fd5d2b67b7e292cc7da",
+    "strongreject_scoring.png": "4a8139979d778a694269813af0cea7d38387c6a71f88a96a2e8d359bf51e5201",
+    "diagnostics.json": "5802c0a82983926110fa5ef8b01018925cea89313aa40b271bf4c744fe9278ae",
+    "strongreject_scoring.pdf": "336e245f10bead3ef78a519929560cab8b0ace314653ddc8dd7a2fbb8647d492",
+    "mechanistic_graded_cells.csv": "affaa718732e613e3cbb0db5931a3a2a673b2209eb0c71ea645751d0e08bfbcd",
+    "strongreject_magnitude_example.png": "d798a6932003bc557b532b10d26dfdc6803de5baca2a7df603fd99ae41080e16",
+    "strongreject_magnitude_example.pdf": "b8b5b72c3bc6258364e71bde7e6c9aa472637f05b26bec4a96a4bbc494f59cc2",
+    "graded_spec_scatter.png": "47cf9920680a7a5b00d7e7478b0313cb4ecdd2093f8a2d7e511be280e20f0b5b",
+    "graded_distance_curves.png": "a40773057765e095b2a8479ab5fc956c418437a86b6597dfcc901ad01b7b2410",
+    "model_summary.csv": "3752330af0662df7b238ab6d4a3ddfdb0d55d97498fea8d2a5f43b92a9d30b46",
+    "verification.json": "86773982a5219d8b5caf7758fc57a90589dfc1454c6b8e4eb80752bee5335f14",
+    "graded_score_distribution.png": "e1888d3e801aa3911d51a8549104a1adc97308f29615bde485f02a264cac3bcc",
+    "unknown_score_bounds.csv": "0c7792e0185097c746bafef1ac3e7b8ac258c121d8a68b1d7c2dcb025bb59c09",
+    "mechanistic_graded_correlations.csv": "79a2e861a91fd3f7ecb5c4d4339bed3db445a0dc4766a9b2405adfca2c39bbdb",
+    "mechanistic_intervention_scores.csv": "e8ec874e1cbfbfe52319646c36b275734898c56f95536e868387db7e5c8bcacc"
+  }
+}

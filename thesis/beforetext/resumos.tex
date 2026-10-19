@@ -1,0 +1,74 @@
+
+
+\newcommand{\imprimirbrazilabstract}{%
+    \cleardoublepage\phantomsection
+    \addtotextpreliminarycontent{Resumo em Português}
+    \begin{otherlanguage*}{brazil}
+    \begin{resumo}[Resumo]
+
+Esta dissertação analisa a associação da distância linguística e da especialização por idioma com a vulnerabilidade de grandes modelos de linguagem a ataques multilíngues. Esses ataques, denominados \textit{jailbreaks}, buscam contornar restrições de segurança para obter respostas que auxiliem na realização de ações prejudiciais. O estudo avalia oito assistentes organizados em quatro pares voltados ao português brasileiro, italiano, sueco e búlgaro, além de um modelo de referência em inglês, em treze idiomas de ataque. O procedimento utiliza solicitações do StrongREJECT, traduzidas com NLLB-200, e traduz as respostas de volta para o inglês antes da avaliação. A pontuação oficial do StrongREJECT, entre zero e um, representa o grau de ajuda fornecida para atender ao pedido prejudicial. O URIEL+ fornece a medida de distância entre idiomas. A especialização é estimada com o BELEBELE pela combinação da proporção de acertos em questões de compreensão de leitura e da concordância com as respostas do mesmo modelo em seu idioma principal. A análise principal compreende \GMainN{} respostas avaliadas dos oito modelos pareados, incluindo pontuações iguais a zero, e emprega regressão logística fracionária com efeitos fixos de modelo e idioma e incerteza agrupada por combinação de modelo e idioma. O uso da pontuação graduada e a escolha do modelo estatístico ocorreram após o exame dos resultados, ao contrário da comparação entre os quatro pares, previamente especificada. A associação entre distância e pontuação é negativa em \RDistanceNegativeCount{} das \RDistanceSpecCount{} análises, na direção oposta à esperada, mas o intervalo de confiança da análise principal inclui zero. A restrição a combinações com pelo menos cem respostas comparáveis no BELEBELE produz uma estimativa positiva, também com intervalo que inclui zero, e exclui um modelo inteiro. A comparação entre os quatro pares tampouco sustenta a hipótese de maior vulnerabilidade em idiomas mais distantes. A especialização apresenta associação positiva com a pontuação, contrária à expectativa de proteção, sobretudo pela frequência de atendimento aos pedidos prejudiciais. A correlação entre os fatores dificulta distinguir suas contribuições, e o limite de tamanho das respostas do BELEBELE compromete a medida de especialização de um dos modelos. A tradução automática, a ausência de revisão humana bilíngue e as diferenças de origem e treinamento dos modelos limitam a interpretação. Conclui-se que os resultados não sustentam a hipótese de maior ajuda para realizar ações prejudiciais em idiomas linguisticamente mais distantes, nem a associação protetora esperada para a especialização, no conjunto de modelos e idiomas avaliado.
+
+        \imprimirpalavraschave{Palavras-chave}{grandes modelos de linguagem; \textit{jailbreak}; segurança multilíngue.}
+
+    \end{resumo}
+    \end{otherlanguage*}
+}
+
+
+\newcommand{\imprimirenglishabstract}{%
+    % https://tex.stackexchange.com/questions/20987/changing-babel-package-inside-a-single-chapter
+    % https://tex.stackexchange.com/questions/36526/multiple-language-document-babel-selectlanguage-vs-begin-endotherlanguage
+    \cleardoublepage\phantomsection
+    \addtotextpreliminarycontent{Abstract in English}
+    \begin{otherlanguage*}{english}
+    \begin{resumo}[Abstract]
+
+This dissertation examines the association of linguistic distance and language specialization with the vulnerability of large language models to multilingual attacks. These attacks, known as jailbreaks, seek to bypass safety restrictions and elicit responses that assist harmful actions. The study evaluates eight assistants in four pairs focused on Brazilian Portuguese, Italian, Swedish, and Bulgarian, alongside an English reference model, across thirteen languages. The procedure uses StrongREJECT prompts translated with NLLB-200 and translates non-English responses back into English before evaluation. The official StrongREJECT score, ranging from zero to one, represents the degree of assistance with the harmful request. URIEL+ provides the linguistic distance measure. Specialization is estimated using BELEBELE by combining reading-comprehension answer accuracy with agreement with the same model's answers in its aligned language. The main analysis comprises \GMainN{} scored responses from the eight paired models, including zero scores, and employs fractional-logit regression with model and language fixed effects and uncertainty clustered by model--language combination. The graded outcome and statistical method were adopted after inspecting results, unlike the comparison across the four pairs, which was specified beforehand. The distance association is negative in \RDistanceNegativeCount{} of \RDistanceSpecCount{} analyses, in the direction opposite to the one predicted, but the main confidence interval includes zero. Restricting the data to combinations with at least one hundred comparable BELEBELE answers yields a positive estimate whose interval also includes zero and excludes an entire model. The comparison across the four pairs likewise does not support greater vulnerability in more distant languages. Specialization is positively associated with scores, contrary to the expected protective association, mainly through the frequency of compliance with harmful requests. Correlation between the predictors limits the separation of their contributions, and the BELEBELE response-length limit compromises the specialization measure for one model. Machine translation, the absence of human bilingual validation, and differences in model ancestry and training limit interpretation. The results support neither the hypothesis of greater harmful assistance in linguistically more distant languages nor the expected protective association of specialization within the evaluated set of models and languages.
+
+        \imprimirpalavraschave{Keywords}{large language models; jailbreak; multilingual safety.}
+
+    \end{resumo}
+    \end{otherlanguage*}
+}
+
+
+% \newcommand{\imprimirfrenchabstract}{%
+%     \addtotextpreliminarycontent{Français Résumé}
+%     \begin{resumo}[Résumé]
+%       \begin{otherlanguage*}{french}
+%           Il s'agit d'un résumé en français.
+
+%           \imprimirpalavraschave{Mots-clés}{latex. abntex. publication de textes.}
+%       \end{otherlanguage*}
+%     \end{resumo}
+% }
+
+
+% \newcommand{\imprimirspanishabstract}{%
+%     \addtotextpreliminarycontent{Español Resumen}
+%     \begin{resumo}[Resumen]
+%       \begin{otherlanguage*}{spanish}
+%           Este es el resumen en español.
+
+%           \imprimirpalavraschave{Palabras clave}{latex. abntex. publicación de textos.}
+%       \end{otherlanguage*}
+%     \end{resumo}
+% }
+
+
+\makeatletter
+\ifenglish
+    \@ifundefined{imprimirbrazilabstract}{}{\imprimirbrazilabstract}
+
+    \@ifundefined{imprimirenglishabstract}{}{\imprimirenglishabstract}
+
+    \input{beforetext/resumo_expandido}
+
+\else
+    \@ifundefined{imprimirbrazilabstract}{}{\imprimirbrazilabstract}
+    \@ifundefined{imprimirenglishabstract}{}{\imprimirenglishabstract}
+\fi
+
+\@ifundefined{imprimirfrenchabstract}{}{\imprimirfrenchabstract}
+\@ifundefined{imprimirspanishabstract}{}{\imprimirspanishabstract}
+\makeatother

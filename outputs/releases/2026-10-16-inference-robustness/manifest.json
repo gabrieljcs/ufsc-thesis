@@ -1,0 +1,42 @@
+{
+  "version": "2026-10-16-inference-robustness",
+  "post_review": true,
+  "source_sha256": {
+    "/Users/gabriel/Developer/ufsc-thesis/eval/outputs/releases/2026-09-09-corrected/dataset_corrected.jsonl": "ef79a4d610c5f0ea888102f7cd2658a0cf7a1d7004ee6eccb16987ae78e8b1c1",
+    "/Users/gabriel/Developer/ufsc-thesis/eval/outputs/releases/2026-09-09-corrected/tables/belebele_coverage.csv": "1386562eafd0fdac2314b061bada3b66318a8d547be5245fc1f3dfcc1fff9a5e",
+    "/Users/gabriel/Developer/ufsc-thesis/eval/outputs/releases/2026-09-29-score-magnitude-v2/effects.csv": "25bc239cf56a4057843e764a9e6768bc3f5e33d29554c4f84432686561a2d5c1",
+    "/Users/gabriel/Developer/ufsc-thesis/eval/outputs/releases/2026-09-29-score-magnitude-v2/model_summary.csv": "c453d4b6b3e3c3306dd2437390fd81703b403a88e746a01694c53fd8a38e8197"
+  },
+  "code_sha256": {
+    "/Users/gabriel/Developer/ufsc-thesis/eval/scripts/write_robustness_release.py": "4b4b6a711b16306fa7e06404c09551da02551ee042b730ed3ef7ed0ae8ba010b",
+    "/Users/gabriel/Developer/ufsc-thesis/eval/src/thesis_eval/analysis/magnitude.py": "7209aff4b2506cc63a060b171d92aa3a5b2b737fc370935d4e95f0f881f9d1a8"
+  },
+  "n_paired": 32090,
+  "n_cells": 104,
+  "cluster_variants": 30,
+  "prereg": {
+    "pairs_evaluated": 4,
+    "pairs_with_slope_sign_retained": 1,
+    "panel_complete": true,
+    "interpretation": "h1_not_supported",
+    "positive_positive_pairs": 0,
+    "negative_negative_pairs": 1
+  },
+  "analysis": "Cell and two-way clustered sandwich covariance for the graded fractional-logit mean equation; binary and positive-only outcome decomposition; descriptive ASR identity; pre-specified pair sign-retention matrix on the binary outcome.",
+  "limitations": [
+    "Cell clustering requires a moderate number of clusters; with 104 cells the asymptotics are approximate and intervals should be read as indicative.",
+    "Two-way covariance is not guaranteed positive definite; the table reports whether it was usable in each fit.",
+    "Positive-only outcome conditions on the outcome and is not a causal intensity effect.",
+    "The pair matrix tests sign agreement between poles, not the direction H1 predicts.",
+    "No new data; all historical translation, judge and provenance limitations remain."
+  ],
+  "outputs_sha256": {
+    "distance_sign_tally.csv": "6862925bfc43e8a0f913ac86e701f07908aa112afac247c6f35e3ba2b8456fb2",
+    "REPORT.md": "39e18a5fc5b19b47a75e5571690ef0ccf19dfa174c5b73423fa6bfb4ed20227e",
+    "cluster_sensitivity.csv": "f7edf1a04f9db266a698620392252ecd24e92f0779869358e23201771314d97c",
+    "prereg_sign_retention.csv": "89d090d529aa0db88b00a1d4f41006387cecfb540ea593658f05613e2626a189",
+    "descriptive_identity.csv": "56f357afb737c329ce46a59335bdcec46fa637f5c4139e43439f9711e1f09e0d",
+    "prereg_summary.json": "1e0b4b451f8e08ffb1d2fc598d871739e0c223163badcf16f7c99976e5189157",
+    "outcome_decomposition.csv": "f94634751c3eefa27f16271f1af024cee16b2603a51731ee2b11b92e8dc576e1"
+  }
+}

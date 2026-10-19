@@ -181,7 +181,7 @@ Each stage writes per-language or per-model files, so reruns of the same command
 | 12 | Benign controls (optional) | `score-benign-controls` |
 | 13 | Tokenizer diagnostics | `attach-tokenizer-metrics` |
 | 14 | Freeze | `build-dataset`, `export-results` |
-| 15 | Tables | `export-report-tables`, `fit-glmm` |
+| 15 | Tables | `export-report-tables`, `fit-glmm-suite` |
 
 ### Restore Archived JSONL Artifacts
 
@@ -195,9 +195,9 @@ unzip -n outputs/belebele_predictions_jsonl.zip
 uv run thesis-eval export-report-tables \
   --rows outputs/dataset_frozen.jsonl \
   --output-dir outputs/tables
-uv run thesis-eval fit-glmm \
+uv run thesis-eval fit-glmm-suite \
   --rows outputs/dataset_frozen.jsonl \
-  --output outputs/tables/glmm_main_effects.csv
+  --output-dir outputs/tables
 
 # The LaTeX exporter expects the full outputs/tables bundle listed below.
 uv run python scripts/write_uriel_latex_assets.py
@@ -466,9 +466,9 @@ uv run thesis-eval export-results \
 uv run thesis-eval export-report-tables \
   --rows outputs/dataset_frozen.jsonl \
   --output-dir outputs/tables
-uv run thesis-eval fit-glmm \
+uv run thesis-eval fit-glmm-suite \
   --rows outputs/dataset_frozen.jsonl \
-  --output outputs/tables/glmm_main_effects.csv
+  --output-dir outputs/tables
 
 # The LaTeX exporter expects the full outputs/tables bundle listed below.
 uv run python scripts/write_uriel_latex_assets.py
@@ -550,9 +550,31 @@ glmm_tokenizer_robustness.csv
 prereg_distance_slope_retention.csv
 prereg_falsification_summary.csv
 glmm_main_effects.csv
+glmm_diagnostics.csv
+glmm_gee_sensitivity.csv
+glmm_prior_sensitivity.csv
+glmm_prior_sensitivity_diagnostics.csv
+glmm_postreview_sensitivity.csv
+glmm_postreview_sensitivity_diagnostics.csv
+glmm_postreview_gee_sensitivity.csv
 ```
 
-`fit-glmm` and the slope-retention tables use only rows with `model_alignment_pole in {weak, strong}`; the reference baseline stays in the descriptive tables.
+`fit-glmm-suite` and the slope-retention tables use only rows with
+`model_alignment_pole in {weak, strong}`; the reference baseline stays in the
+descriptive tables. The primary crossed-intercept logistic model is estimated
+with a deterministic multi-start BFGS Laplace/MAP fit. Fixed effects use a
+weakly informative Normal prior with standard deviation 10, and log random-
+effect standard deviations use a Normal prior with standard deviation 0.5.
+The command refuses to export a fit unless optimization succeeds, the gradient
+norm is at most `1e-4`, all diagnostics are finite, and the Laplace covariance
+matrix is positive definite. It also exports a prompt-clustered GEE with attack-
+language fixed effects and a tighter-fixed-effect-prior sensitivity fit.
+The post-review sensitivity bundle repeats the main fit after excluding (i)
+each model's aligned-language cell, (ii) Finnish, Swahili, and Ukrainian, and
+(iii) every BLASER-flagged translation. The descriptive Spearman exports also
+include deterministic 10,000-resample paired language-cell percentile
+intervals; these intervals quantify within-inventory instability and are not a
+claim that the 13 languages form a random sample of all languages.
 
 ## Zenodo Packaging Notes
 
@@ -594,3 +616,40 @@ uv run thesis-eval run-pilot --output-dir outputs/pilot
 ```
 
 `run-pilot` exercises the full pipeline against mock data with no model inference; useful when validating a checkout on a host without GPUs.
+
+### September 2026 thesis corrections
+
+The canonical BELEBELE identity repair and corrected analysis are reproduced by
+`scripts/build_quality_corrected_release.py`. See
+`outputs/releases/2026-09-09-corrected/README.md` for the complete sequence,
+checksums, coverage sensitivities, generated thesis assets and remaining evidence
+gaps. For legacy saved predictions, `compute-spec --dataset-dir
+assets/datasets/belebele` validates and attaches canonical identities before
+computing CONS. New prediction records already carry canonical identities.
+Original frozen files must remain unchanged.
+
+### Post-review StrongREJECT magnitude analysis (2026-09-29)
+
+The initial graded-score comparison preserves the historical binary analysis and frozen data; the current manuscript reports graded outcomes only.
+It compares prompt-clustered binary and fractional-logit GEE with the same model
+and language fixed effects, and includes descriptive positive-only magnitudes,
+coverage/decomposition/tokenizer sensitivities, diagnostics and source checksums.
+Run from this directory, choosing a new release path:
+
+```sh
+PYTHONPATH=src .venv/bin/python scripts/analyze_score_magnitude.py --output-dir outputs/releases/<new-version>
+```
+
+The historical comparison is `outputs/releases/2026-09-29-score-magnitude-v2/REPORT.md`.
+`write_magnitude_report.py` generates the report, figure and thesis results section
+from that release (requires matplotlib). Its output is explicitly post-review;
+positive-only comparisons are selected-subset descriptions, not causal effects.
+
+The active report is `outputs/releases/2026-09-29-graded-reporting/REPORT.md`.
+`write_graded_only_release.py` and `draw_strongreject_scoring.py` generate its
+reporting assets (matplotlib required). `write_graded_appendix.py` exports all
+117 model-language cells, 52 graded coefficient rows and five redacted example
+records into `aftertext/apendice_g.tex`, using only the standard Python library.
+The previous manuscript is preserved in `outputs/backups/2026-09-29-before-graded-only/`.
+The outcome change is disclosed as post-review. Final source changes were not
+compiled or PDF-checked, at the user's request.

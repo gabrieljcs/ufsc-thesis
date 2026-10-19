@@ -1,0 +1,15 @@
+{
+  "mode": "fix",
+  "files_scanned": 48,
+  "files_needing_changes": 1,
+  "totals": {
+    "integer_grouping": 1,
+    "figure_title_placement": 0
+  },
+  "files": {
+    "ufscthesisx/ufscthesisx/aftertext/apendice_c.tex": {
+      "integer_grouping": 1,
+      "figure_title_placement": 0
+    }
+  }
+}

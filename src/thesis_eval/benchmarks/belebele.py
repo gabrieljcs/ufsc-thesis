@@ -3,6 +3,8 @@ from __future__ import annotations
 from collections import defaultdict
 from pathlib import Path
 import re
+import hashlib
+import json
 from typing import Any
 
 from thesis_eval.io import read_jsonl
@@ -86,18 +88,69 @@ def _row_predicted_choice(row: dict[str, Any]) -> str | None:
     return parse_choice(str(row.get("prediction", "")))
 
 
+def canonical_question_id(row: dict[str, Any]) -> str:
+    """Stable across language files and row permutations; never use row position."""
+    if not row.get("link"):
+        raise ValueError("BELEBELE source requires passage link for canonical question identity")
+    key = [str(row["link"]), row.get("split"), int(row["question_number"])]
+    return "belebele:" + hashlib.sha256(json.dumps(key, ensure_ascii=False).encode()).hexdigest()
+
+
+def prediction_question_id(row: dict[str, Any]) -> str:
+    if row.get("canonical_item_id"):
+        return str(row["canonical_item_id"])
+    item = str(row["item_id"])
+    if item.startswith("belebele_"):
+        raise ValueError("Legacy positional BELEBELE IDs must be migrated with their source language files")
+    return item  # Explicit caller-supplied canonical identifiers (e.g. synthetic tests).
+
+
+def migrate_prediction_identities(predictions: list[dict[str, Any]], dataset_dir: Path) -> list[dict[str, Any]]:
+    """Attach validated canonical keys to saved outputs without reparsing or relabeling."""
+    sources = {language: load_belebele_rows(dataset_dir, language)
+               for language in {str(row["language"]) for row in predictions}}
+    for language, source_rows in sources.items():
+        keys = [canonical_question_id(row) for row in source_rows]
+        if len(set(keys)) != len(keys):
+            raise ValueError(f"Duplicate canonical source questions for {language}")
+    migrated = []
+    seen = set()
+    for row in predictions:
+        source_rows = sources[str(row["language"])]
+        source_index = int(row["belebele_row_index"])
+        if not 1 <= source_index <= len(source_rows):
+            raise ValueError(f"Invalid saved BELEBELE row index: {source_index}")
+        source = source_rows[source_index - 1]
+        if str(row["gold"]) != ANSWER_BY_NUMBER[str(source["correct_answer_num"])]:
+            raise ValueError(f"Saved gold/source mismatch: {row['model']} {row['item_id']}")
+        for number, letter in enumerate("abcd", start=1):
+            if str(row[f"choice_{letter}"]) != str(source[f"mc_answer{number}"]):
+                raise ValueError(f"Saved option/source mismatch: {row['model']} {row['item_id']}")
+        updated = dict(row, canonical_item_id=canonical_question_id(source),
+                       passage_link=source["link"], passage_split=source.get("split"))
+        key = (updated["model"], updated["language"], updated["canonical_item_id"])
+        if key in seen:
+            raise ValueError(f"Duplicate saved canonical prediction: {key}")
+        seen.add(key)
+        migrated.append(updated)
+    return migrated
+
+
 def compute_if_cons(predictions: list[dict[str, Any]], aligned_language: dict[str, str]) -> list[dict[str, Any]]:
     by_model_lang: dict[tuple[str, str], list[dict[str, Any]]] = defaultdict(list)
     by_model_item_lang: dict[tuple[str, str, str], str | None] = {}
     for row in predictions:
         model = str(row["model"])
         language = str(row["language"])
-        item_id = str(row["item_id"])
+        item_id = prediction_question_id(row)
         predicted = _row_predicted_choice(row)
         normalized = dict(row)
         normalized["predicted_choice"] = predicted
         by_model_lang[(model, language)].append(normalized)
-        by_model_item_lang[(model, item_id, language)] = predicted
+        key = (model, item_id, language)
+        if key in by_model_item_lang:
+            raise ValueError(f"Duplicate BELEBELE prediction key: {key}")
+        by_model_item_lang[key] = predicted
 
     output: list[dict[str, Any]] = []
     for (model, language), rows in sorted(by_model_lang.items()):
@@ -110,12 +163,14 @@ def compute_if_cons(predictions: list[dict[str, Any]], aligned_language: dict[st
             gold = parse_choice(str(row.get("gold", "")))
             if predicted is not None and gold is not None and predicted == gold:
                 correct += 1
-            aligned_prediction = by_model_item_lang.get((model, str(row["item_id"]), aligned))
+            aligned_prediction = by_model_item_lang.get((model, prediction_question_id(row), aligned))
             if predicted is not None and aligned_prediction is not None:
                 comparable += 1
                 if predicted == aligned_prediction:
                     consistent += 1
         total = len(rows)
+        from thesis_eval.metrics.asr import wilson_ci
+        ci = wilson_ci(consistent, comparable) if comparable else (None, None)
         output.append(
             {
                 "model": model,
@@ -124,6 +179,11 @@ def compute_if_cons(predictions: list[dict[str, Any]], aligned_language: dict[st
                 "cons_score": consistent / comparable if comparable else None,
                 "n_items": total,
                 "n_cons_comparable": comparable,
+                "n_parseable": sum(row["predicted_choice"] is not None for row in rows),
+                "n_correct": correct,
+                "n_consistent": consistent,
+                "cons_ci_low": ci[0],
+                "cons_ci_high": ci[1],
             }
         )
     complete = [row for row in output if row["if_score"] is not None and row["cons_score"] is not None]
@@ -188,6 +248,9 @@ def build_belebele_prediction_rows(
                 "language": language,
                 "dataset_dialect": str(row["dialect"]),
                 "item_id": item_id,
+                "canonical_item_id": canonical_question_id(row),
+                "passage_link": str(row["link"]),
+                "passage_split": row.get("split"),
                 "belebele_row_index": row_index,
                 "question_number": int(row["question_number"]),
                 "gold": ANSWER_BY_NUMBER[answer_number],
@@ -271,6 +334,9 @@ def repair_belebele_predictions(
         predicted = parse_choice_from_options(raw_output, choice_map)
         updated = dict(row)
         updated["item_id"] = f"belebele_{row_index:04d}"
+        updated["canonical_item_id"] = canonical_question_id(dataset_row)
+        updated["passage_link"] = str(dataset_row["link"])
+        updated["passage_split"] = dataset_row.get("split")
         updated["belebele_row_index"] = row_index
         updated["question_number"] = int(dataset_row["question_number"])
         updated["gold"] = ANSWER_BY_NUMBER[str(dataset_row["correct_answer_num"])]

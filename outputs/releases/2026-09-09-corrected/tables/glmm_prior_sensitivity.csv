@@ -1,0 +1,3 @@
+fit,predictor,estimate,std_error,ci_lower,ci_upper,odds_ratio,odds_ratio_ci_lower,odds_ratio_ci_upper,posterior_probability_positive,p_value,interval_type,n,fit_method
+pooled_tighter_fixed_effect_prior,distance_z,-0.09273695014809266,0.023002086199670552,-0.13782103909944693,-0.04765286119673838,0.9114332211393362,0.8712545983023166,0.9534647142352046,2.7690295024202782e-05,,laplace_approx_95_credible,32090,laplace_map_crossed_logistic_glmm
+pooled_tighter_fixed_effect_prior,spec_z,1.0928373030223433,0.05566326912847682,0.9837372955305287,1.2019373105141578,2.9827249725911735,2.6744327332698017,3.3265552546695916,1.0,,laplace_approx_95_credible,32090,laplace_map_crossed_logistic_glmm

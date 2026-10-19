@@ -1,0 +1,16 @@
+{
+  "purpose": "Presentation-only mechanistic figures using saved summaries; no new extraction, scoring, or inference.",
+  "inputs": {
+    "eval/outputs/mechanistic/results/refusal_summary.csv": "4fb55ae866768ce4add33cd2aa0d17f5b6f847ef13eb1a0ee62dacc7e1206f71",
+    "eval/outputs/mechanistic/results/transfer_profile.csv": "acf12f9e0ce6da107ebd96d1d4298cc512576a33c6694b5264194d287a2ecf9e",
+    "eval/outputs/mechanistic/results/transfer.csv": "92a4ac5f540307e6a0dd68e8548e6b2d64b7d8a119d1926416d5f861fcc1b35c",
+    "eval/outputs/releases/2026-09-29-graded-reporting/mechanistic_intervention_scores.csv": "e8ec874e1cbfbfe52319646c36b275734898c56f95536e868387db7e5c8bcacc"
+  },
+  "outputs": {
+    "ufscthesisx/ufscthesisx/figures/residual_stream.tex": "8ec1583768125209f478fd978a13c6e20009feae193e9496ffa88d8334ea77b9",
+    "ufscthesisx/ufscthesisx/figures/mechanistic_results_overview.tex": "0bcff446e1345286e8cecad1714adb28886496cf7f2a3c24ed4fbed2b095eda5",
+    "ufscthesisx/ufscthesisx/figures/mechanistic_intervention_scores.tex": "f226c437a721420b6d8954775cc400630911334f0dac206701190fc3e79e6cd4"
+  },
+  "generator_sha256": "66d9557c35871a6f3af19284b0b30016b546d0d276fc06aa802a323e6ea87687",
+  "manuscript_sha256": "8921d0eba1db1acd81c0171c0760dc94e2ec2c46abfa7f8da40352c3f9507da9"
+}

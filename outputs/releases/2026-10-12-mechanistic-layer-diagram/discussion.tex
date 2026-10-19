@@ -1,0 +1,244 @@
+% The \phantomsection command is needed to create a link to a place in the document that is not a
+% figure, equation, table, section, subsection, chapter, etc.
+% https://tex.stackexchange.com/questions/44088/when-do-i-need-to-invoke-phantomsection
+\phantomsection
+
+% Multiple-language document - babel - selectlanguage vs begin/end{otherlanguage}
+% https://tex.stackexchange.com/questions/36526/multiple-language-document-babel-selectlanguage-vs-begin-endotherlanguage
+\begin{otherlanguage*}{english}
+
+\chapter{Discussion}
+\label{chap:discussion}
+\input{chapters/mechanistic_generated_assets.tex}
+\pdfstringdefDisableCommands{\def\textsubscript#1{#1}}
+
+\textbf{Mean StrongREJECT scores vary substantially across the evaluated checkpoints.} The Portuguese, Italian and Bulgarian strong-pole models have lower scores than their weak-pole partners; the Swedish pair has the opposite ordering. These comparisons concern complete checkpoints whose architectures, training data, adaptation procedures and serving conditions differ. The pair labels therefore do not identify a controlled difference in safety training. Section~\ref{sec:hypothesis-comparison} summarizes the evidence for each hypothesis, and Figure~\ref{fig:hypothesis-expected-observed} contrasts the predicted associations with the estimates.
+
+\textbf{The evidence for H\textsubscript{1} depends on the estimation cohort.} Distance coefficients are negative in the pooled, weak-pole and strong-pole fits, but positive after excluding cells with fewer than 100 comparable answer pairs for cross-lingual consistency (CONS). The latter restriction removes LLaMAntino-2 as well as improving the minimum comparison coverage. The study consequently cannot attribute the reversal exclusively to measurement quality or to model composition. Neither a general positive distance association nor a general protective effect of distance is established.
+
+\textbf{The positive association of BELEBELE-derived specialization (SPEC) contradicts the protective direction proposed in H\textsubscript{2}.} Its interpretation depends on what BELEBELE measures: correct answer selection and agreement with aligned-language answers. These measures concern benign comprehension and response consistency, not refusal of prohibited requests. Greater capability may permit more specific assistance when refusal fails; limited capability may also produce low StrongREJECT scores without reliable refusal. The observed coefficients are compatible with this distinction, but do not separate capability, safety behavior, translation quality and model history.
+
+BELEBELE is nevertheless a useful proxy for multilingual reading comprehension and answer selection, particularly through IF. Comparing it with StrongREJECT distinguishes capability from harmful assistance: Sabi\'a-3, ANITA and BgGPT-Gemma perform well on BELEBELE while maintaining low mean StrongREJECT scores (Figures~\ref{fig:strongreject-profiles} and \ref{fig:belebele-profiles}). Their low harmful-assistance scores therefore coexist with demonstrated benign reading-comprehension performance, making general language incapacity a less convincing explanation. Conversely, the positive IF and CONS coefficients in the adjusted decomposition are compatible with better capability enabling more useful harmful assistance when refusal fails. These within-panel associations and checkpoint comparisons answer different questions: capability does not necessarily confer safety, but capable assistants can also provide little harmful assistance. Neither comparison identifies the cause of a checkpoint's behavior or rules out differences in open-ended benign generation.
+
+The descriptive English reference provides a contrasting language profile (Section~\ref{sec:reference-baseline-results}). Its higher SPEC cells generally have lower mean StrongREJECT scores, whereas the paired-panel adjusted SPEC association is positive. The reference's positive distance correlation is weaker and becomes close to zero when English is excluded. \textbf{This contrast suggests that the expected specialization pattern can occur in an individual checkpoint without generalizing to the evaluated language-specific models.} It does not establish why the profiles differ: unadjusted within-model correlations and adjusted paired-panel coefficients are different quantities, and the reference is not a matched parent model. This post-review descriptive observation therefore illustrates heterogeneity rather than supplying additional confirmation of H\textsubscript{1}--H\textsubscript{3}.
+
+H\textsubscript{3} is constrained by both the change in the distance sign and the collinearity of specialization with the fixed-effect design. Standardization permits a comparison of coefficient units, but does not remove predictor dependence. The larger pooled SPEC coefficient thus does not establish its independent importance, while the results provide no basis for the proposed predominance of distance. These assessments apply to the post-review graded analysis, whose outcome and estimation procedure were selected after inspection of results.
+
+Sparse BELEBELE coverage further limits interpretation of specialization. LLaMAntino-2's Russian CONS equals one because four comparable answer pairs agree; two pairs agree on an incorrect option. Most saved outputs identify no answer option. The estimate therefore describes agreement within a small selected subset, rather than reliable consistency over the full benchmark. The coverage restriction examines the consequences of excluding such cells, while necessarily changing the represented model--language inventory.
+
+\section{Practical Implications}
+\label{sec:practical-implications}
+Multilingual evaluation should begin with the deployed checkpoint's aligned-language score and then inspect its other language cells. A mean near zero can reflect refusals, irrelevant responses or capability limitations. The full score distribution, rubric components and translation metadata help distinguish these possibilities, but bilingual human review remains necessary to validate the interpretation. The score measures rubric-assessed assistance toward the prohibited request, not the probability of real-world harm.
+
+Model identity, post-training history, serving conditions and translation quality belong alongside the graded results. Token inflation is associated with score in a matched-cohort sensitivity model, but it is not a manipulated protective intervention. Language distance helps organize the evaluation panel; it is not a substitute for measuring the responses themselves.
+
+\section{English Safety across Documented Model Lineages}
+\label{sec:english-alignment-loss}
+\GradedEnglishTable
+The selected LLaMA-family checkpoints have markedly different English mean scores. Figure~\ref{fig:model-lineage} documents their ancestry. Sagui derives through Sabiá-7B from original LLaMA; LLaMAntino-2 derives from LLaMA-2-chat. ANITA starts from Llama-3-Instruct, whereas AI Sweden's intermediate checkpoint continues Llama-3 base. The English reference is not a matched parent checkpoint. These measurements do not establish safety erosion from a shared upstream state or identify a single training stage as the cause.
+
+\section{Exploratory Mechanistic Follow-up}
+\label{sec:mechanistic-followup}
+
+The absence of support for the expected behavioral directions raises a more internal question that the behavioral pipeline cannot answer. That pipeline measures graded assistance toward prohibited requests, but it does not inspect the hidden representations associated with that behavior. This section reports an \emph{exploratory} refusal-direction audit as a follow-up interpretive layer.
+
+\defensenote{How to frame the mechanistic audit}{Call this a prospectively specified exploratory follow-up, not a fourth pre-specified thesis hypothesis. The protocol predates activation extraction, which limits result-driven flexibility, but it was designed after the behavioral pattern was known. Its role is to propose and stress-test an internal explanation for model heterogeneity, not to rescue H1--H3.}
+
+\needspace{14\baselineskip}
+The \emph{residual stream} is the running numerical representation of each token: a vector, or list of values, carried forward through the transformer. At each block, attention gathers information from the current and earlier token positions, while the feed-forward sublayer processes the updated vector at that position. Each sublayer adds an update to the continuing vector through a residual connection \cite{vaswaniAttentionAllYou2023,arditiRefusalLanguageModels2024}. Figure~\ref{fig:residual-stream} shows these additions and distinguishes the audit's two uses of the same internal state. For measurement, the audit reads the 4,096-value vector at the final token of the chat-formatted prompt, at a chosen residual index, and projects it onto an estimated direction. For intervention, it adds a scaled direction at that site and lets subsequent computation continue. Reading a vector does not alter generation; adding to it changes the activation, without retraining the model's weights. Neither operation treats one vector component as a dedicated refusal neuron.
+
+\input{figures/residual_stream}
+
+In this context, a \emph{refusal representation} means an internal activation pattern associated with the model's decision to decline a harmful request. Recent work finds that refusal behavior in open-weight chat models can be approximated by a compact difference-in-means direction in the residual stream, such that adding this direction makes harmless prompts more likely to be refused and removing it makes harmful prompts less likely to be refused \cite{arditiRefusalLanguageModels2024}. Related jailbreak-vector work suggests that successful jailbreaks can share activation-space patterns even when their surface prompts differ \cite{ballUnderstandingJailbreakSuccess2024}. Most directly relevant, \textcite{wangRefusalDirectionUniversal2025} report that this refusal direction is approximately \emph{parallel across typologically diverse safety-aligned languages}: a direction estimated in one language modulates refusal in others. In their account, \textbf{cross-lingual jailbreaks succeed not because the refusal direction is absent, but because models fail to \emph{separate} harmful from harmless representations in non-English languages, with separation quality degrading systematically outside English. This offers a candidate explanation for checkpoint heterogeneity.} The present study does not directly measure safety-alignment coverage, so agreement with that explanation is conceptual rather than an independent replication of its mechanism.
+
+Crucially, \textcite{wangRefusalDirectionUniversal2025} study English-centric multilingual models, and their separation metric is built from a \emph{harmful-versus-harmless} contrast that requires a matched benign control set. The present panel consists of \emph{language-specific post-trained} models whose alignment anchor is not English, and it contains a same-architecture comparison with different starting checkpoints, but it does not include a matched benign generative set. Rather than import one, this audit runs a different, self-contained test grounded in historical sampling labels retained in the frozen audit: a \emph{refused-versus-complied} contrast over harmful prompts only. For each model, harmful prompts that the model refused (\texttt{refusal\_binary}~$=1$) are contrasted with harmful prompts it complied with (\texttt{unsafe\_binary}~$=1$), and the difference-in-means of their residual-stream activations defines a \emph{refusal-outcome direction}. The motivating question becomes: \textbf{given a harmful prompt, does the model carry a stable internal signal predicting whether it will refuse, and does that signal survive crossing languages?}
+
+The study is deliberately narrow: three open-weight 8B models in the Llama-3/3.1 architectural family, comprising the English reference, ANITA and AI Sweden. ANITA and AI Sweden have different documented adaptation paths and do not share an identical instruction-tuned parent checkpoint (Figure~\ref{fig:model-lineage}). Their contrast therefore does not isolate post-training data, objectives, language mixture or inherited safety alignment; safe and vulnerable are descriptive labels from the behavioral panel.
+
+For each model, the audit samples clear refused and unsafe-compliance outcomes separately within seven languages: English; Italian and Swedish; the nearby comparison languages Spanish, Danish, and Norwegian; and Swahili as a distant comparison. Sampling is outcome-balanced where enough rows exist, with a maximum of 24 prompts per outcome and model--language cell (seed 13), yielding 952 activation rows in total. Scarce unsafe outcomes leave some safe-model cells unbalanced. Because selection is performed within each model's observed outcomes, the prompt sets are not matched across the three models. The same model-specific chat templates and NLLB prompt translations used in the behavioral evaluation are retained. The audit evaluates four directional expectations:
+
+The expectations form a sequence of explanatory questions: observe a contrast, test its language portability, relate it to behavior, and compare models and interventions. These are exploratory checks; the graded version of MH\textsubscript{3} was revised after the behavioral outcome changed.
+
+\begin{description}
+    \item[MH\textsubscript{1}: observable signal.] A direction should rank sampled refused outcomes above sampled unsafe outcomes within each model, at least in its aligned language. This establishes whether there is an internal contrast worth examining further, rather than how often the model refuses.
+    \item[MH\textsubscript{2}: language portability.] A direction estimated in one language should retain stronger predictive ranking across other languages in the safer models than in the vulnerable model. This tests whether the contrast is shared across language versions or mainly confined to one language.
+    \item[MH\textsubscript{3}: behavioral relevance.] The revised descriptive question is whether cells with clearer refusal-outcome separation also provide less harmful assistance, measured by their mean StrongREJECT score. This connects an activation diagnostic to behavior; it is not a pre-extraction hypothesis for the graded outcome.
+    \item[MH\textsubscript{4}: model contrast and intervention.] Relative to AI Sweden, ANITA should exhibit a more language-stable contrast and a stronger refusal-associated response to direction addition. Similarity, transfer, and addition address complementary parts of this expectation. Different checkpoint histories prevent isolating a training treatment.
+\end{description}
+
+\paragraph*{Reading AUC.}\label{par:auc-interpretation}
+Here, \emph{AUC} means the area under the receiver operating characteristic (ROC) curve. For a chosen projection threshold, the curve compares the fraction of refused examples above that threshold with the fraction of unsafe examples above it; varying the threshold traces the curve. Its area summarizes ranking across thresholds \cite{hanleyMcNeilAUC1982}. Equivalently, select one refused example and one unsafe example: AUC measures how often the refused example has the higher projection, counting a tie as half a correct ranking. A value of $0.5$ means chance-level ranking, $1.0$ means every refused example ranks above every unsafe example, and a value below $0.5$ indicates a tendency toward reversed ranking.
+
+For example, AI Sweden's Danish cell contains 24 refused and 24 unsafe examples and has an in-sample AUC of $0.920$ (Table~\ref{tab:mechanistic-refusal-projections}). Across the $24\times24=576$ cross-group comparisons, about $92\%$ rank in the intended direction, with ties counted as half. This does not mean that $92\%$ of prompts are refused, that $92\%$ of responses are safe, or that the model has a $92\%$ refusal probability. It describes separability within this selected sample; the reused estimation rows also prevent interpreting it as accuracy on new prompts.
+
+Figure~\ref{fig:mechanistic-methodology} summarizes the methodology used in the audit, from sampling saved outcomes to activation extraction, layer selection, and the three subsequent checks. The within-language, transfer, and intervention branches answer different questions and share the limitations shown in the diagram.
+
+\input{figures/mechanistic_methodology}
+
+Figure~\ref{fig:mechanistic-direction-construction} makes the direction calculation explicit. Following the difference-in-means construction of \textcite{arditiRefusalLanguageModels2024}, the final-prompt-token activations are averaged separately for refused and unsafe outcomes; their normalized centroid difference defines $\hat r$, and each prompt receives the signed scalar projection $z=(h-m)^\top\hat r$ around the midpoint $m$. The diagram is intentionally schematic.
+
+\MechDirectionConstructionFigure
+
+\defensenote{Meaning of AUC}{AUC measures ranking of refusal versus unsafe outcomes by projection. It is not a graded harmfulness score or a calibrated refusal probability. Outcome-selected samples cannot estimate natural refusal prevalence.}
+\defensebox{The direction in plain language}{Subtract the average hidden activation for unsafe outcomes from the average for refused outcomes, then normalize the difference. Projection measures location along that axis relative to the midpoint. The reported within-language cell AUCs reuse direction-estimation observations; they are in-sample separability, not prediction on new questions. The figure is schematic, not PCA, and directions from different checkpoints do not occupy one shared coordinate system.}
+
+This contrast has a deliberate limitation that bounds its claims. A harmful prompt is complied with either because the model \emph{did not perceive} it as harmful or because it perceived the harm but \emph{refused too weakly}; the refused-versus-complied direction collapses both onto one axis. The audit can describe how stable the sampled refusal-outcome contrast is across languages, but it cannot establish absence of a signal or separate a perception failure from an action failure. That separation is exactly the harmful-versus-harmless analysis of \textcite{wangRefusalDirectionUniversal2025}, and reproducing it on language-specific models with a matched benign control is left as complementary future work.
+
+Such an analysis is observational unless paired with interventions. An interventional probe adds the estimated refusal-outcome direction to the residual stream during generation and measures whether refusal rates increase on prompts that were previously complied with. Only refusal-\emph{strengthening} interventions are reported; refusal-weakening and weight-editing interventions are deliberately excluded, because removing a refusal direction is a jailbreak technique rather than a defensible analysis, and the corresponding ablation results are already documented by \textcite{arditiRefusalLanguageModels2024} and \textcite{wangRefusalDirectionUniversal2025}. Closed API models such as Sabiá-3 cannot be included, because their internal activations are not observable.
+
+This audit complements the study as an attempt to mechanistically explain the observed behavior. The behavioral results establish the phenomenon at the level relevant to deployment: different language-specific assistants show very different multilingual safety profiles. \textbf{The mechanistic audit then tests whether the safer derivative exhibits a more language-stable refusal-outcome signal than the more vulnerable derivative.} Its findings are reported as an exploratory interpretive layer for the model-specific pattern found here.
+
+\section{Exploratory Mechanistic Results}
+\label{sec:mechanistic-results}
+\setcounter{secnumdepth}{3}
+
+The mechanistic measurements answer a different question from StrongREJECT. StrongREJECT judges the generated text. A projection instead summarizes a prompt's internal activation along an estimated refusal-outcome axis. AUC asks whether that projection ranks sampled refused outcomes above sampled unsafe outcomes: $0.5$ is chance ranking and $1.0$ is perfect ranking. It is neither an unsafe-response percentage nor a probability of refusal for one prompt. Cosine similarity asks whether two directions point similarly within a model's activation coordinates; it does not compare response quality.
+
+A direction estimated from Italian and evaluated on Swedish tests portability across language versions. If some questions occur on both sides, however, it does not test generalization to new questions. Likewise, adding a direction during generation shows that the perturbation changes outputs, but without control directions and independent prompts it cannot identify a unique safety mechanism. These distinctions organize the following results.
+
+\paragraph*{Why compare layers?} The residual vector changes as the prompt passes through the model, so a direction measured at one depth need not separate the two outcomes equally well at another. Figure~\ref{fig:mechanistic-layer-sweep} checks nine candidate indices, $8,10,\ldots,24$, at the final prompt-token position. This chooses a common measurement and intervention site from the inspected band rather than assuming the final hidden state is the most informative. Indices outside the band were not tested; each model's direction is estimated in its own activation coordinates.
+
+\paragraph*{How to read Figure~\ref{fig:mechanistic-layer-sweep}.} Panel A shows how the curve is built: each model supplies an AUC, and the three values are averaged into one point. Panel B plots these means; its horizontal axis is the residual-stream extraction index, representing depth in the model. Panel C connects the selected index to the four subsequent checks. For each index and each model, the audit uses the same label-stratified split of activation rows: one half supplies the refused and unsafe averages used to estimate the direction; the other supplies the projections used to calculate AUC. The vertical coordinate is the arithmetic mean of these three model-specific AUCs. A point therefore summarizes ranking of the two sampled outcomes across the reference, ANITA, and AI Sweden; it is not a StrongREJECT score or the percentage of prompts refused. Keeping the split fixed avoids comparing depths on different random samples.
+
+The curve rises from $0.708$ at index 8 to $0.875$ at index 14, then forms a broad plateau: indices 14--24 range from about $0.872$ to $0.876$. Index 22 has the highest recorded mean, $0.87575$ (rounded to $0.876$), and was selected for the remaining audit. Its advantage over index 20 is only about $0.0006$. The useful finding is therefore a band with stronger sampled separability, not a sharply isolated or uniquely optimal refusal layer. The line connects measured indices to show the pattern; the intervening odd-numbered indices were not measured.
+
+The halves separate activation rows, not independently held-out canonical questions, and the assessment halves are reused to choose the maximum of nine values. The selected score is consequently a selection criterion rather than an unbiased final test result. No repeated-split uncertainty intervals establish that index 22 outperforms its neighbors. Independent question holdouts and a separate final evaluation would be needed to assess generalization of this layer choice. Once index 22 is selected, the pooled and language-specific directions used for the remaining diagnostics are re-estimated using the full sampled rows; their cell AUCs therefore describe a different calculation from the split-sample curve.
+
+\input{figures/mechanistic_layer_selection}
+
+\paragraph*{MH\textsubscript{1}: is there an observable refusal-outcome contrast?} This check is necessary before asking whether a direction transfers or changes generation. At the selected index, the audit estimates one pooled direction per model using sampled outcomes from all seven languages, then calculates AUC separately within each language. Each cell asks whether that pooled axis distinguishes its refused and unsafe examples.
+
+All 21 cells exceed chance ranking, with AUCs from $0.73$ to $1.00$ (Table~\ref{tab:mechanistic-refusal-projections}). This is consistent with MH\textsubscript{1}: even the more vulnerable AI Sweden model has an observable contrast. An unsafe model can carry such a signal because distinguishing two sampled outcomes does not imply that refusal dominates its ordinary behavior. These AUCs reuse rows that estimated the direction, so they describe in-sample separation rather than prediction on new questions. Each cell contains at most 24 examples per outcome; some safer-model cells have only 4--22 unsafe examples. A high AUC should therefore not obscure the small, outcome-selected sample.
+
+\paragraph*{MH\textsubscript{2}: does that contrast carry across languages?} A high within-language AUC could reflect a language-specific distinction. To examine portability, the audit estimates a direction from one source language and projects outcomes in a different target language onto that fixed direction. For example, an Italian direction is assessed on Swedish examples without being re-estimated from those Swedish rows. The reverse test uses a Swedish direction on Italian examples and can differ. Seven languages yield $7\times6=42$ ordered pairs per model, or 126 across the three models.
+
+Mean transfer AUC is $0.94$ for the reference and $0.93$ for ANITA, with all 42 pairs in each model above $0.7$. AI Sweden averages $0.69$, ranges from $0.40$ to $0.93$, and exceeds $0.7$ in 21 of 42 pairs. Values near one mean that a direction learned elsewhere still ranks refused outcomes above unsafe outcomes in the target language; a value below $0.5$ means the ranking tends to reverse for that transfer. The stronger, more uniform portability in the safer models is consistent with MH\textsubscript{2}. AI Sweden's variable results suggest a less stable cross-language contrast rather than complete absence of one. The $0.7$ comparison is descriptive, not a statistical-significance threshold.
+
+All 126 source--target pairs share canonical prompt identities: 4--11 for AI Sweden, 5--17 for the reference, and 2--19 for ANITA. A transferred direction therefore crosses languages but is not assessed exclusively on unseen questions. This limits the result to language portability with possible prompt familiarity, rather than independent question generalization.
+
+Figure~\ref{fig:mechanistic-separability-overview} makes the first two findings easier to compare. A blue circle describes separation under a pooled direction that has already used the plotted language's rows. An orange diamond instead averages directions learned in the six other languages and evaluated on that target language. The reference and ANITA retain high transfer separability in most targets, with a visible drop for Swahili. AI Sweden's transfer values are lower and more uneven. The figure compares descriptive diagnostics, not matched training and independent test performance.
+
+\input{figures/mechanistic_results_overview}
+\FloatBarrier
+
+\paragraph*{MH\textsubscript{3}: does clearer separation coincide with less harmful assistance?} This check connects the internal diagnostic to the behavioral outcome. Each point is a model--language cell: its AUC comes from the selected activation sample, while its mean StrongREJECT score comes from the scored behavioral responses in that cell. Spearman's $\rho$ compares the rankings of these summaries. A negative association means cells with higher separability tend to have lower harmful-assistance scores; a positive association means they tend to have higher scores. There are 21 pooled cells and only seven in each within-model comparison. The cosine--score column in Table~\ref{tab:graded-mechanistic-correlations} repeats this association check with similarity to the aligned-language direction in place of AUC; it measures directional agreement rather than outcome-ranking performance.
+
+The pooled association is negative ($\rho=\GMechPooledRho{}$), and both the reference and ANITA have within-model $\rho=-0.86$. AI Sweden instead has a positive association ($\rho=\GMechSwedenRho{}$; Table~\ref{tab:graded-mechanistic-correlations}). For a concrete contrast, its Danish cell has AUC $0.920$ and mean score $0.490$, whereas its Swahili cell has AUC $0.750$ and mean score $0.029$. There is no arithmetic contradiction: AUC ranks deliberately selected examples of both outcomes, whereas the mean score summarizes harmful assistance in the behavioral responses. A clearly separated unsafe group can coexist with substantial harmful assistance.
+
+The finding is therefore mixed, rather than a universal relationship in which a stronger diagnostic implies safer behavior. The pooled coefficient also combines between-model differences with language differences within each model. These graded correlations were recalculated after the outcome revision and are not the original binary audit test. Outcome selection, reused observations, and the small cell inventory prevent independent validation or a claim that higher separability causes lower harmful-assistance scores. Figure~\ref{fig:graded-mechanistic-association} shows the model-specific patterns.
+
+\GradedMechanisticCorrelationTable
+
+\FloatBarrier
+\Needspace{12\baselineskip}
+\paragraph*{MH\textsubscript{4}: what does the ANITA--AI Sweden contrast establish?} The preceding checks describe each model's signal and its associations. This expectation asks whether the safer derivative combines a more stable cross-language direction with a stronger refusal-associated response to intervention. Cosine and transfer address different parts: cosine compares direction orientations within a model, whereas transfer AUC tests whether a source direction ranks target-language outcomes. A cosine near one means similar orientation; near zero means little directional agreement. Directions from different checkpoints are not compared component by component in one shared coordinate system.
+
+ANITA's non-aligned-language directions have cosines of $0.69$--$0.90$ with its Italian anchor, and its mean transfer AUC is $0.93$, compared with AI Sweden's $0.69$. Its raw difference-in-means vector is also larger ($4.93$ versus $2.53$), but this norm is sensitive to each model's activation scale and is measured before normalization. It must not be read as ANITA having roughly twice as much safety alignment. Orientation and transfer provide the clearer evidence of a more portable sampled contrast.
+
+Addition asks whether moving activations along the estimated direction has behavioral consequences during generation, beyond an association in recorded vectors. The following figure and table report graded scores after addition at the inspected strengths. Different, post-hoc strengths and reused prompt samples prevent establishing which model is more steerable under a matched intervention. MH\textsubscript{4} therefore has descriptive support for the portability contrast, while comparative steerability and a causal explanation remain unresolved. Different starting checkpoints and adaptation histories also prevent identifying one training stage as the cause.
+
+\setcounter{secnumdepth}{3}
+
+\clearpage
+Figure~\ref{fig:mechanistic-intervention-scores} visualizes the graded scores after adding the direction; Table~\ref{tab:mechanistic-intervention} retains the exact sample accounting. Each point describes the selected intervention sample at its reported strength. There is no matched zero-strength rerun against which to interpret these as measured score reductions.
+
+\input{figures/mechanistic_intervention_scores}
+\GradedInterventionTable
+\defensenote{What the intervention establishes}{Adding the estimated direction changes generation, so the vector is behaviorally consequential on these prompts. It does not prove that the vector is the unique refusal mechanism or that post-training caused the between-model difference. The missing independent prompts, alpha-zero rerun, random direction, and norm-matched control are the reason to say ``consistent with a functional refusal direction'' rather than ``causally identifies the mechanism.''}
+
+The addition intervention applies $+\alpha\hat{r}$ at residual layer 22 during prompt and generation passes, scaled by the model's mean residual norm. Table~\ref{tab:mechanistic-intervention} reports the mean saved StrongREJECT scores at the inspected strengths, with unscored responses shown separately. The response sample was selected by historical outcomes and reused for direction estimation. These are conditional score summaries after perturbation, not population jailbreak rates or controlled causal treatment effects.
+
+This intervention does not by itself identify a unique refusal mechanism. No $\alpha=0$ reproducibility run, random-direction control, norm-matched control direction, or independent prompt holdout was included. Consequently, the between-model contrast could partly reflect general sensitivity to residual perturbation, and effect sizes may be optimistic because direction estimation and intervention reuse the same prompt sample. At higher strengths, manual inspection found repetitive or degenerate text; $\alpha=2$ is therefore a failure regime, not evidence of successful refusal. The reportable strengths ($\alpha=1$ for the reference and ANITA, $\alpha=0.5$ for AI Sweden) were chosen post hoc after inspecting degeneration and should be treated as diagnostics rather than comparable dose optima. A zero graded score can mean refusal, irrelevant output, or degeneration; low scores alone do not establish restored safety behavior.
+
+More generally, diagnostic separability alone is insufficient to identify what a representation causally encodes. \textcite{hewittDesigningInterpretingProbes2019} show why probing results require control tasks or baselines that distinguish information present in a representation from structure learned or exploited by the probe. The present difference-in-means probe is deliberately simple, but the missing random-direction, held-out, and matched harmless controls remain relevant for exactly this reason.
+
+\subsection{Mechanism Decision Matrix}
+\label{sec:mechanism-decision-matrix}
+
+Table~\ref{tab:mechanistic-decision-matrix} summarizes the evidence against the four exploratory expectations. The most defensible interpretation is narrower than a complete mechanism: the safer derivative exhibits a more cross-lingually portable refusal-outcome contrast, while the vulnerable derivative exhibits a weaker and more heterogeneous one. The data do not show that post-training literally shortened or erased a unique refusal representation, nor do they separate harm recognition from refusal execution. They therefore offer a plausible internal correlate of the model-specific behavioral pattern, not a causal decomposition of how that pattern arose.
+
+\begin{table}[htbp]
+\centering
+\scriptsize
+\caption[Evidence matrix for the refusal-direction audit]{Evidence matrix for the exploratory audit. Representation expectations preceded extraction; the graded behavioral association was revised afterwards. No external preregistration is claimed.}
+\label{tab:mechanistic-decision-matrix}
+\begin{tabular}{@{}p{0.06\linewidth}p{0.30\linewidth}p{0.44\linewidth}p{0.10\linewidth}@{}}
+\toprule
+ID & Test & Outcome & Verdict \\
+\midrule
+MH\textsubscript{1} & Within-language projection AUC above $0.5$ & All 21 in-sample cells $0.73$--$1.00$; layer-selection split score $0.876$ & Consistent \\
+MH\textsubscript{2} & Cross-lingual transfer AUC (train-A, eval-B) & Reference $0.94$, ANITA $0.93$ (all pairs $>0.7$); AI Sweden $0.69$ (half below) & Consistent \\
+MH\textsubscript{3} & Per-cell separability versus mean score & Revised pooled $\rho=\GMechPooledRho{}$; AI Sweden $\rho=\GMechSwedenRho{}$ & Mixed \\
+MH\textsubscript{4} & Model contrast: portability and steerability & Portability differs; matched steerability remains untested & Partial \\
+\bottomrule
+\end{tabular}
+\fonte{Author.}
+\end{table}
+
+The empirical figures supporting these results --- the direction-similarity heatmap (Figure~\ref{fig:mechanistic-direction-similarity}), full transfer matrices (Figure~\ref{fig:mechanistic-transfer-matrices}), separability-versus-score scatter (Figure~\ref{fig:graded-mechanistic-association}), and layer sweep (Figure~\ref{fig:mechanistic-layer-sweep}) --- and the two supporting tables (Tables~\ref{tab:mechanistic-refusal-projections} and~\ref{tab:mechanistic-language-direction-similarity}) are generated directly from the published audit artifacts. Figures~\ref{fig:residual-stream}, \ref{fig:mechanistic-methodology}, and~\ref{fig:mechanistic-direction-construction} are explanatory schematics; the other figures plot saved audit measurements. The separability overview and intervention-score plot summarize these measurements close to their interpretation.
+
+\MechTransferAnalysisText
+
+\paragraph*{Connecting the reference's behavioral and mechanistic profiles.} The English reference's language profile in Section~\ref{sec:reference-baseline-results} has a corresponding exploratory mechanistic observation. Among its thirteen behavioral language cells, Swahili has the lowest BELEBELE specialization and the highest mean StrongREJECT score (Figures~\ref{fig:strongreject-profiles}--\ref{fig:belebele-profiles}). The transfer audit shows that Swahili is also a comparatively difficult target for refusal-outcome directions learned in other languages (Figure~\ref{fig:mechanistic-transfer-matrices}), even though the reference's transfer is strong overall and a direction learned in Swahili transfers well elsewhere. Thus, the result concerns reduced separability in Swahili under transferred directions, rather than the absence of a portable direction learned from Swahili.
+
+Read together, these observations connect three distinct measurements: benign comprehension and answer consistency, separation of refused versus complied harmful prompts in activation space, and the harmful assistance present in generated responses. They are compatible with language capability and the cross-language portability of refusal-associated representations jointly helping to interpret the reference's behavior. They do not establish a causal pathway from lower SPEC to weaker refusal or higher harmful-assistance scores. The mechanistic audit covers seven languages and uses outcome-selected harmful prompts; it does not measure harmful-versus-harmless recognition. Source and target evaluations overlap in prompt identity, and independent question holdouts and intervention controls remain incomplete. This is therefore an exploratory internal correlate of the descriptive reference pattern, not independent validation of H\textsubscript{1} or H\textsubscript{2}.
+
+\defensebox{How to read the transfer matrices}{Rows identify the source language used to estimate the direction; columns identify the target language being evaluated. Swahili can supply a portable direction while remaining a difficult target. All directed transfer pairs share some canonical prompt identities, so this is transfer across languages with possible prompt familiarity, not an independent question holdout. Also distinguish the layer-selection split from final testing: its test halves were reused to select among nine layers.}
+
+\MechDirectionSimilarityFigure
+\MechTransferMatrixFigure
+\begin{figure}[htbp]\centering
+\caption{Saved refusal-signal diagnostics versus mean graded score. Language cells are descriptive and outcome-selected activation samples are not independent held-out evaluations.}
+
+\includegraphics[width=.9\linewidth]{figures/graded_mechanistic_association.pdf}
+\label{fig:graded-mechanistic-association}\fonte{Author.}\end{figure}
+\GradedMechanisticCellsTable
+\MechLanguageDirectionSimilarityTable
+
+\FloatBarrier
+\section{Finnish Translation-Pipeline Anomaly}
+\label{sec:finnish-investigation}
+
+Finnish deserves special caution. Of its 313 source-prompt translations, 58 entered the BLASER-flagged audit queue and 20 were excluded by the LLM audit, leaving 293 retained prompt conditions per model. It has the largest flagged translation queue and the highest number of LLM-judge exclusions among flagged translations. An exclusion changes which requests reach the target models; it is not a refusal by those models. A Finnish mean therefore describes scored responses to the retained translated requests, rather than to all 313 source prompts. This does not invalidate the Finnish score cells, but it means they are less cleanly attributable to model behavior alone. Because no human XSTS calibration was completed, the study cannot determine whether Finnish is a true model-safety outlier, a translation-pipeline outlier, or a mixture of both. Finnish-specific claims should therefore be framed as suggestive and measurement-sensitive.
+
+\section{Limitations and Threats to Validity}
+\label{sec:threats-validity}
+
+The empirical findings are bounded by several design and measurement limitations.
+
+\subsection{Translation Audit Limitations}
+\label{sec:limitations-audit}
+
+Translation quality control on flagged rows is performed exclusively by an uncalibrated LLM-as-judge (\texttt{gpt-5.4}) without human reference scores. No weighted Cohen's $\kappa$ or similar agreement measure can therefore be reported. The audit is useful as a systematic QC layer, but it is not a substitute for native or fluent human review. This limitation is most important for Swahili, for Finnish because of its anomalous flag rate, and for Ukrainian because many flagged rows were excluded by the LLM judge.
+
+The supplementary sensitivity analyses reduce but do not remove this threat. The
+distance and SPEC signs persist after excluding Finnish, Swahili, and Ukrainian
+entirely, and after excluding every translation that entered the BLASER flag
+queue. This shows that the main regression signs are not anchored by those
+rows; it does not establish that retained translations are human-equivalent.
+Similarly, StrongREJECT has strong published human calibration, but this study
+did not repeat that calibration on the NLLB-back-translated responses.
+
+\begin{description}
+    \item[Estimation and sensitivity:] Converged GEE fits with finite estimates and positive-definite covariance address numerical validity, not all sources of inferential uncertainty. The mean-link specification, collinearity, finite model/language inventory and dependence assumptions still matter. The CONS-coverage restriction reverses the distance association, so the full-panel sign is not invariant to inclusion choices.
+
+    \item[Prompt-level inference with cell-level predictors:] Distance and SPEC primarily vary between model--language cells. Prompt-cluster covariance permits dependence among translations and models of a source prompt, but does not model arbitrary dependence between different prompts sharing a cell. Inference is conditional on the observed inventory, and the large response count does not create equally many independent language comparisons.
+
+    \item[Model--aligned-language confound:] Each aligned language is represented by one weak/strong pair. The paired design improves interpretability, but it cannot separate language effects from model-family idiosyncrasies.
+
+    \item[Base-model and post-training confound:] The stronger model in a pair often also has a newer or otherwise stronger base model. Strong-vs-weak differences should be read as practical robustness contrasts, not as pure alignment-strength causal estimates.
+
+    \item[Closed API model:] Sabiá-3 is evaluated through a managed API. Provider behavior, model versioning, hidden system instructions, routing, and content filtering cannot be inspected as directly as open-weight systems. The absence of explicit provider-block events is not evidence that invisible moderation was absent. Its mean score therefore characterizes the end-to-end API system, and exact response-level reproducibility is not guaranteed.
+
+    \item[BELEBELE as proxy:] SPEC is based on multiple-choice reading-comprehension and consistency, not on matched benign open-ended generation. It should be interpreted as a specialization proxy, not as a complete benign capability control.
+
+    \item[Translation-QC provenance:] Appendix~\ref{app:frozen-qc-details} reports the frozen thresholds and retention counts. The saved translation, audit, and target-run files reconcile by prompt-language key. The XSTS export lacks raw API replies and request identifiers, and its LLM-only decisions were not calibrated against fluent human judgments. The artifact chain supports what was recorded and excluded; it cannot establish that every retained translation preserved the source meaning.
+
+    \item[No MultiJail validation artifact:] The final outputs do not contain a scored MultiJail run. This limits benchmark-generalization claims, but it does not change the central StrongREJECT-based hypothesis tests. This is an uncompleted planned external validation; no benchmark-generalization result is claimed.
+
+    \item[Finite language inventory:] The 13 attack languages span several families and scripts, but they are still a purposive sample. A denser inventory could reveal nonlinear or family-specific effects that this panel cannot estimate.
+
+    \item[Exploratory mechanistic audit:] The refusal-direction results cover only three related 8B models and seven languages. Outcome-conditioned samples are not prompt-matched across models; layer selection and cell summaries reuse the same finite sample; and the intervention lacks an independent holdout, an $\alpha=0$ rerun, and random or norm-matched direction controls. The audit identifies an internal correlate and a steering response, but not a unique mechanism or a causal effect of a particular post-training component.
+\end{description}
+
+\end{otherlanguage*}

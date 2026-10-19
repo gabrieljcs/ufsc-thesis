@@ -2487,7 +2487,7 @@ wheels = [
 [[package]]
 name = "strong-reject"
 version = "0.0.1"
-source = { git = "https://github.com/dsbowen/strong_reject.git?rev=main#7a551d5b440ec7b75d4f6f5bb7c1719965b76b47" }
+source = { git = "https://github.com/dsbowen/strong_reject.git?rev=7a551d5b440ec7b75d4f6f5bb7c1719965b76b47#7a551d5b440ec7b75d4f6f5bb7c1719965b76b47" }
 dependencies = [
     { name = "datasets", marker = "sys_platform == 'darwin' or sys_platform == 'linux' or sys_platform == 'win32'" },
     { name = "google-api-python-client", marker = "sys_platform == 'darwin' or sys_platform == 'linux' or sys_platform == 'win32'" },
@@ -2595,7 +2595,7 @@ requires-dist = [
     { name = "sentencepiece", marker = "extra == 'rtx'", specifier = ">=0.2" },
     { name = "sonar-space", marker = "sys_platform != 'win32' and extra == 'qc'", specifier = ">=0.5,<0.6" },
     { name = "statsmodels", marker = "extra == 'analysis'", specifier = ">=0.14" },
-    { name = "strong-reject", marker = "extra == 'scoring'", git = "https://github.com/dsbowen/strong_reject.git?rev=main" },
+    { name = "strong-reject", marker = "extra == 'scoring'", git = "https://github.com/dsbowen/strong_reject.git?rev=7a551d5b440ec7b75d4f6f5bb7c1719965b76b47" },
     { name = "torch", marker = "extra == 'mac'", specifier = "==2.8.0" },
     { name = "torch", marker = "extra == 'qc'", specifier = "==2.8.0" },
     { name = "torch", marker = "extra == 'rtx'", specifier = "==2.8.0" },

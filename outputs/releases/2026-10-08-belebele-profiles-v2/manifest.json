@@ -1,0 +1,18 @@
+{
+  "revision": "Style matched to paired StrongREJECT PGFPlots: boxed axes, shared type sizes, line widths and circular markers; frozen measurements unchanged.",
+  "spec_standardization": "All 117 evaluated cells, including English reference.",
+  "sparse_marker_rule": "n_cons_comparable < 100; sparse CONS and SPEC points do not connect.",
+  "checksums": {
+    "eval/outputs/releases/2026-09-09-corrected/tables/belebele_coverage.csv": "1386562eafd0fdac2314b061bada3b66318a8d547be5245fc1f3dfcc1fff9a5e",
+    "eval/outputs/releases/2026-09-29-graded-reporting/cell_summary.csv": "d61e641f104d87fd79f3b001c0b990c2552a5447129db624d3085ff6675824af",
+    "eval/scripts/write_belebele_profiles.py": "7cfc6ab3bdc99e466b68c550b77931f027d8b866243f402b884940e9d563b64e",
+    "ufscthesisx/ufscthesisx/figures/belebele_profiles.tex": "57cf22630756ce4814e082f78ebe93236c8427a3788e1511d3d9b280b8d13704",
+    "eval/outputs/releases/2026-10-08-belebele-profiles-v2/plotted_cells.csv": "6889952303ad9e88f1d0e7c8d4d4133620a7071ee5fd8e3b1003235ba25fedb5",
+    "eval/outputs/releases/2026-10-08-belebele-profiles-v2/thesis.pdf": "50e301dfdfb10227b89231f30bf91c0f260240c8ac29a893a31ecb4b0c7a148c",
+    "eval/outputs/releases/2026-10-08-belebele-profiles-v2/results.tex": "a9c63c8e04e335cb229c684a19636821aa1fa81add4be5d06c0822837c7e95e2",
+    "eval/outputs/releases/2026-10-08-belebele-profiles-v2/belebele_profiles.pdf": "e363f8ae03cfa89470074b10eddda8f42e84471841c2b15558b49620eb461ecd",
+    "eval/outputs/releases/2026-10-08-belebele-profiles-v2/belebele_profiles.png": "82ae8d1f92de5db792afa56fb005d5158b8e8e8922358da1e4ec2617ff4b932f",
+    "eval/outputs/releases/2026-10-08-belebele-profiles-v2/thesis_figure_page.png": "797c3142e8234b976a5c2571ef83c6ec47a3a8819f4f88c28ba321f811f8dd88"
+  },
+  "validation": "Full latexmk build passed; final Figure 17 on printed page 91 visually checked. Figure reference resolved."
+}

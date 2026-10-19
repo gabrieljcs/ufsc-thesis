@@ -1,0 +1,8 @@
+% !TEX program = pdflatex
+% !TEX TS-program = pdflatex
+% Defense/study build: enables companion notes and then compiles the thesis.
+% Build from this directory with:
+% latexmk -pdf -interaction=nonstopmode -halt-on-error -e '$max_repeat=12' -jobname=output-notes -outdir=cache/notes main-notes.tex
+% Keep this build separate from cache/normal: included chapters share aux names.
+\def\defensenotesdraft{1}
+\input{main.tex}

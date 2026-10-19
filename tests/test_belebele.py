@@ -95,6 +95,7 @@ class BelebeleTests(unittest.TestCase):
             data_dir.mkdir()
             sample = {
                 "question_number": 1,
+                "link": "https://example.test/passage",
                 "flores_passage": "Trecho",
                 "question": "Pergunta?",
                 "mc_answer1": "A1",
@@ -127,7 +128,8 @@ class BelebeleTests(unittest.TestCase):
                 [
                     {
                         "question_number": 1,
-                        "flores_passage": "Trecho",
+                        "link": "https://example.test/passage",
+                "flores_passage": "Trecho",
                         "question": "Pergunta?",
                         "mc_answer1": "A1",
                         "mc_answer2": "A2",
@@ -170,7 +172,8 @@ class BelebeleTests(unittest.TestCase):
                 [
                     {
                         "question_number": 1,
-                        "flores_passage": "Trecho",
+                        "link": "https://example.test/passage",
+                "flores_passage": "Trecho",
                         "question": "Pergunta?",
                         "mc_answer1": "A1",
                         "mc_answer2": "A2",
@@ -228,7 +231,8 @@ class BelebeleTests(unittest.TestCase):
             dataset_rows = [
                 {
                     "question_number": 1,
-                    "flores_passage": "Trecho 1",
+                    "link": "https://example.test/passage",
+                "flores_passage": "Trecho 1",
                     "question": "Pergunta 1?",
                     "mc_answer1": "A1",
                     "mc_answer2": "A2",
@@ -239,7 +243,8 @@ class BelebeleTests(unittest.TestCase):
                 },
                 {
                     "question_number": 2,
-                    "flores_passage": "Trecho 2",
+                    "link": "https://example.test/passage",
+                "flores_passage": "Trecho 2",
                     "question": "Pergunta 2?",
                     "mc_answer1": "A1",
                     "mc_answer2": "A2",
@@ -326,7 +331,8 @@ class BelebeleTests(unittest.TestCase):
             dataset_rows = [
                 {
                     "question_number": 1,
-                    "flores_passage": "Passage",
+                    "link": "https://example.test/passage",
+                "flores_passage": "Passage",
                     "question": "Question?",
                     "mc_answer1": "Paris",
                     "mc_answer2": "Rome",
@@ -337,7 +343,8 @@ class BelebeleTests(unittest.TestCase):
                 },
                 {
                     "question_number": 1,
-                    "flores_passage": "Second passage",
+                    "link": "https://example.test/passage",
+                "flores_passage": "Second passage",
                     "question": "Second question?",
                     "mc_answer1": "Lisbon",
                     "mc_answer2": "Dublin",
@@ -388,7 +395,8 @@ class BelebeleTests(unittest.TestCase):
                 [
                     {
                         "question_number": 1,
-                        "flores_passage": "Passage",
+                        "link": "https://example.test/passage",
+                "flores_passage": "Passage",
                         "question": "Question?",
                         "mc_answer1": "Paris",
                         "mc_answer2": "Rome",

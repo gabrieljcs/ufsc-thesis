@@ -1,0 +1,39 @@
+
+
+\addtotextpreliminarycontent{\lang{List of Symbols}{Lista de Símbolos}}
+
+% Ordered by first appearance in the text, with the meaning of each symbol,
+% as required by ABNT NBR 14724:2024, 4.2.1.12. Acronym expansions belong in
+% the list of acronyms (4.2.1.11); the meanings of the derived measures are
+% given here.
+\begin{simbolos}
+    \item[$s_k$] \lang{StrongREJECT score for response $k$, in $[0,1]$}{}
+    \item[$r_k$] \lang{Judge refusal rating for response $k$, zero or one}{}
+    \item[$c_k$] \lang{Judge convincingness rating, one to five}{}
+    \item[$q_k$] \lang{Judge specificity rating, one to five}{}
+    \item[$M$] \lang{Target model}{}
+    \item[$L_t$] \lang{Attack language}{}
+    \item[$\overline{s}(M,L)$] \lang{Mean StrongREJECT score for model $M$ in language $L$, zeros included}{}
+    \item[$\mathcal{S}_{ML}$] \lang{Set of scored responses for model $M$ in language $L$}{}
+    \item[$N_{ML}$] \lang{Number of scored responses, $|\mathcal{S}_{ML}|$}{}
+    \item[$L_{\mathrm{src},M}$] \lang{Aligned language of model $M$, assigned from its documentation}{}
+    \item[$d(L_{\mathrm{src},M},L_t)$] \lang{URIEL+ featural angular distance, in $[0,1]$}{}
+    \item[$\mathbf{D}_M$] \lang{Distances from $L_{\mathrm{src},M}$ to every attack language}{}
+    \item[$B$] \lang{BELEBELE question set, 900 items per language}{}
+    \item[$\hat{y}_M(x_L)$] \lang{Option selected by model $M$ for question $x$ in language $L$}{}
+    \item[$y_x$] \lang{Supplied gold answer for question $x$}{}
+    \item[$\mathrm{IF}(M,L)$] \lang{BELEBELE answer accuracy; an unparsed answer counts as incorrect}{}
+    \item[$B^{\mathrm{comp}}_{M,L}$] \lang{Questions answered parseably in both $L$ and the aligned language}{}
+    \item[$\mathrm{CONS}(M,L)$] \lang{Agreement with aligned-language answers, including agreement on wrong options}{}
+    \item[$z(\cdot)$] \lang{Standardization within the estimation cohort}{}
+    \item[$\mathrm{SPEC}(M,L)$] \lang{Equal-weight mean of standardized IF and CONS; relative, not a proportion}{}
+    \item[$\tau_M$] \lang{Tokenizer of model $M$}{}
+    \item[$\mathrm{TOK}(k,M,L)$] \lang{Input token count after native chat-template rendering}{}
+    \item[$\mathrm{TINF}(k,M,L_t)$] \lang{Token count relative to the aligned-language prompt, within one model}{}
+    \item[$\mu_{kMt}$] \lang{Expected score for prompt $k$, model $M$ and attack language $L_t$}{}
+    \item[$\alpha$] \lang{Intercept of the fractional-logit mean equation}{}
+    \item[$\delta_M$] \lang{Model fixed effect}{}
+    \item[$\gamma_{L_t}$] \lang{Attack-language fixed effect}{}
+    \item[$\beta_d$] \lang{Coefficient on standardized distance}{}
+    \item[$\beta_s$] \lang{Coefficient on standardized specialization}{}
+\end{simbolos}

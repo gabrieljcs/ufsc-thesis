@@ -1,0 +1,168 @@
+%% intro.tex
+%%
+%% Copyright 2017 Evandro Coan
+%% Copyright 2012-2016 by abnTeX2 group at http://www.abntex.net.br/
+%%
+%% This work may be distributed and/or modified under the
+%% conditions of the LaTeX Project Public License, either version 1.3
+%% of this license or (at your option) any later version.
+%% The latest version of this license is in
+%%   http://www.latex-project.org/lppl.txt
+%% and version 1.3 or later is part of all distributions of LaTeX
+%% version 2005/12/01 or later.
+%%
+%% This work has the LPPL maintenance status `maintained'.
+%% The Current Maintainer of this work is the Evandro Coan.
+%%
+%% The last Maintainer of this work was the abnTeX2 team, led
+%% by Lauro César Araujo. Further information are available on
+%% https://www.abntex.net.br/
+%%
+%% This work consists of a bunch of files. But originally there ware 3 files
+%% which are renamed as follows:
+%% Renamed the `abntex2-modelo-include-comandos` to `chapters/chapter_1.tex`
+%% Renamed the `abntex2-modelo-trabalho-academico.tex` to `chapters/intro.tex`
+%% Renamed the `abntex2-modelo-references.bib` to `aftertext/modelo-ufsc-references.bib`
+%%
+%% This file was originally the main template file, however this main file was
+%% split into several new files, which are respectively drastically changed,
+%% except this files which contains most of the main documentation message.
+%%
+
+% ------------------------------------------------------------------------
+% ------------------------------------------------------------------------
+% abnTeX2: Modelo de Trabalho Academico (tese de doutorado, dissertacao de
+% mestrado e trabalhos monograficos em geral) em conformidade com
+% ABNT NBR 14724:2011: Informacao e documentacao - Trabalhos academicos -
+% Apresentacao
+% ------------------------------------------------------------------------
+% ------------------------------------------------------------------------
+
+% The \phantomsection command is needed to create a link to a place in the document that is not a
+% figure, equation, table, section, subsection, chapter, etc.
+% https://tex.stackexchange.com/questions/44088/when-do-i-need-to-invoke-phantomsection
+\phantomsection
+
+% https://tex.stackexchange.com/questions/5076/is-it-possible-to-keep-my-translation-together-with-original-text
+\chapter{Introduction}
+\phantomsection
+
+\begin{otherlanguage*}{english}
+
+Large language models (LLMs) have become the state-of-the-art (SOTA) in natural language processing (NLP) since the introduction of the transformer architecture \cite{vaswaniAttentionAllYou2023} and the subsequent scaling of training data and model size \cite{kaplanScalingLawsNeural, raeScalingLanguageModels2022, hoffmannTrainingComputeoptimalLarge2022}. The transformer was originally developed for machine translation (MT), where it outperformed recurrent neural networks (RNNs) in translation quality and training cost, and transformer-based models have since shown broad generalization across NLP tasks, including summarization, question answering (QA), text generation, and sentiment analysis \cite{devlinBERTPretrainingDeep2019, radfordLanguageModelsAre, weiEmergentAbilitiesLarge2022}. 
+
+Before deployment, the models must go through a step of fine-tuning for \textbf{safety alignment} to prevent them from outputting harmful, improper or otherwise undesirable content and, more generally, behave in a way that is ethically aligned with human values \cite{zieglerFineTuningLanguageModels2020, ganguliRedTeamingLanguage2022, ouyangTrainingLanguageModels2022, jiAIAlignmentComprehensive2025}. Intentional or accidental bypassing of safety alignment guardrails is referred to as a \textbf{jailbreak} \cite{ManyshotJailbreakingProceedings}. Jailbreaking LLMs involves crafting inputs (prompts) that manipulate the model into producing responses it was explicitly trained to avoid. These prompts exploit the model’s internal representations or prompt-parsing behavior, often using obfuscation, role-play scenarios, or indirect phrasing \cite{abdaliSecuringLargeLanguage2024a}. Jailbreaks can be used to elicit prohibited outputs such as hate speech, misinformation, explicit content, or guidance on illegal activities.
+
+Training large language models requires a vast amount of computational resources, which are generally available only to large research institutes and companies \cite{kaplanScalingLawsNeural, raeScalingLanguageModels2022, hoffmannTrainingComputeoptimalLarge2022}. This gap has led to the development of \textbf{foundation models} (FM) pre-trained up to the point of text generation, allowing further fine-tuning for a specific task, such as QA or summarization \cite{touvronLLaMAOpenEfficient2023, 
+jiangMistral7B2023, grattafioriLlama3Herd2024}. Fine-tuning enables the models to specialize by training with narrow but higher quality, fine-grained data, requiring less processing power and achieving better results for the task \cite{weiFinetunedLanguageModels2022}.
+
+Foundation models have also made possible the development of \textbf{language-specific LLMs} through language-focused pre-training or adaptation on datasets dominated by one or more target languages to better serve local linguistic, cultural, and regulatory needs \cite{bacciuFaunoItalianLarge2023, OliveiraJLT2024Sagui7BInstruct01, alexandrovBgGPT10Extending2024, ekgren-etal-2024-gpt}. These specialized models promise enhanced performance and relevance for their target populations and have become a significant choice for addressing disparities in NLP-related tasks for under-represented languages and cultures \cite{blasiSystematicInequalitiesLanguage2021, laiChatGPTEnglishComprehensive2023}.
+\defensenote{Why this niche matters}{The defense hinge is not just ``LLMs in many languages.'' It is that post-training can make a model behave like a local assistant while still inheriting multilingual representations from a broader base model. That creates a real safety question: which language boundary is the refusal policy actually anchored to?}
+
+
+\section{Problem Statement}
+Large language models are increasingly deployed in multilingual settings, yet most jailbreak research has focused on English or multilingual prompts against English-centric models, leaving a blind spot:
+
+	\textbf{How robust are \emph{language-specific} LLMs when faced with jailbreak prompts in other languages?}
+
+Adversaries or ordinary multilingual users may attempt cross-lingual jailbreaks, intentionally or not. Prior assumptions often attribute robustness to how much of a given language appeared in the foundation model's pre-training data \cite{shenLanguageBarrierDissecting2024}. However, for language-specific models this may not be the most relevant comparison. Post-training can alter cross-lingual instruction-following behavior even with very small amounts of multilingual supervision \cite{shaham2024multilingual}, and multilingual models are known to vary across languages not only in task performance but also in cross-lingual consistency \cite{hu2020xtreme,qi2023crosslingual,xing2024inconsistency}. We therefore compare \textbf{linguistic proximity} against \textbf{post-training specialization}: the degree to which a post-trained model can still follow benign instructions and behave consistently in a language other than its aligned one.
+
+\subsection{Research Problem}
+\textbf{Core question:} How does the language of a jailbreak prompt affect its effectiveness against an LLM whose safety alignment was performed in a different, specific language?
+
+We specifically compare two explanatory variables for jailbreak effectiveness:
+\begin{alineas}
+    \item \emph{post-training specialization}: the degree to which the post-trained model follows benign instructions and preserves consistent behavior in the attack language;
+    \item \emph{linguistic proximity}: the typological, lexical, and genealogical closeness between the attack language and the model’s aligned language.
+\end{alineas}
+\defensenote{Two candidate explanations}{Distance asks whether typological separation predicts unsafe compliance. SPEC asks whether benign accuracy and answer consistency add explanatory information. These are associated measurements, not independent causal treatments.}
+
+\subsection{Research Hypothesis}
+\label{sec:research-hypothesis}
+
+The analysis tests whether \textbf{jailbreak effectiveness increases as the attack language becomes more distant from the model’s aligned language}, after accounting for post-training specialization in the attack language.
+
+\begin{description}
+    \item[H\textsubscript{1}] Jailbreak effectiveness \emph{increases} as the attack language becomes \emph{more distant} from the model's aligned language;
+    \item[H\textsubscript{2}] Jailbreak effectiveness \emph{decreases} as the model's post-training specialization in the attack language \emph{increases};
+    \item[H\textsubscript{3}] When both factors are considered together, \emph{linguistic distance} is the \emph{stronger} and more stable predictor of jailbreak effectiveness.
+\end{description}
+
+\subsection{Research Scope}
+
+This thesis focuses on \textit{language-specific} LLMs, namely foundation models subsequently fine-tuned and aligned predominantly in a single language, and examines their robustness against jailbreak prompts written in other languages. The empirical evaluation comprises four paired comparisons of language-specific models, alongside an English-aligned reference baseline.
+
+The attack surface is strictly textual and limited to \emph{direct-prompt jailbreaking} attempts formulated as natural-language inputs. Indirect prompt injection via external documents or tools, as well as multimodal and code-execution attack vectors, fall outside the scope of this study.
+
+To examine these directional questions, we selected attack languages spanning a spectrum of linguistic proximity to each model's aligned language. Linguistic proximity is operationalized using URIEL+, a typological language representation framework \cite{khan-etal-2025-uriel}.
+
+The dissertation therefore examines cross-lingual jailbreak robustness as an empirical property of language-specific instruction-tuned models. The study investigates whether variation in mean StrongREJECT score is better explained by properties of the attack language or by the degree to which the target model has been specialized for that language.
+\defensenote{Scope defense}{This is an evaluation thesis, not a defense-building thesis. A useful panel question answer is: before proposing mitigations, we need a reliable map of the failure pattern and of which simple explanations fail.}
+
+The analysis combines descriptive language-level summaries with prompt-level statistical modeling, enabling mean StrongREJECT score patterns to be interpreted alongside variation across prompts, attack languages, and target models. To contextualize jailbreak robustness against general multilingual capability, the study additionally incorporates BELEBELE, a parallel multiple-choice reading-comprehension benchmark covering 122 language variants \cite{bandarkar-etal-2024-belebele}, as an auxiliary evaluation of cross-lingual language understanding.
+\defensebox{Aligned-language baseline before cross-lingual claims}{A recurring defense point is that cross-lingual jailbreaks are only meaningfully ``bypasses'' if the model is reasonably safe in the language where it is supposed to be aligned. If a Portuguese model is already unsafe in Portuguese, then high English, Spanish, or Arabic mean StrongREJECT score is not mainly evidence of a multilingual bypass; it is broad safety weakness. That is why the results chapter reports aligned-language mean StrongREJECT score before pooled non-aligned mean StrongREJECT score. The denominator story also matters: refusals stay in the denominator as real model behavior, while empty outputs or judge failures are coverage problems and are reported separately.}
+
+\subsubsection{In-Scope}
+
+The study covers:
+\begin{alineas}
+    \item LLMs fine-tuned/aligned predominantly in one language, i.e., language-specific;
+    \item text-only jailbreak prompts translated or authored in multiple languages;
+    \item a set of languages spanning a similarity spectrum to the aligned language, with measurable distances;
+    \item metrics of mean StrongREJECT score, safety labels, language distance, post-training specialization, and fractional-response regression analyses.
+\end{alineas}
+
+\subsubsection{Out-of-Scope}
+The study does not cover:
+\begin{alineas}
+    \item novel defense techniques;
+    \item indirect prompt injection, multimodal jailbreak vectors (e.g., images or audio), and code-execution attack surfaces;
+    \item mechanistic explanations of the internal processes associated with cross-lingual jailbreak robustness\footnote{Mechanistic interpretability refers to methods that attempt to explain neural network behavior by analyzing internal representations, circuits, activations, or attention patterns. An \emph{exploratory} mechanistic refusal-direction audit, restricted to open-weight models and reported separately from the main results, is summarized in Chapter~\ref{chap:discussion} and reported in full in Appendix~\ref{app:mechanistic-audit} as a follow-up explanatory layer rather than as a primary result.}.
+\end{alineas}
+
+
+\section{Objectives}
+
+\subsection{General Objective}
+Quantify and explain the impact of \emph{linguistic distance} versus \emph{post-training specialization} on jailbreak effectiveness in language-specific LLMs across attack languages.
+
+\subsection{Specific Objectives}
+The specific objectives are to:
+\begin{alineas}
+    \item develop a cross-lingual evaluation protocol for testing jailbreak robustness in language-specific LLMs;
+
+    \item adapt an existing harmful-prompt benchmark into a multilingual prompt set spanning typologically diverse languages, with documented translation-quality checks;
+
+    \item operationalize linguistic distance between each model's aligned language and the attack languages;
+
+    \item operationalize post-training specialization in each attack language using measures of benign language capability and cross-lingual consistency;
+
+    \item measure and compare jailbreak effectiveness across paired models and aligned and non-aligned languages under controlled prompting and decoding conditions;
+
+    \item analyze the associations of linguistic distance and post-training specialization with jailbreak effectiveness, comparing their relative strength and stability;
+
+    \item assess the robustness of the findings to measurement limitations and alternative analytical choices.
+\end{alineas}
+
+\subsection{Exploratory Objective}
+Explore whether internal patterns associated with refusal are shared across languages and how modifying these patterns changes model responses.
+
+\section{Contributions}
+
+This thesis makes the following contributions:
+
+\begin{alineas}
+    \item \textbf{comparative evidence on multilingual jailbreaks}: a systematic comparison of language-specific LLMs that examines whether linguistic distance and post-training specialization are associated with jailbreak effectiveness across the evaluated models and languages;
+
+    \item \textbf{operationalization of language specialization}: a behavioral proxy combining benign reading-comprehension performance and cross-lingual answer consistency, accompanied by an assessment of its coverage and measurement limitations;
+
+    \item \textbf{documented evaluation pipeline}: an integrated procedure for multilingual prompt adaptation, model evaluation, response scoring, and analysis, with preserved outputs and records of translation-quality decisions and observed failures;
+
+    \item \textbf{measurement and robustness findings}: an assessment of how translation quality, specialization measurement, tokenization, and statistical choices affect the interpretation of cross-lingual jailbreak results;
+
+    \item \textbf{implications for multilingual safety evaluation}: evidence-based guidance emphasizing the evaluation of individual models across their intended languages and explicit reporting of measurement uncertainty;
+
+    \item \textbf{exploratory analysis of refusal behavior}: a separate follow-up examining the cross-lingual transfer of refusal-associated internal patterns and responses to activation interventions in selected open-weight models.
+\end{alineas}
+
+\end{otherlanguage*}

@@ -1,0 +1,37 @@
+
+
+%
+% How to fix the Underfull \vbox badness has occurred while \output is active on my memoir chapter style?
+% https://tex.stackexchange.com/questions/387881/how-to-fix-the-underfull-vbox-badness-has-occurred-while-output-is-active-on-m
+%
+
+% ----------------------------------------------------------
+\chapter{Unpublished Article}
+\noindent\textbf{Historical annex.} This Sabiá-3.1 experiment uses a different model and scoring protocol. It is not the planned MultiJail validation of the main eight-model panel.
+
+% ----------------------------------------------------------
+
+
+% Multiple-language document - babel - selectlanguage vs begin/end{otherlanguage}
+% https://tex.stackexchange.com/questions/36526/multiple-language-document-babel-selectlanguage-vs-begin-endotherlanguage
+\begin{otherlanguage*}{english}
+
+% An environment for setting \emergencystretch locally
+% https://tex.stackexchange.com/questions/84510/an-environment-for-setting-emergencystretch-locally
+{
+    \setlength{\emergencystretch}{10pt}
+    \section[Unpublished Article]
+    {Jailbreaking Language-Specific LLMs: A
+Multilingual Security Evaluation of Sabia-3.1}
+}
+
+    \noindent\textbf{Abstract:}
+Large Language Models (LLMs) are increasingly deployed in multilingual contexts, yet their security robustness across languages remains under-explored. This paper investigates the vulnerability of Sabia-3.1, a Brazilian LLM, to cross-lingual jailbreak attacks. Using an adapted version of the MultiJail dataset~\cite{dengMultilingualJailbreakChallenges2024}, we evaluate 1260 adversarial prompts translated into English, Brazilian Portuguese, Italian, and Swahili. Responses were classified via GPT-4o~\cite{openaiGPT4oSystemCard2024} into safe, unsafe, or invalid, and a Jailbreak Success Rate (JSR) was computed per language. No successful attacks were observed in Portuguese or Italian (0/315 each; Wilson 95\% upper bound approximately 1.2\%), while successful attacks were observed in English (JSR = 3.17\%) and especially Swahili (JSR = 4.76\%). These findings highlight that language models may generalize safety alignment to linguistically similar languages, while remaining susceptible to jailbreaking in both high-resource (EN) and low-resource (SW) languages.
+
+\end{otherlanguage*}
+
+% What is a “Overfull \hbox (9.89561pt too wide)”?
+% https://tex.stackexchange.com/questions/111948/what-is-a-overfull-hbox-9-89561pt-too-wide
+
+
+\modifiedincludepdf{-}{artigo}{pictures/estudo-dirigido-artigo.pdf}{0.9}

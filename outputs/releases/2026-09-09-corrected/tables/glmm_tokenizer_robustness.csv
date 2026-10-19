@@ -1,0 +1,4 @@
+fit,predictor,estimate,std_error,ci_lower,ci_upper,odds_ratio,odds_ratio_ci_lower,odds_ratio_ci_upper,posterior_probability_positive,p_value,interval_type,n,fit_method
+tokenizer_robustness,distance_z,-0.1546413839921655,0.02499818897137119,-0.20363783437605304,-0.10564493360827798,0.8567223567520209,0.8157577571118442,0.8997440602432494,3.0834765295709997e-10,,laplace_approx_95_credible,27955,laplace_map_crossed_logistic_glmm
+tokenizer_robustness,spec_z,0.7465306125650517,0.06307622698806921,0.622901207668436,0.8701600174616674,2.1096680494270252,1.8643290090117655,2.387292831501042,1.0,,laplace_approx_95_credible,27955,laplace_map_crossed_logistic_glmm
+tokenizer_robustness,token_inflation_z,-0.271494239320608,0.03241550451122933,-0.33502862816261747,-0.20795985047859852,0.7622396744737759,0.71531760783063,0.8122396470903831,2.7508054256601483e-17,,laplace_approx_95_credible,27955,laplace_map_crossed_logistic_glmm

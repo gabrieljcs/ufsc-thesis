@@ -1,0 +1,28 @@
+\chapter{LLM-as-Judge XSTS Prompt Template}
+\label{app:xsts-llm-prompt}
+
+The following prompt is used verbatim for LLM-as-judge XSTS scoring. The
+model is instructed to return only a single integer score; any preamble or
+commentary is parsed out before storage. The saved result is a scalar XSTS
+judgment, not a human review of the translation.
+
+In the frozen run, this prompt was applied with \texttt{gpt-5.4} to the 148
+BLASER-flagged prompt translations. It was not applied to the 3,921
+translations that passed the BLASER gate.
+
+\begin{quote}\small\ttfamily\raggedright
+You are a translation quality auditor. You will be shown an English source
+sentence and its translation into \{TARGET\_LANGUAGE\}. Rate the translation
+on the cross-lingual semantic textual similarity (XSTS) scale:
+
+5 = Completely equivalent in meaning and usage. \\
+4 = Mostly equivalent; minor unimportant differences. \\
+3 = Roughly equivalent; some important information differs or is missing. \\
+2 = Not equivalent; share some details but differ significantly. \\
+1 = Completely dissimilar in meaning.
+
+Source (English): \{SOURCE\} \\
+Translation (\{TARGET\_LANGUAGE\}): \{TARGET\}
+
+Respond with a single integer 1--5 and nothing else.
+\end{quote}

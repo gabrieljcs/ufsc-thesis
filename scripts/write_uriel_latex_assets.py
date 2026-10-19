@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import csv
+import runpy
 from pathlib import Path
 
 import numpy as np
@@ -129,14 +130,14 @@ def table(matrix: dict[str, dict[str, float]]) -> str:
         r"\setlength{\tabcolsep}{3.2pt}",
         r"\renewcommand{\arraystretch}{1.18}",
         r"\begin{adjustbox}{width=0.9\linewidth,center}",
-        r"\begin{tabular}{>{\raggedright\arraybackslash}p{2.45cm}|*{13}{>{\centering\arraybackslash}p{0.88cm}}}",
+        r"\begin{tabular}{>{\raggedright\arraybackslash}p{2.85cm}|*{13}{>{\centering\arraybackslash}p{0.88cm}}}",
         r"\hline",
         r"\textbf{Language} & " + " & ".join(f"\\cellcolor[HTML]{{{FAMILY[lang][2]}}}\\textbf{{\\texttt{{{lang}}}}}" for lang in ORDER) + r" \\",
         r"\hline",
     ]
     for lang in ORDER:
         row = [
-            f"\\cellcolor[HTML]{{{FAMILY[lang][2]}}}\\textbf{{{LANG_DISPLAY[lang]} (\\texttt{{{lang}}})}}"
+            f"\\cellcolor[HTML]{{{FAMILY[lang][2]}}}\\textbf{{\\mbox{{{LANG_DISPLAY[lang]} (\\texttt{{{lang}}})}}}}"
         ]
         for other in ORDER:
             if lang == other:
@@ -144,7 +145,7 @@ def table(matrix: dict[str, dict[str, float]]) -> str:
             else:
                 color = distance_color(matrix[lang][other], low, high)
                 row.append(
-                    f"\\cellcolor[HTML]{{{color}}}\\textcolor{{{text_color(color)}}}{{{matrix[lang][other]:.2f}}}"
+                    f"\\cellcolor[HTML]{{{color}}}\\textcolor{{{text_color(color)}}}{{{matrix[lang][other]:.3f}}}"
                 )
         lines.append(" & ".join(row) + r" \\")
         if lang in {"spa", "swe", "fin", "ukr", "ara"}:
@@ -160,7 +161,7 @@ def table(matrix: dict[str, dict[str, float]]) -> str:
             r"\fill[UrielFar] (5.0,0) rectangle (5.55,1);\node[anchor=west,font=\scriptsize] at (5.65,0.5) {farther};",
             r"\node[anchor=west,font=\scriptsize] at (8.25,0.5) {Rows and columns are grouped by broad family only for readability.};",
             r"\end{tikzpicture}",
-            r"\par\fonte{Author, based on URIEL+ featural angular distances from \textcite{khan-etal-2025-uriel}.}",
+            r"\par\fonte{Prepared by the author (2026), based on URIEL+ featural angular distances from \textcite{khan-etal-2025-uriel}.}",
             r"\endgroup",
             r"\end{table}",
             r"\end{landscape}",
@@ -193,11 +194,11 @@ def mds_figure(matrix: dict[str, dict[str, float]]) -> str:
         r"\centering",
         r"\begin{tikzpicture}",
         r"\begin{axis}[",
-        r"width=0.88\linewidth,height=7.7cm,",
-        r"axis lines=middle,",
+        r"width=0.95\linewidth,height=8.2cm,",
+        r"axis lines=left,axis equal image,",
         r"xlabel={MDS dimension 1},ylabel={MDS dimension 2},",
-        r"xmin=-0.42,xmax=0.40,ymin=-0.24,ymax=0.26,",
-        r"grid=both,",
+        r"xmin=-0.48,xmax=0.45,ymin=-0.28,ymax=0.29,",
+        r"grid=major,grid style={black!8},",
         r"tick label style={font=\scriptsize},",
         r"label style={font=\scriptsize},",
         r"legend columns=3,",
@@ -216,19 +217,11 @@ def mds_figure(matrix: dict[str, dict[str, float]]) -> str:
         lines.append(f"\\addlegendimage{{only marks,mark=*,mark options={{fill={color},draw={color}}}}}")
         lines.append(f"\\addlegendentry{{{name}}}")
     label_offsets = {
-        "ara": (-8, -8),
-        "bul": (-14, 8),
-        "dan": (6, 5),
-        "eng": (6, -8),
-        "fin": (6, 6),
-        "ita": (-18, 8),
-        "nor": (6, -8),
-        "por": (-17, -3),
-        "rus": (6, 8),
-        "spa": (-16, -8),
-        "swa": (-18, -4),
-        "swe": (6, 5),
-        "ukr": (-16, -4),
+        "ara": (0, 13), "bul": (32, -3), "dan": (0, -14),
+        "eng": (0, 13), "fin": (23, -3), "ita": (-26, 13),
+        "nor": (0, 13), "por": (-37, -6), "rus": (0, -14),
+        "spa": (26, -12), "swa": (0, 13), "swe": (27, 0),
+        "ukr": (-34, 10),
     }
     for lang in ORDER:
         x, y = coords[lang]
@@ -238,15 +231,15 @@ def mds_figure(matrix: dict[str, dict[str, float]]) -> str:
             f"\\addplot+[only marks,mark=*,mark size=2.8pt,mark options={{fill={color},draw=black,line width=0.25pt}}] coordinates {{({x:.4f},{y:.4f})}};"
         )
         lines.append(
-            f"\\node[font=\\scriptsize,anchor=center] at ([xshift={dx}pt,yshift={dy}pt]axis cs:{x:.4f},{y:.4f}) {{\\texttt{{{lang}}}}};"
+            f"\\draw[black!30,thin] (axis cs:{x:.4f},{y:.4f}) -- ([xshift={dx}pt,yshift={dy}pt]axis cs:{x:.4f},{y:.4f});\\node[font=\\scriptsize,fill=white,inner sep=1.5pt,anchor=center] at ([xshift={dx}pt,yshift={dy}pt]axis cs:{x:.4f},{y:.4f}) {{{LANG_DISPLAY[lang]}}};"
         )
     lines.extend(
         [
             r"\end{axis}",
             r"\end{tikzpicture}",
-            rf"\caption[Two-dimensional URIEL+ language-proximity map]{{Two-dimensional classical MDS projection of the URIEL+ featural distance matrix. The first two dimensions summarize {explained * 100:.1f}\% of the positive-eigenvalue variation, so the figure is a visual aid rather than a replacement for the pairwise distances in Table~\ref{{tab:urielplus-distances}}.}}",
+            rf"\caption[Two-dimensional URIEL+ language-proximity map]{{Classical multidimensional scaling (MDS) of the URIEL+ featural distance matrix \cite{{gower1966distance}}. Languages are colored by broad family.}}",
             r"\label{fig:uriel-language-map}",
-            r"\fonte{Author, based on URIEL+ featural angular distances from \textcite{khan-etal-2025-uriel}.}",
+            r"\fonte{Prepared by the author (2026), based on URIEL+ featural angular distances from \textcite{khan-etal-2025-uriel}.}",
             r"\end{figure}",
             r"}",
         ]
@@ -255,90 +248,18 @@ def mds_figure(matrix: dict[str, dict[str, float]]) -> str:
 
 
 def sociolinguistic_map_figure() -> str:
-    lines = [
-        r"\newcommand{\AttackLanguageSpeakerMapFigure}{%",
-        r"\begin{figure}[htbp]",
-        r"\centering",
-        r"\begin{tikzpicture}",
-        r"\begin{axis}[",
-        r"width=0.96\linewidth,height=8.6cm,",
-        r"xmin=-180,xmax=180,ymin=-60,ymax=82,",
-        r"axis equal image,",
-        r"axis lines=left,",
-        r"xlabel={Approximate longitude},ylabel={Approximate latitude},",
-        r"xtick={-150,-100,-50,0,50,100,150},",
-        r"ytick={-50,0,50},",
-        r"grid=both,",
-        r"grid style={black!7},",
-        r"tick label style={font=\scriptsize},",
-        r"label style={font=\scriptsize},",
-        r"legend columns=3,",
-        r"xlabel style={yshift=0.45em},",
-        r"legend style={font=\scriptsize,draw=none,fill=none,at={(0.5,-0.19)},anchor=north,",
-        r"/tikz/every even column/.append style={column sep=0.35cm}},",
-        r"]",
-        r"\addlegendimage{only marks,mark=*,mark size=2.8pt,mark options={fill=SpeakerTiny,draw=black,line width=0.25pt}}",
-        r"\addlegendentry{$<10$M}",
-        r"\addlegendimage{only marks,mark=*,mark size=3.4pt,mark options={fill=SpeakerSmall,draw=black,line width=0.25pt}}",
-        r"\addlegendentry{10--50M}",
-        r"\addlegendimage{only marks,mark=*,mark size=4.1pt,mark options={fill=SpeakerMedium,draw=black,line width=0.25pt}}",
-        r"\addlegendentry{50--250M}",
-        r"\addlegendimage{only marks,mark=*,mark size=5.0pt,mark options={fill=SpeakerLarge,draw=black,line width=0.25pt}}",
-        r"\addlegendentry{250--500M}",
-        r"\addlegendimage{only marks,mark=*,mark size=6.0pt,mark options={fill=SpeakerHuge,draw=black,line width=0.25pt}}",
-        r"\addlegendentry{$>500$M}",
-    ]
-    continent_polygons = [
-        [(-168, 12), (-158, 55), (-120, 73), (-62, 58), (-54, 25), (-90, 8), (-128, 16), (-168, 12)],
-        [(-82, 12), (-48, 4), (-35, -35), (-64, -56), (-82, -20), (-82, 12)],
-        [(-12, 36), (35, 72), (104, 71), (174, 56), (160, 18), (106, 4), (70, 25), (35, 32), (-12, 36)],
-        [(-20, 35), (50, 34), (52, -30), (15, -36), (-18, -6), (-20, 35)],
-        [(112, -10), (154, -12), (150, -42), (116, -36), (112, -10)],
-        [(-45, 62), (-28, 76), (-15, 65), (-45, 62)],
-    ]
-    for polygon in continent_polygons:
-        coords = " ".join(f"({lon},{lat})" for lon, lat in polygon)
-        lines.append(rf"\addplot[draw=black!20,fill=black!5,line width=0.35pt] coordinates {{{coords}}};")
-
-    label_offsets = {
-        "ara": (12, -10),
-        "bul": (13, -8),
-        "dan": (12, 0),
-        "eng": (-6, 13),
-        "fin": (16, 8),
-        "ita": (-16, -10),
-        "nor": (-13, 8),
-        "por": (14, -4),
-        "rus": (19, 2),
-        "spa": (12, 8),
-        "swa": (12, -8),
-        "swe": (17, 4),
-        "ukr": (17, -1),
-    }
-    for lang in ORDER:
-        lon, lat, _bin, color, marker_size = SPEAKER_MAP_DATA[lang]
-        dx, dy = label_offsets[lang]
-        lines.append(
-            f"\\addplot+[only marks,mark=*,mark size={marker_size:.1f}pt,mark options={{fill={color},draw=black,line width=0.25pt,fill opacity=0.92}}] coordinates {{({lon:.1f},{lat:.1f})}};"
-        )
-        lines.append(
-            f"\\node[font=\\scriptsize,fill=white,fill opacity=0.72,text opacity=1,inner sep=1pt,anchor=center] at ([xshift={dx}pt,yshift={dy}pt]axis cs:{lon:.1f},{lat:.1f}) {{\\texttt{{{lang}}}}};"
-        )
-    lines.extend(
-        [
-            r"\end{axis}",
-            r"\end{tikzpicture}",
-            r"\caption[Attack-language speaker-scale map]{Approximate geographic reference map for the selected attack languages, with marker colour and size indicating coarse total-speaker bins. The figure is descriptive context only: points mark broad reference locations for major speaker communities, not exclusive territories or model-training exposure, and transnational languages are necessarily simplified.}",
-            r"\label{fig:attack-language-speaker-map}",
-            r"\fonte{Author, based on approximate total-speaker estimates from \textcite{eberhard2025ethnologue} and language catalogue/location metadata from \textcite{hammarstrom2026glottolog}.}",
-            r"\end{figure}",
-            r"}",
-        ]
-    )
-    return "\n".join(lines)
+    return r"""\newcommand{\AttackLanguageSpeakerMapFigure}{%
+\begin{figure}[htbp]\centering
+\includegraphics[max width=\linewidth]{figures/compiled/attack_language_map.pdf}
+\caption[Attack-language speaker map]{Representative speaker communities for the thirteen attack languages, with a European inset. Transnational languages appear at multiple locations; color identifies the language and marker size encodes its total-speaker bin.}
+\label{fig:attack-language-speaker-map}
+\fonte{Prepared by the author (2026), based on Natural Earth country boundaries and speaker estimates from \textcite{eberhard2025ethnologue}; reference locations informed by \textcite{hammarstrom2026glottolog}.}
+\end{figure}}
+"""
 
 
 def write_assets() -> None:
+    runpy.run_path(str(Path(__file__).with_name("write_speaker_map.py")))
     _, matrix = load_matrix()
     definitions = ["% Generated by eval/scripts/write_uriel_latex_assets.py. Do not edit by hand."]
     for name, value in FAMILY_COLORS.items():

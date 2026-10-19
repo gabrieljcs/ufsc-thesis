@@ -1,0 +1,40 @@
+% Conceptual pre-normalized transformer block; not an activation embedding.
+\begin{figure}[htbp]\centering
+\caption[Residual stream and the audit's measurement site]{The residual stream carries a token's vector through the transformer. Attention and feed-forward updates are added to it; the continuing path is the residual connection. The lower boxes distinguish reading an activation from changing it in this audit. Schematic; normalization and positional details are omitted.}
+
+\begin{tikzpicture}[font=\fontsize{9.5}{11.5}\selectfont,
+flow/.style={-{Latex[length=2mm]},thick,draw=black!50},
+module/.style={draw=black!25,rounded corners=3pt,fill=black!3,align=center,minimum width=2cm,minimum height=.7cm},
+add/.style={circle,draw=black!50,fill=white,inner sep=2pt},
+small/.style={font=\fontsize{8.5}{10}\selectfont,align=center}]
+\definecolor{streamblue}{HTML}{286F8C}
+\definecolor{streamorange}{HTML}{A64B39}
+\node[anchor=west,font=\bfseries] at (0,3.4) {Residual stream};
+\foreach \x/\t in {1/$t_1$,2/$t_2$,3/$\cdots$}{\node[draw=black!25,minimum width=.7cm,minimum height=.5cm] at (\x,2.65) {\t};}
+\node[draw=streamblue,fill=streamblue!12,minimum width=.7cm,minimum height=.5cm] at (4,2.65) {$t_n$};
+\node[small,anchor=west,text=streamblue] at (4.6,2.65) {Final token of the rendered chat prompt};
+\node[small,text width=2.3cm,text=black!60] at (12,1.6) {One transformer\\block shown};
+\node (input) at (.65,0) {$h_{\mathrm{in}}$};
+\node[add] (a) at (5,0) {$+$};
+\node[add] (b) at (10,0) {$+$};
+\node (output) at (12.6,0) {$h_{\mathrm{out}}$};
+\draw[flow,streamblue,very thick] (input.east) -- (a.west);
+\draw[flow,streamblue,very thick] (a.east) -- (b.west);
+\draw[flow,streamblue,very thick] (b.east) -- (output.west);
+\node[module] (attention) at (3.2,1) {Attention};
+\draw[flow] (1.7,0) |- (attention.west);
+\draw[flow] (attention.east) -| (a.north);
+\node[small] at (3.2,1.65) {Reads this token and\\earlier token positions};
+\node[module] (mlp) at (8.2,1) {Feed-forward (MLP)};
+\draw[flow] (6.2,0) |- (mlp.west);
+\draw[flow] (mlp.east) -| (b.north);
+\node[small] at (8.2,1.65) {Processes the updated\\vector at this position};
+\node[small,text=streamblue] at (6.6,-.65) {Residual stream: carry the vector forward and add each update};
+\node[module,fill=streamblue!7,text width=5.4cm] (read) at (3.3,-2.05) {\textbf{Measurement}\\Read $h$ at residual index 22\\4\,096 values $\rightarrow$ projection onto $\hat r$};
+\node[module,fill=streamorange!7,text width=5.4cm] (change) at (10.4,-2.05) {\textbf{Intervention}\\At the same site, add $+\alpha\hat r$\\Continue through later layers and generate};
+\draw[flow,dashed] (output.south) -- (12.6,-.9) -| (read.north);
+\draw[flow,dashed] (12.6,-.9) -| (change.north);
+\end{tikzpicture}
+\label{fig:residual-stream}
+\fonte{Prepared by the author (2026), following \textcite{arditiRefusalLanguageModels2024}.}
+\end{figure}

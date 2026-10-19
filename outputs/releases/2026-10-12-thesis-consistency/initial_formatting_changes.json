@@ -1,0 +1,117 @@
+{
+  "mode": "fix",
+  "files_scanned": 48,
+  "files_needing_changes": 26,
+  "totals": {
+    "integer_grouping": 115,
+    "figure_title_placement": 33,
+    "model_display_alias": 22,
+    "model_display_font": 92
+  },
+  "files": {
+    "ufscthesisx/ufscthesisx/aftertext/anexo_a.tex": {
+      "integer_grouping": 1,
+      "figure_title_placement": 0
+    },
+    "ufscthesisx/ufscthesisx/aftertext/apendice_a.tex": {
+      "integer_grouping": 1,
+      "figure_title_placement": 0
+    },
+    "ufscthesisx/ufscthesisx/aftertext/apendice_c.tex": {
+      "integer_grouping": 7,
+      "figure_title_placement": 0
+    },
+    "ufscthesisx/ufscthesisx/aftertext/apendice_g.tex": {
+      "model_display_alias": 2,
+      "integer_grouping": 63,
+      "figure_title_placement": 0
+    },
+    "ufscthesisx/ufscthesisx/chapters/collinearity_sensitivity_interpretation.tex": {
+      "integer_grouping": 1,
+      "figure_title_placement": 0
+    },
+    "ufscthesisx/ufscthesisx/chapters/discussion.tex": {
+      "model_display_font": 13,
+      "figure_title_placement": 1
+    },
+    "ufscthesisx/ufscthesisx/chapters/graded_assets.tex": {
+      "model_display_alias": 11,
+      "integer_grouping": 14,
+      "figure_title_placement": 0
+    },
+    "ufscthesisx/ufscthesisx/chapters/literature_review.tex": {
+      "integer_grouping": 1,
+      "figure_title_placement": 0
+    },
+    "ufscthesisx/ufscthesisx/chapters/mechanistic_generated_assets.tex": {
+      "model_display_font": 17,
+      "model_display_alias": 5,
+      "figure_title_placement": 5
+    },
+    "ufscthesisx/ufscthesisx/chapters/methodology.tex": {
+      "model_display_font": 23,
+      "integer_grouping": 6,
+      "figure_title_placement": 4
+    },
+    "ufscthesisx/ufscthesisx/chapters/quality_descriptive_assets.tex": {
+      "integer_grouping": 10,
+      "figure_title_placement": 0
+    },
+    "ufscthesisx/ufscthesisx/chapters/results.tex": {
+      "model_display_font": 3,
+      "integer_grouping": 5,
+      "figure_title_placement": 7
+    },
+    "ufscthesisx/ufscthesisx/chapters/results_generated_assets.tex": {
+      "model_display_font": 36,
+      "figure_title_placement": 6
+    },
+    "ufscthesisx/ufscthesisx/chapters/uriel_generated_assets.tex": {
+      "figure_title_placement": 2
+    },
+    "ufscthesisx/ufscthesisx/figures/belebele_profiles.tex": {
+      "model_display_alias": 1,
+      "figure_title_placement": 0
+    },
+    "ufscthesisx/ufscthesisx/figures/belebele_worked_example.tex": {
+      "figure_title_placement": 1
+    },
+    "ufscthesisx/ufscthesisx/figures/bootstrap_worked_example.tex": {
+      "integer_grouping": 3,
+      "figure_title_placement": 1
+    },
+    "ufscthesisx/ufscthesisx/figures/graded_distance_appendix.tex": {
+      "figure_title_placement": 1
+    },
+    "ufscthesisx/ufscthesisx/figures/graded_distance_pairs.tex": {
+      "model_display_alias": 1,
+      "figure_title_placement": 0
+    },
+    "ufscthesisx/ufscthesisx/figures/graded_spec_reference_scatter.tex": {
+      "model_display_alias": 1,
+      "figure_title_placement": 0
+    },
+    "ufscthesisx/ufscthesisx/figures/mechanistic_intervention_scores.tex": {
+      "figure_title_placement": 1
+    },
+    "ufscthesisx/ufscthesisx/figures/mechanistic_methodology.tex": {
+      "integer_grouping": 1,
+      "figure_title_placement": 1
+    },
+    "ufscthesisx/ufscthesisx/figures/mechanistic_results_overview.tex": {
+      "figure_title_placement": 1
+    },
+    "ufscthesisx/ufscthesisx/figures/residual_stream.tex": {
+      "integer_grouping": 1,
+      "figure_title_placement": 1
+    },
+    "ufscthesisx/ufscthesisx/figures/statistical_analysis_overview.tex": {
+      "integer_grouping": 1,
+      "figure_title_placement": 1
+    },
+    "ufscthesisx/ufscthesisx/figures/strongreject_profiles.tex": {
+      "model_display_alias": 1,
+      "figure_title_placement": 0
+    }
+  }
+}

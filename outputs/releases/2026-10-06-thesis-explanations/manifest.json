@@ -1,0 +1,28 @@
+{
+  "revision": "Presentation and explanation changes; no response, score, gold or statistical-estimation changes. Existing example responses formatted verbatim.",
+  "sources_sha256": {
+    "eval/outputs/releases/2026-09-09-corrected/dataset_corrected.jsonl": "ef79a4d610c5f0ea888102f7cd2658a0cf7a1d7004ee6eccb16987ae78e8b1c1",
+    "eval/outputs/spec/llamantino_2_ultrachat_7b.belebele.jsonl": "29d95f78b05d485df42b6dbe5dbce676852b64f2be3be302a5037e79f2be8da6",
+    "eval/outputs/releases/2026-09-29-score-magnitude-v2/effects.csv": "25bc239cf56a4057843e764a9e6768bc3f5e33d29554c4f84432686561a2d5c1",
+    "eval/outputs/releases/2026-09-29-score-magnitude-v2/model_summary.csv": "c453d4b6b3e3c3306dd2437390fd81703b403a88e746a01694c53fd8a38e8197"
+  },
+  "code_and_source_sha256": {
+    "ufscthesisx/ufscthesisx/chapters/results.tex": "1820e526b2545dcd3dedaa64c55247bd024e081ebda6b8a03190494fd527f492",
+    "ufscthesisx/ufscthesisx/chapters/discussion.tex": "b23f2c450209b3409d43521cb8066b1e085d547a154fa763a8718f820ab28da4",
+    "ufscthesisx/ufscthesisx/figures/belebele_worked_example.tex": "df3a4eadb88505f3fc6d1724ee1a93b78e19a773376b481bfbc3827017656d4d",
+    "ufscthesisx/ufscthesisx/settings.tex": "24c1eabb9405591214541424c3ad6a74c7ea5bbf82a9bc5bed460d949202cb46",
+    "ufscthesisx/ufscthesisx/aftertext/apendice_a.tex": "6ac40e4a718b2bd6c0dcdfa65d33e6678dbf670dd88cac3c498afeb70a432aa1",
+    "ufscthesisx/ufscthesisx/aftertext/apendice_b.tex": "ca5280ada25b1a6b7988201a25e52f496725f34c40f5e8bfe68efeb80f52f234",
+    "ufscthesisx/ufscthesisx/aftertext/apendice_c.tex": "5058d140c9bf29b1223f79e461460019e7adb25a8ae6678ee5a10c542451c342",
+    "ufscthesisx/ufscthesisx/aftertext/apendice_d.tex": "c7b23c0e4d87cbab6fd6536cd4a24f7fc33776e0c294d98e0625e3ec738ae842",
+    "ufscthesisx/ufscthesisx/aftertext/apendice_e.tex": "465a04645d4f2eeeb84c49aa619db0795d83e7cee0fb0d91e3ec76ed33ba90e9",
+    "ufscthesisx/ufscthesisx/aftertext/apendice_g.tex": "8541c8fd808eb7bda99f16ca72d44ad6148c14f04d7b87ad5ea195b9862a3865",
+    "eval/scripts/write_full_response_examples.py": "49c32df4d60aceb596d79dd8eead8ce230824292c3b992f0e4e21f3807c495b5",
+    "eval/scripts/write_graded_appendix.py": "b2e5b55cc3b5dc5d75b6598ba2eb2173dc21f4147b53e6e067aea8efed9d536a",
+    "eval/scripts/write_belebele_quality_appendix.py": "d6dee8ba38fa1fa50ba2e15437c9a5b865af92a2b272a25e81662decf34cf489",
+    "eval/scripts/write_belebele_sparse_examples.py": "dec438070c5019ef5746f04eb8398c05c42f4ab30be4ba387ee74806d071c9b5",
+    "eval/scripts/format_belebele_appendix.py": "cbeae76ce0f0ca19bb97728fdfd09b8235d8c484b07e075dc1588b2c9a06ea85"
+  },
+  "pdf_sha256": "7052fecdafcd906faaaf84d4bae825799b7a0779b2c6bb1d6e945e752ab479fb",
+  "validation": "latexmk completed; no overfull boxes or unresolved LaTeX references in final log; representative rewritten pages, BELEBELE diagram and appendix tables visually checked; all seven response exports exactly match source texts and scores."
+}

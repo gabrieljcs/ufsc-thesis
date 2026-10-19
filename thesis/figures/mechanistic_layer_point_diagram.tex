@@ -1,0 +1,39 @@
+% Symbolic construction of one layer-sweep point; no observed projections shown.
+\begin{tikzpicture}[font=\fontsize{9}{11}\selectfont,
+flow/.style={-{Latex[length=1.8mm]},thick,draw=black!45},
+box/.style={draw=black!20,rounded corners=2pt,minimum height=.75cm,fill=black!2},
+small/.style={font=\fontsize{8}{9.5}\selectfont,align=center}]
+\definecolor{pointblue}{HTML}{286F8C}
+\definecolor{pointorange}{HTML}{A64B39}
+\node[anchor=west,font=\fontsize{10}{12}\selectfont\bfseries] at (0,0) {A. Construct one point at candidate index $\ell$};
+\node[small] at (4.5,-.6) {Half A: estimate direction};
+\node[small] at (8.45,-.6) {Half B: rank outcomes};
+\node[small] at (12,-.6) {One AUC per model};
+\foreach \y/\name/\tag in {-1.3/{English\\reference}/Ref,-2.5/ANITA/ANITA,-3.7/AI Sweden/Sweden}{
+  \node[anchor=west,text width=2.05cm,align=left] at (0,\y) {\name};
+  \node[box,minimum width=3.4cm,fill=pointblue!4] at (4.5,\y) {};
+  \node[text=pointblue] at (3.45,\y) {$\mu_R$};
+  \node at (4.05,\y) {$-$};
+  \node[text=pointorange] at (4.65,\y) {$\mu_U$};
+  \draw[flow] (5.05,\y) -- (5.5,\y);
+  \node at (5.85,\y) {$\hat r_\ell$};
+  \draw[flow] (2.15,\y) -- (2.7,\y);
+  \node[box,minimum width=3.35cm,fill=pointorange!4] at (8.45,\y) {};
+  \draw[flow] (6.25,\y) -- (6.7,\y);
+  \draw[flow] (7.15,\y) -- (9.65,\y);
+  \fill[pointorange] (7.45,\y) circle (.06);
+  \fill[pointblue] (8.05,\y) circle (.06);
+  \fill[pointorange] (8.55,\y) circle (.06);
+  \fill[pointblue] (9.15,\y) circle (.06);
+  \draw[flow] (10.2,\y) -- (10.75,\y);
+  \node[box,minimum width=2.1cm,fill=white] at (12,\y) {$\mathrm{AUC}_{\mathrm{\tag}}$};
+  \draw[black!40,thick] (13.1,\y) -- (13.5,\y);
+}
+\node[small,text=black!60,text width=3.35cm] at (4.5,-4.45) {Difference of means;\\normalize};
+\node[small,text=black!60,text width=3.35cm] at (8.45,-4.45) {Project onto\\estimated direction};
+\draw[black!40,thick] (13.5,-1.3) -- (13.5,-4.95) -- (7,-4.95);
+\node[box,fill=pointblue!6,text width=11.5cm,align=center,minimum height=.7cm] (mean) at (7,-5.55) {
+$\overline{\mathrm{AUC}}_\ell=(\mathrm{AUC}_{\mathrm{Ref}}+\mathrm{AUC}_{\mathrm{ANITA}}+\mathrm{AUC}_{\mathrm{Sweden}})/3$};
+\draw[flow] (7,-4.95) -- (mean.north);
+\node[small] at (7,-6.2) {One plotted point: $(\ell,\overline{\mathrm{AUC}}_\ell)$\quad$\longrightarrow$\quad Repeat at $8,10,\ldots,24$ using the same splits};
+\end{tikzpicture}

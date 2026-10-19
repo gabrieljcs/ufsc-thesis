@@ -1,0 +1,10 @@
+{
+  "purpose": "Presentation only; per-language StrongREJECT profiles using saved means and intervals.",
+  "source": "eval/outputs/releases/2026-09-29-graded-reporting/cell_summary.csv",
+  "source_sha256": "d61e641f104d87fd79f3b001c0b990c2552a5447129db624d3085ff6675824af",
+  "figure_sha256": "da9bb784913616501bb063eda90964c296dd01c9290da406bf2ae614a0d2464a",
+  "code_sha256": "56e61f5e5acff152bc5be695852ed52e60c5e3c76db306715f68e813502693f6",
+  "estimate_changes": false,
+  "intervals": "Saved 95% source-prompt cluster percentile bootstrap intervals, 2000 draws.",
+  "axis": "Equal language spacing, ordered by increasing within-model URIEL+ distance; not metric distance spacing."
+}

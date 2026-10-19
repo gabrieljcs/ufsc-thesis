@@ -1,0 +1,32 @@
+{
+  "purpose": "Expanded mechanistic interpretation and presentation-only revision of Figure 27, using saved measurements.",
+  "inputs": {
+    "eval/outputs/mechanistic/results/layer_sweep.csv": "fc37d51dea45352902fc5e8711b27c81bcc5314fc622c5ee5ac4c92388f5ef63",
+    "eval/outputs/mechanistic/results/transfer.csv": "92a4ac5f540307e6a0dd68e8548e6b2d64b7d8a119d1926416d5f861fcc1b35c",
+    "eval/outputs/mechanistic/results/language_similarity.csv": "d3cab4d638bd3f1ad6c073e14a40946b962f3bf547107a356cba8d9a7d9b43b9",
+    "eval/outputs/mechanistic/results/refusal_summary.csv": "4fb55ae866768ce4add33cd2aa0d17f5b6f847ef13eb1a0ee62dacc7e1206f71",
+    "eval/outputs/releases/2026-09-29-graded-reporting/mechanistic_graded_correlations.csv": "79a2e861a91fd3f7ecb5c4d4339bed3db445a0dc4766a9b2405adfca2c39bbdb",
+    "eval/outputs/releases/2026-09-29-graded-reporting/mechanistic_graded_cells.csv": "affaa718732e613e3cbb0db5931a3a2a673b2209eb0c71ea645751d0e08bfbcd"
+  },
+  "outputs": {
+    "ufscthesisx/ufscthesisx/chapters/discussion.tex": "92ab1bf81186bf4030cb0143b0fcbf7db75459ec046a45d56b023ce20c9601c5",
+    "ufscthesisx/ufscthesisx/figures/mechanistic_layer_selection.tex": "a63b095845bad3d570af0df98dc8d92fdcf4fa2a90a0237ed1441881a6ab60b1"
+  },
+  "generator_sha256": "40411a67c7f135c563ff1ea0bc6c8d169999e27c4e17af645c5f3fcab0725d54",
+  "pdf_sha256": "0eda723e51f906686773de35efc69a4538e3c9bc73c3d713d7efee57f3dda763",
+  "verified_examples": "Layer 8/14/20/22 values; 42 transfer pairs per model; means and counts above 0.7; Danish/Swahili AI Sweden AUC and behavioral scores.",
+  "interpretation_limits": "Selection halves reused; canonical questions not held out; cell AUCs in-sample; graded MH3 revised post-results; differing intervention strengths and absent controls leave comparative steerability unresolved.",
+  "validation": {
+    "figure_number": 27,
+    "warnings_of_overflow_or_unresolved_references": false,
+    "visually_reviewed_pdf_pages": [
+      117,
+      118,
+      119,
+      121,
+      122,
+      124
+    ],
+    "new_experimental_run": false
+  }
+}

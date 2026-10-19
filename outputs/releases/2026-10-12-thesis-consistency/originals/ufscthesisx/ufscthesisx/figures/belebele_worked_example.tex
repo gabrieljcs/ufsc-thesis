@@ -1,0 +1,74 @@
+\begin{figure}[p]
+\centering
+\begin{tikzpicture}[font=\small,x=1cm,y=1cm]
+\definecolor{exampleblue}{HTML}{286F8C}
+\definecolor{exampleorange}{HTML}{A64B39}
+
+% Complete English passage from BELEBELE eng_Latn.jsonl, row 726;
+% canonical identity: https://en.wikivoyage.org/wiki/Gambling, question 2.
+\node[anchor=north west,inner sep=0,font=\small\bfseries] at (0,0) {English source passage};
+\node[anchor=north west,inner sep=0,text width=14.05cm,align=left] (passage) at (0,-.55) {
+\textit{``Casinos typically make many efforts to maximize time and money spent by guests. Windows and clocks are usually absent, and exits can be hard to find. They usually have special food, drink and entertainment offers, to keep guests in a good mood, and keep them at the premise. Some venues offer alcoholic beverages on the house. However, drunkenness impairs judgement, and all good gamblers know the importance of staying sober.''}
+};
+\coordinate (steps) at ([yshift=-.65cm]passage.south west);
+\begin{scope}[shift={(steps)}]
+
+\node[anchor=north west,inner sep=0,font=\small\bfseries] at (0,0) {1. Question};
+\node[anchor=north west,inner sep=0,font=\small\bfseries] at (4.9,0) {2. Responses};
+\node[anchor=north west,inner sep=0,font=\small\bfseries] at (9.8,0) {3. Scores};
+\draw[black!35] (0,-.38) -- (14.05,-.38);
+
+\node[anchor=north west,inner sep=0,text width=4.25cm,align=left] (source) at (0,-.7) {
+\textbf{English source question}\\[7pt]
+\textit{``According to the passage, what should a smart gambler avoid?''}\\[10pt]
+\textbf{A. Drinking too much alcohol}\\[7pt]
+B. Accepting any incentives\\[7pt]
+C. Checking clocks or watches\\[7pt]
+D. Inquiring about the nearest exit\\[10pt]
+\textbf{Supplied gold: A}
+};
+
+\node[anchor=north west,inner sep=0,text width=4.05cm,align=left] (it) at (4.9,-.7) {
+\textbf{Italian}\\
+\textit{Aligned language}\\[9pt]
+Saved output:\\[3pt]
+\texttt{B. Accett}\\[9pt]
+Parsed choice: \textbf{B}
+};
+\node[anchor=north west,inner sep=0,text width=4.05cm,align=left] (ru) at ([yshift=-.7cm]it.south west) {
+\textbf{Russian}\\
+\textit{Test language}\\[9pt]
+Saved output:\\[3pt]
+\texttt{B.}\\[9pt]
+Parsed choice: \textbf{B}
+};
+
+\node[anchor=north west,inner sep=0,text width=4.25cm,align=left] (accuracy) at (9.8,-.7) {
+\textbf{Accuracy (IF)}\\[9pt]
+{\Large\color{exampleorange}\bfseries 0}\quad Incorrect\\[7pt]
+Russian choice versus gold:\\[3pt]
+$B\ne A$
+};
+\node[anchor=north west,inner sep=0,text width=4.25cm,align=left] (consistency) at ([xshift=4.9cm]ru.north west) {
+\textbf{Consistency (CONS)}\\[9pt]
+{\Large\color{exampleblue}\bfseries 1}\quad Agreement\\[7pt]
+Italian versus Russian choice:\\[3pt]
+$B=B$
+};
+
+% Derive the rules and footer from the actual text extents.
+\node[fit=(source)(it)(ru)(accuracy)(consistency),inner sep=0] (content) {};
+\draw[black!15] (4.6,-.65) -- (4.6,0 |- content.south);
+\draw[black!15] (9.4,-.65) -- (9.4,0 |- content.south);
+\coordinate (ruleleft) at ([yshift=-.45cm]content.south west);
+\coordinate (ruleright) at ([yshift=-.45cm]content.south east);
+\draw[black!35] (ruleleft) -- (ruleright);
+\node[anchor=north west,inner sep=0,text width=14.05cm,align=left] at ([yshift=-.25cm]ruleleft) {
+\textbf{Both answers are incorrect, but they agree.} This question contributes 0 to Russian IF and 1 to CONS.
+};
+\end{scope}
+\end{tikzpicture}
+\par\medskip
+\caption{BELEBELE accuracy and consistency in a saved LLaMAntino-2 example. The same question appears at Italian row 726 and Russian row 359. The complete English source passage, question, and options are shown for reference; the quoted responses are the complete saved outputs. IF and CONS are aggregated over their respective denominators, as defined in the methodology.}\label{fig:belebele-worked-example}
+\fonte{Author.}
+\end{figure}

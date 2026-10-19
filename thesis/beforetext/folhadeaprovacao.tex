@@ -1,0 +1,78 @@
+
+
+\addtotextpreliminarycontent{\lang{Approval Sheet}{Folha de Aprovação}}
+
+\begin{folhadeaprovacao}
+
+    \begin{center}
+        {\imprimirautor}
+
+        \begin{center}
+            \ABNTEXchapterfont\bfseries\MakeUppercase{\imprimirtitulo}\ifnotempty{\imprimirsubtitulo}{: \imprimirsubtitulo}
+        \end{center}
+
+        \begin{minipage}{\textwidth}
+            \lang
+            {
+                This \imprimirtipotrabalho~was accepted in fulfillment of the requirements for the \imprimirformacao,
+                \ifnotempty{\imprimirarea}{in the area of \imprimirarea,}
+                and approved by the \imprimirprograma~of \imprimircentro~of \imprimirinstituicao.
+            }
+            {
+                Este(a) \imprimirtipotrabalho~foi julgado adequado(a) para obtenção do Título de \imprimirformacao,
+                \ifnotempty{\imprimirarea}{na área de concentração de \imprimirarea,}
+                e foi aprovado em sua forma final pelo \imprimirprograma~
+                do \imprimircentro~da \imprimirinstituicao.
+            }
+         \end{minipage}%
+    \end{center}
+
+    \begin{center}
+        \imprimirlocal, \imprimirdata.
+    \end{center}
+
+    \assinatura{%
+        \textbf{\imprimircoordenador} \\
+        \imprimircoordenadorRotulo~\lang{of the}{do} \imprimirprograma
+    }
+
+    % \newpage
+    \begin{flushleft}
+        \textbf{\lang{Examination Board}{Banca Examinadora}:}
+    \end{flushleft}
+
+    \assinatura{%
+        \textbf{\imprimirorientador} \\ \imprimirorientadorRotulo\\
+        \imprimirinstituicao~--~\imprimirinstituicaosigla
+    }
+
+    \ifnotempty{\imprimircoorientador}{%
+        \assinatura{%
+            \textbf{\imprimircoorientador} \\ \imprimircoorientadorRotulo \\
+            \imprimirinstituicao~--~\imprimirinstituicaosigla
+        }
+    }
+
+    \assinatura{%
+        \textbf{Mauro Roisenberg, \lang{PhD}{Dr.}} \\
+        Universidade Federal de Santa Catarina -- UFSC
+    }
+
+    \assinatura{%
+        \textbf{Giovani Gracioli, \lang{PhD}{Dr.}} \\
+        Universidade Federal de Santa Catarina -- UFSC
+    }
+    
+    \assinatura{%
+        \textbf{Wesley dos Reis Bezerra, \lang{PhD}{Dr.}} \\
+        Instituto Federal Catarinense -- IFC
+    }
+    
+    \assinatura{%
+        \textbf{Leonardo Londero de Oliveira, \lang{PhD}{Dr.}} \\
+        Universidade Federal de Santa Maria -- UFSM
+    }
+
+
+\end{folhadeaprovacao}
+

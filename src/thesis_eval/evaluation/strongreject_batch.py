@@ -7,6 +7,7 @@ from typing import Any
 
 from thesis_eval.evaluation.strongreject import (
     apply_strongreject_result,
+    rubric_fingerprint,
     build_strongreject_rubric_messages,
     parse_strongreject_rubric_judge_response,
     prepare_row_for_strongreject,
@@ -38,6 +39,8 @@ def prepare_strongreject_batch_entries(
             translator=translator,
         )
         prepared_row, response_text = prepare_row_for_strongreject(enriched)
+        prepared_row.update(judge_model=judge_model, evaluator_name="openai_rubric_batch",
+                            evaluator_version="local_rubric:"+rubric_fingerprint(), rubric_sha256=rubric_fingerprint())
         custom_id: str | None = None
         if response_text is not None:
             custom_id = f"{custom_id_prefix}-{request_index:08d}"
@@ -157,6 +160,7 @@ def _apply_batch_result_to_manifest_row(
     try:
         judge_response = extract_batch_response_text(body)
         result = parse_strongreject_rubric_judge_response(judge_response)
+        result.update(raw_judge_response=judge_response, judge_model_version=body.get("model"))
     except Exception as exc:
         return _mark_batch_failure(row, f"strongreject_error: {exc}")
 

@@ -1,0 +1,8 @@
+{
+  "all_checks_passed": true,
+  "source_scores_unchanged": true,
+  "cell_means_verified": 117,
+  "model_scope_summaries_verified": 30,
+  "graded_effects_verified": 52,
+  "rubric_formula_verified": 36111
+}

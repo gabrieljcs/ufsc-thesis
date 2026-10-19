@@ -1,0 +1,57 @@
+{
+  "status": "complete",
+  "post_review": true,
+  "source_sha256": {
+    "/Users/gabriel/Developer/ufsc-thesis/eval/outputs/releases/2026-09-09-corrected/dataset_corrected.jsonl": "ef79a4d610c5f0ea888102f7cd2658a0cf7a1d7004ee6eccb16987ae78e8b1c1",
+    "/Users/gabriel/Developer/ufsc-thesis/eval/outputs/dataset_frozen.jsonl": "7b3a01bf653a03d374a92e6eda5579e361c23b74d80a71c837bd6544c1c0d0fc",
+    "/Users/gabriel/Developer/ufsc-thesis/eval/outputs/releases/2026-09-09-corrected/tables/belebele_coverage.csv": "1386562eafd0fdac2314b061bada3b66318a8d547be5245fc1f3dfcc1fff9a5e",
+    "/Users/gabriel/Developer/ufsc-thesis/eval/outputs/releases/2026-09-09-corrected/tables/belebele_questionable_item_sensitivity.csv": "a94b55b7096d26e086c59bec9255b31c9fdf44b05aa7b01bf523bdab410edb79"
+  },
+  "n_scored": 36111,
+  "n_paired": 32090,
+  "python": "3.12.13",
+  "numpy": "1.26.4",
+  "pandas": "3.0.2",
+  "scipy": "1.17.1",
+  "statsmodels": "0.14.6",
+  "bootstrap": {
+    "seed": 20260929,
+    "draws": 2000,
+    "unit": "prompt_id",
+    "interval": "percentile 95%"
+  },
+  "analysis": "Fractional logit GEE with model/language FE and prompt-cluster robust covariance; same-design binary comparator; positive-only exploratory outcome",
+  "limitations": [
+    "Conditional on observed models/languages; cross-prompt residual model-language dependence not captured by prompt clustering",
+    "Positive-only cohort is selected by outcome; not a causal intensity effect",
+    "Multiple exploratory fits; intervals unadjusted for multiplicity",
+    "Graded rubric scores are not calibrated probabilities or direct measures of real-world harm",
+    "Historical scoring/translation limitations remain"
+  ],
+  "script_sha256": {
+    "/Users/gabriel/Developer/ufsc-thesis/eval/scripts/analyze_score_magnitude.py": "672e2a542ff6984765fd1df0a8031ae4d15f46150a57c4b49cf812d70f4a171c",
+    "/Users/gabriel/Developer/ufsc-thesis/eval/src/thesis_eval/analysis/magnitude.py": "f6b24b457007ab2dee626dd0d4845e43fb454bab9789d5423e51fc62416cbdd7"
+  },
+  "output_sha256": {
+    "effects.csv": "25bc239cf56a4057843e764a9e6768bc3f5e33d29554c4f84432686561a2d5c1",
+    "cell_summary.csv": "4137c38f6dfb6367c64554d5559507f680a7ac07bc28d84f2fbc850c13c8c967",
+    "REPORT.md": "cbb2afededc1d624b76fc8c61f8393a82ff50ee830e6619f5f37ecda5fd9cba0",
+    "magnitude_comparison.pdf": "510a19bd40e2c695bdbbfcbb68fd3f1fa3fc0863daf50949f5d6944bb2c49d7e",
+    "diagnostics.json": "7430da22802391fa62ec806aded6de47c63abdbf8eebaa3d59394616e65e5d21",
+    "magnitude_comparison.png": "e80ace008696f518030ef2494ea13c1084a0e3634c3b1540e1c9a8db2dbe489c",
+    "model_summary.csv": "c453d4b6b3e3c3306dd2437390fd81703b403a88e746a01694c53fd8a38e8197",
+    "unknown_score_bounds.csv": "0c7792e0185097c746bafef1ac3e7b8ac258c121d8a68b1d7c2dcb025bb59c09",
+    "code/write_magnitude_report.py": "17b7b79ea83f359acedc73d66a79b25859830e446581dc5ded9433ee4f188d29",
+    "code/magnitude.py": "f6b24b457007ab2dee626dd0d4845e43fb454bab9789d5423e51fc62416cbdd7",
+    "code/analyze_score_magnitude.py": "672e2a542ff6984765fd1df0a8031ae4d15f46150a57c4b49cf812d70f4a171c",
+    "code/AGENTS.md": "85da6443c9f47dc833db33b0b17b20f467a4acf3af254e7c39a9bd0009ad5c80",
+    "code/test_magnitude.py": "cd1995a16bf64bbc900772f12e45b77783b89325c7a8b474b0d29ab0d7be89c4"
+  },
+  "report_generator_sha256": "17b7b79ea83f359acedc73d66a79b25859830e446581dc5ded9433ee4f188d29",
+  "generated_thesis_section_sha256": "643391b109d4b50b963d9066e205a9cb6ffbad6771c1c4cee4d25f419d3c5eb2",
+  "plotting_matplotlib_version": "3.11.2",
+  "validation": {
+    "unit_tests": "6 passed (tests.test_magnitude and tests.test_glmm)",
+    "source_checksums_unchanged": true
+  }
+}

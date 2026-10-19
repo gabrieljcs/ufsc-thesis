@@ -1,0 +1,28 @@
+{
+  "version": "2026-09-09-corrected",
+  "original_input_sha256": {
+    "outputs/dataset_frozen.jsonl": "7b3a01bf653a03d374a92e6eda5579e361c23b74d80a71c837bd6544c1c0d0fc",
+    "outputs/dataset_frozen.parquet": "757f19280aa00e75cc81238652ca0edb9eaedfbff3d26ce57dc86d56c10faf6c",
+    "outputs/spec/all_belebele_predictions.jsonl": "2e53dd815e60ca2b09f62bb1de64ba35acf4dc81e886520c0fc5a615ab8011d9"
+  },
+  "canonical_key": [
+    "link",
+    "split when present",
+    "question_number"
+  ],
+  "n_rows": 36189,
+  "n_specialization_cells": 117,
+  "inference_complete": true,
+  "changed_frozen_fields": [
+    "cons_score",
+    "spec_score",
+    "truncation_risk"
+  ],
+  "unchanged": "target outputs, scoring labels/components, IF and all other original run fields",
+  "limitations": [
+    "Human audits and MultiJail unavailable",
+    "Historical judge/provider revisions incompletely recorded",
+    "Context risk unmeasured",
+    "Mechanistic controls and independent question holdout unavailable"
+  ]
+}

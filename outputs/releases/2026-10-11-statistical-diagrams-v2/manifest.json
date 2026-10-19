@@ -1,0 +1,13 @@
+{
+  "purpose": "Improve statistical overview and bootstrap diagrams; show saved Sagui all-language interval.",
+  "analysis_rerun": false,
+  "source_sha256": {
+    "eval/outputs/releases/2026-09-09-corrected/dataset_corrected.jsonl": "ef79a4d610c5f0ea888102f7cd2658a0cf7a1d7004ee6eccb16987ae78e8b1c1",
+    "eval/outputs/releases/2026-09-29-graded-reporting/model_summary.csv": "3752330af0662df7b238ab6d4a3ddfdb0d55d97498fea8d2a5f43b92a9d30b46"
+  },
+  "asset_sha256": {
+    "eval/scripts/write_bootstrap_example.py": "76a6aaee3826f12aa37724cb3c0ab08f7ad28fef05347d65e32ba5ae46325e68",
+    "ufscthesisx/ufscthesisx/figures/bootstrap_worked_example.tex": "efea1a4277e15bd3f157197dda0c692fe919fa54e6324970b0700bde21e939b4",
+    "ufscthesisx/ufscthesisx/figures/statistical_analysis_overview.tex": "470e6fc70b90ff390d22b249b1bf33086f64a87c76507a07f4ab7a73d8323bed"
+  }
+}

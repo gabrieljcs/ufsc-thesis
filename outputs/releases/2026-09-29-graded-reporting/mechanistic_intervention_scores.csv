@@ -1,0 +1,4 @@
+model,alpha,n,scored_n,mean_score
+llama3_1_8b_reference,1.0,137,137,0.0036496350364963502
+llamantino_anita_8b,1.0,143,143,0.0
+ai_sweden_llama3_8b,0.5,168,166,0.22816265060240964

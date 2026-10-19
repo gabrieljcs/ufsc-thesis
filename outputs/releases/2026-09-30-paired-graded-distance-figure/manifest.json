@@ -1,0 +1,17 @@
+{
+  "purpose": "Paired descriptive distance figure for the graded StrongREJECT manuscript",
+  "source": "eval/outputs/releases/2026-09-29-graded-reporting/cell_summary.csv",
+  "source_sha256": "d61e641f104d87fd79f3b001c0b990c2552a5447129db624d3085ff6675824af",
+  "figure": "ufscthesisx/ufscthesisx/figures/graded_distance_pairs.tex",
+  "figure_sha256": "94666d5f7892521ccae657c418639b5b88f1f8326336ba1e3f2a3b6a1e72f0ad",
+  "generator": "eval/scripts/write_paired_graded_distance_tex.py",
+  "generator_sha256": "a99ea3a7504776bc22110f6d6caec09fa0eca4c54392dc7c0b02df92bcb8d566",
+  "paired_models": [
+    "Portuguese",
+    "Italian",
+    "Swedish",
+    "Bulgarian"
+  ],
+  "outcome": "mean official StrongREJECT score over scored responses, zeros included",
+  "line_interpretation": "descriptive connections ordered by URIEL+ distance; no fitted trend"
+}

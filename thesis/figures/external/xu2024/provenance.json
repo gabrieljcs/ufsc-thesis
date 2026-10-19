@@ -1,0 +1,39 @@
+{
+  "title": "Bag of Tricks: Benchmarking of Jailbreak Attacks on LLMs",
+  "authors": [
+    "Zhao Xu",
+    "Fan Liu",
+    "Hao Liu"
+  ],
+  "version": "2406.09324v3",
+  "source_url": "https://arxiv.org/src/2406.09324v3",
+  "paper_url": "https://arxiv.org/abs/2406.09324v3",
+  "retrieved": "2026-10-18",
+  "license": "CC BY-NC-ND 4.0",
+  "license_url": "https://creativecommons.org/licenses/by-nc-nd/4.0/",
+  "source_tex": "0_main.tex, lines 456–503",
+  "original_figures": [
+    4,
+    5
+  ],
+  "modifications": "Panels not included in the thesis. Charts redrawn in pgfplots from the bar labels of the original panels (values unchanged); colours, fonts, hatching and layout follow the dissertation style.",
+  "files": [
+    {
+      "file": "tgt3_system_autodan.pdf",
+      "sha256": "b0a4c37a62280f6daf1a77827b150aaf24e4793a9cf2b19118aea4977830df18"
+    },
+    {
+      "file": "tgt3_system_pair.pdf",
+      "sha256": "3b181a100b79290f1e614d623a4ddbbeadb208a7150f45c483853ea2a4c8e486"
+    },
+    {
+      "file": "tgt4_template_autodan.pdf",
+      "sha256": "6fb18edbffb91a73524a32a6404d36f347858483622b254247f8dd793ac11ab8"
+    },
+    {
+      "file": "tgt4_template_pair.pdf",
+      "sha256": "62f203547dd076cb551ad0ed514f804862ceca8743383ce7dc984718c337e1d5"
+    }
+  ],
+  "thesis_source": "figures/xu_prompt_format_evidence.tex"
+}

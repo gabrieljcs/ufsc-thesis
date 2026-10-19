@@ -1,0 +1,17 @@
+% The selected site feeds four exploratory questions; same samples are reused.
+\begin{tikzpicture}[font=\fontsize{8.5}{10}\selectfont,
+flow/.style={-{Latex[length=1.8mm]},thick,draw=black!45},
+panel/.style={draw=black!20,rounded corners=2pt,fill=black!2,text width=3.0cm,align=center,inner sep=4pt,minimum height=2.4cm}]
+\definecolor{pointblue}{HTML}{286F8C}
+\definecolor{pointorange}{HTML}{A64B39}
+\node[align=center,text width=13.6cm,font=\fontsize{10}{12}\selectfont\bfseries] (refit) at (7,0) {C. Re-estimate at index 22 on the full sample; examine MH1--MH4};
+\coordinate (hub) at (7,-.55);
+\draw[flow] (refit.south) -- (hub);
+\node[panel,anchor=north] (one) at (1.7,-.95) {\textbf{MH\textsubscript{1}: signal}\\[3pt]Within-language AUC\\[4pt]\textcolor{pointblue}{All 21 cells above chance}};
+\node[panel,anchor=north] (two) at (5.2,-.95) {\textbf{MH\textsubscript{2}: transfer}\\[3pt]Source A $\rightarrow$ target B\\[4pt]\textcolor{pointblue}{Reference and ANITA:\\higher transfer AUC}};
+\node[panel,anchor=north] (three) at (8.7,-.95) {\textbf{MH\textsubscript{3}: behavior}\\[3pt]AUC / cosine\\vs. mean score\\[4pt]\textcolor{pointorange}{Mixed across models}};
+\node[panel,anchor=north] (four) at (12.2,-.95) {\textbf{MH\textsubscript{4}: models}\\[3pt]Portability + addition\\[4pt]\textcolor{pointorange}{Portability differs\\Matched steering\\remains unresolved}};
+\foreach \n in {one,two,three,four}{\draw[flow] (hub) -| (\n.north);}
+\node[fit=(one)(two)(three)(four),inner sep=0] (checks) {};
+\node[align=center,text width=13.6cm,text=black!65,font=\fontsize{8}{9.5}\selectfont] at ([yshift=-.5cm]checks.south) {Reused samples and shared question identities: these are exploratory checks, with no independent final question holdout.};
+\end{tikzpicture}

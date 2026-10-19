@@ -1,0 +1,7 @@
+{
+  "purpose": "Visual presentation revision of the completed exploratory audit workflow; no new analysis or activation extraction.",
+  "figure_sha256": "72bd5da7421c142d89557d692900d0f160946dff403115dc754336e2e1bcfbfe",
+  "supersedes_presentation": "2026-10-12-mechanistic-methodology-diagram",
+  "schematic_elements": "Prompt stacks, token boxes, layer strips, direction arrows, and projection dots are illustrative, not measured activations or results.",
+  "limitations": "Outcome-selected samples; layer-selection reuse; overlapping question identities; incomplete independent holdouts and intervention controls."
+}

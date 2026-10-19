@@ -1,0 +1,74 @@
+\chapter{Computational Resources and Cost Accounting}
+\label{app:compute-cost-accounting}
+
+\begin{otherlanguage*}{english}
+
+Table~\ref{tab:compute-cost-summary} summarizes the itemized cost records kept with the evaluation artifacts. The RunPod record covers rented GPU inference and persistent storage for the open-weight evaluation environment. The Sabiá-3 record covers the API-served Portuguese strong model and is natively billed in Brazilian reais. The OpenAI record covers API usage used by evaluation support steps such as automated judging and audit assistance.
+
+Currency conversion uses the Banco Central do Brasil PTAX closing sell rate for 2026-05-08, the last business-day close before the 2026-05-10 provider exports. The rate was USD~1.00 = BRL~4.89990.\footnote{Banco Central do Brasil, PTAX OData endpoint, \url{https://olinda.bcb.gov.br/olinda/servico/PTAX/versao/v1/odata/CotacaoMoedaPeriodo(moeda=@moeda,dataInicial=@dataInicial,dataFinalCotacao=@dataFinalCotacao)?@moeda='USD'&@dataInicial='05-08-2026'&@dataFinalCotacao='05-08-2026'&$format=json}.}
+
+\begin{table}[htbp]
+\centering
+\footnotesize
+\setlength\extrarowheight{2pt}
+\setlength{\tabcolsep}{4pt}
+
+\begin{tabularx}{\linewidth}{>{\raggedright\arraybackslash}p{2.35cm}>{\raggedright\arraybackslash}X>{\raggedright\arraybackslash}p{2.25cm}rrr}
+\caption[Operational cost summary]{Operational cost summary for the evaluation run}
+\label{tab:compute-cost-summary} \\
+\toprule
+\textbf{Source} & \textbf{Covered work} & \textbf{Billing record} & \textbf{Native cost} & \textbf{USD} & \textbf{BRL} \\
+\midrule
+
+RunPod GPU cloud &
+Open-weight model inference on the rented GPU pod &
+2026-05-04--2026-05-09 daily export &
+USD~63.742 &
+63.742 &
+312.329 \\
+\midrule
+
+RunPod storage &
+200 GB network disk used for model and data persistence &
+2026-05-04--2026-05-09 daily export &
+USD~2.750 &
+2.750 &
+13.475 \\
+\midrule
+
+Sabiá-3 API &
+API generation for the Portuguese strong target model &
+May 2026 provider export &
+BRL~37.896 &
+7.734 &
+37.896 \\
+\midrule
+
+OpenAI API &
+Evaluation-support API calls, including judge/audit usage &
+2026-05-06--2026-05-07 cost export &
+USD~174.146 &
+174.146 &
+853.297 \\
+\midrule
+
+\textbf{Itemized total} &
+\textbf{Aggregate operational cost represented by the available exports} &
+-- &
+-- &
+\textbf{248.373} &
+\textbf{1\,217.003} \\
+\bottomrule
+
+\multicolumn{6}{p{\dimexpr\linewidth-2\tabcolsep\relax}}%
+{\fonte{Prepared by the author (2026), based on \texttt{eval/usage/}.}} \\
+\end{tabularx}
+\end{table}
+
+\section{RunPod Hardware Profile}
+
+Open-weight inference was run on a rented RunPod H100 SXM profile priced at USD~2.99 per hour. The profile provided one NVIDIA H100 SXM GPU with 80 GB of VRAM, 125 GB of RAM, and 8 vCPU. The environment used a 200 GB RunPod network disk and the Docker template stored at \texttt{eval/docker/Dockerfile.runpod}. The corresponding Docker image is based on \texttt{nvidia/cuda:12.8.1-cudnn-devel-ubuntu24.04} and installs the local evaluation package, PyTorch, vLLM, Transformers, and the translation/scoring dependencies used by the pipeline.
+
+The RunPod daily billing export attributes USD~63.742 to GPU cloud usage. At USD~2.99 per GPU-hour, this corresponds to approximately 21.32 billed GPU-hours. Storage accounts for an additional USD~2.750 over the exported window.
+
+\end{otherlanguage*}

@@ -26,6 +26,8 @@ def build_frozen_rows(
         translation = translation_by_key.get((str(row["prompt_id"]), attack_language), {})
         spec = spec_by_key.get((model, attack_language), {})
         frozen = {column: None for column in ANALYSIS_COLUMNS}
+        for key in ('judge_model', 'judge_model_version', 'evaluator_name', 'evaluator_version', 'rubric_sha256', 'raw_judge_response'):
+            frozen[key] = row.get(key)
         frozen.update(
             {
                 "model": model,
@@ -65,7 +67,7 @@ def build_frozen_rows(
                 "tokens_per_char": row.get("tokens_per_char"),
                 "token_inflation": row.get("token_inflation"),
                 "context_usage_ratio": row.get("context_usage_ratio"),
-                "truncation_risk": bool(row.get("truncation_risk", False)),
+                "truncation_risk": row.get("truncation_risk") if row.get("context_usage_ratio") is not None else None,
                 "benign_control_id": row.get("benign_control_id"),
                 "benign_relevance": row.get("benign_relevance"),
                 "benign_completeness": row.get("benign_completeness"),

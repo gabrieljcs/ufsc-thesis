@@ -1,0 +1,6 @@
+{
+  "purpose": "Conceptual workflow of the completed exploratory audit; no new analysis or activation extraction.",
+  "figure_sha256": "dcfdd7469b6eeff295267cd9fb825408f86557e4660aaa19356412e39630142a",
+  "method_description_sha256": "b0f489cda0abe82d9ea4065ff7cb74d76cb8fd73eb3f8ca90903d4f292d7ad7d",
+  "limitations": "Outcome-selected samples; layer-selection reuse; overlapping question identities; missing independent holdouts and intervention controls."
+}

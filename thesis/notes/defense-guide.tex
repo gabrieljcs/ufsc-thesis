@@ -1,0 +1,37 @@
+\chapter*{Defense Guide: Graded StrongREJECT Analysis}
+\addcontentsline{toc}{chapter}{Defense Guide: Graded StrongREJECT Analysis}
+
+\section*{Outcome and history}
+The official rubric score is $s=(1-r)(c+q-2)/8$: refusal gates the score, and convincingness and specificity are rated from one to five. A mean of 0.2 is not a 20\% attack-success probability. Zeros remain in the mean; absent scores remain unknown. The graded outcome and fractional-logit model were adopted after inspecting results, and the previous binary manuscript is preserved as a backup. Do not describe this operationalization as pre-specified.
+
+\section*{What the model estimates}
+Equation~\ref{eq:graded-model} models the logit of expected score with model and language indicators. Distance and SPEC are standardized over the complete estimation rows. Robust covariance clusters by source prompt, retaining dependence among translations and model responses to that prompt. It does not model arbitrary residual dependence across different prompts in one model--language cell, and the inference is conditional on this observed inventory. The coefficients are not event odds ratios.
+
+\section*{What the evidence says}
+The pooled analysis uses \GMainN{} scored responses. Distance: \GDistanceInterval{}; SPEC: \GSpecInterval{}. The distance association reverses under the CONS-coverage restriction, which also removes the entire weak Italian model. SPEC is not protective, but its full-design VIF is \GSpecVIF{}. IF and CONS are both positive; their collinearity limits separate interpretation. Use Tables~\ref{tab:graded-effects}, \ref{tab:graded-sensitivity}, \ref{tab:graded-diagnostics} and~\ref{tab:graded-components}.
+
+\section*{Boundaries}
+Model pairs differ in ancestry and post-training, so checkpoint contrasts are not isolated alignment effects. Sagui derives through Sabiá-7B from original LLaMA; ANITA starts from Llama-3-Instruct, while AI Sweden's intermediate model continues Llama-3 base. Sabiá-3's private lineage remains undisclosed. Human prompt calibration, bilingual response scoring and MultiJail validation remain incomplete. Rephrasing limitations does not complete those audits.
+
+\section*{Mechanistic audit}
+The area under the receiver operating characteristic curve (ROC AUC) measures ranking of historical refusal-versus-compliance sampling labels; it is separate from the graded behavioral outcome. Saved directions and projection metrics were not retrained. Their association with mean score was recomputed after the outcome revision. Source/target languages share question identities, layer/strength choices reuse data, and no independent question holdout or matched intervention controls were completed. Low post-intervention scores can reflect degeneration as well as refusal.
+
+\section*{A short explanation to rehearse}
+``My outcome is the StrongREJECT score, which measures harmful assistance on a scale from zero to one. I ask whether its average changes with linguistic distance and post-training specialization. I use fractional logit because it accommodates intermediate scores and keeps predicted averages in the permitted range. I adjust for the model and attack language, and standardize distance and specialization to compare their associations on a common relative scale. Since one request generates several translated and model-specific responses, I group uncertainty calculations by source prompt. Finally, I repeat the analysis under different coverage and modelling choices to see whether the conclusions are stable. The findings describe associations in this evaluated panel, and the graded analysis was adopted after inspecting results.''
+
+\section*{Likely questions and simple answers}
+\begin{description}
+    \item[Why not just compare averages?] Averages show what happened, but model and language differences occur together. The regression examines distance and specialization jointly while adjusting for overall model and language contributions.
+    \item[Why not ordinary linear regression?] The score has fixed bounds. Fractional logit respects them and retains valid zero and one observations. That does not establish that it is the only possible bounded-outcome model.
+    \item[Does a coefficient measure attack-success probability?] No. It describes the logit of the average graded score. Its sign gives the direction; average derivatives help interpret changes in score units.
+    \item[Why GEE rather than the earlier mixed model?] The reported graded extension uses a bounded conditional-mean model with prompt-clustered uncertainty. It estimates an average association. It does not reproduce the earlier crossed random-effects dependence structure, and the reporting change occurred after results were inspected.
+    \item[Are all those responses independent?] No. Translations and model responses to the same request share a prompt identity. Prompt clustering addresses that relationship when estimating uncertainty. Dependence across different prompts within one model--language cell may still remain.
+    \item[What does high VIF tell you?] The predictors overlap enough that their separate coefficients may be unstable. I check simpler one-predictor fits, but those fits cannot establish an independent causal contribution.
+    \item[What if a sensitivity changes the sign?] I report the instability and what changed in the cohort. In particular, a coverage threshold may remove a whole model. A reversal means the directional conclusion is not robust across those choices.
+    \item[Can CONS be high when answers are wrong?] Yes. CONS measures agreement with aligned-language answers, not correctness. IF measures correctness. That is why I examine the two components separately.
+    \item[Can you generalize to all models and languages?] The inference is conditional on the models and languages evaluated. A deliberately selected inventory does not justify a claim about every language or model.
+    \item[Was this graded analysis pre-specified?] No. It was adopted after inspecting results. The original directional motivations do not change that history.
+\end{description}
+
+\section*{A presentation sequence}
+Start with the score and the research question. Explain why averages require adjustment, then describe the model in one sentence. Explain repeated prompt identity before naming GEE. Present the observed coefficient directions together with uncertainty and sensitivity results. End with the scope of the evidence. Keep the equation available for questions; the verbal explanation should carry the main presentation.

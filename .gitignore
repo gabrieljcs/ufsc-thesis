@@ -32,3 +32,14 @@ outputs/scored/*.strongreject.strongreject.jsonl
 outputs/spec/all_belebele_predictions.jsonl
 outputs/zenodo_bundle/
 assets/*
+
+# Keep oversized local release archives and the uncompressed dataset outside Git.
+outputs/releases/2026-09-09-corrected/dataset_corrected.jsonl
+outputs/releases/quality-corrections-2026-09-09.zip
+outputs/backups/
+
+# Local workflow instructions and editor state are not publication assets.
+AGENTS.md
+CLAUDE.md
+**/AGENTS.md
+.texpadtmp/
