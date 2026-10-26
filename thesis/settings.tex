@@ -619,10 +619,11 @@ level 2 green/.style = {basic, rounded corners=6pt, thin,align=center, fill=teal
   toptitle=2pt, bottomtitle=2pt, before upper={\small\raggedright\setlength{\parindent}{0pt}}}
 
 % Compact question card (Appendix D).
-\newtcolorbox{questioncard}[2]{enhanced, colback=black!2, colframe=black!25, boxrule=0.4pt, arc=1pt,
+\newcommand{\sourcegoldchoice}[1]{\tikz[baseline=(gold.base)]\node[draw,circle,inner sep=0.8pt,line width=0.5pt] (gold) {\textbf{#1}};}
+\newtcolorbox{questioncard}[1]{enhanced, colback=black!2, colframe=black!25, boxrule=0.4pt, arc=1pt,
   left=6pt, right=6pt, top=3pt, bottom=3pt, before skip=8pt, after skip=6pt,
   title={\textbf{#1}}, fonttitle=\sffamily\small, coltitle=black, colbacktitle=black!8, toptitle=2pt, bottomtitle=2pt,
-  before upper={\small\raggedright\setlength{\parindent}{0pt}\textit{#2}\par\smallskip}}
+  before upper={\small\raggedright\setlength{\parindent}{0pt}}}
 
 % Excluded-translation card (Appendix J).
 \newtcolorbox{excludedcard}[2]{enhanced, breakable, colback=black!2, colframe=black!25, boxrule=0.4pt, arc=1pt,

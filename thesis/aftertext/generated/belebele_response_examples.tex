@@ -1,0 +1,102 @@
+\section{Saved BELEBELE model-response examples}
+\label{app:belebele-model-responses}
+These selected examples show the frozen BELEBELE run's language-specific passages, questions, choices and complete saved model outputs. The fixed English answer instruction appeared in every language (Appendix~\ref{app:prompt-template-inventory}). A visible space symbol marks a saved leading space. ``Parsed choice'' is the historical parser result; ``supplied gold'' is the unchanged BELEBELE label. The examples are illustrative, not an accuracy sample. Canonical identities, original row indices and exact raw strings are in \nolinkurl{eval/outputs/releases/2026-10-19-belebele-response-examples/cases.json}.
+
+\subsection*{Direct answer versus truncated preamble}
+
+English source row 566: ``How many games has Vidal played for Barça?''
+
+\begin{tcolorbox}[enhanced,colback=black!2,colframe=black!25,boxrule=0.4pt,arc=1pt,left=7pt,right=6pt,top=5pt,bottom=5pt,title={Italian item, saved row 566},fonttitle=\sffamily\small,coltitle=black,colbacktitle=black!8,before upper={\raggedright\setlength{\parindent}{0pt}}]
+\textbf{Passage}\par\smallskip Il 28enne Vidal era passato dal Siviglia al Barça tre stagioni fa. Dal suo arrivo nella capitale catalana, Vidal ha giocato per il club 49 partite.
+\par\medskip\textbf{Question}\par\smallskip Quante partite ha giocato Vidal con il Barça?
+\par\medskip\textbf{Choices}\par\smallskip
+\begin{tabularx}{\linewidth}{@{}lX@{}}
+\textbf{A} & 49\\
+\textbf{B} & 39\\
+\textbf{C} & 3\\
+\textbf{D} & 29\\
+\end{tabularx}
+\par\smallskip\emph{Choose the correct option. Reply with only one letter: A, B, C, or D. Answer:}
+\end{tcolorbox}
+
+\begin{tcolorbox}[enhanced,colback=black!2,colframe=black!25,boxrule=0.4pt,arc=1pt,left=7pt,right=6pt,top=4pt,bottom=4pt,title={ANITA; Italian},fonttitle=\sffamily\small,coltitle=black,colbacktitle=black!8,before upper={\raggedright\setlength{\parindent}{0pt}}]
+\textbf{Complete saved model output:} \texttt{A}
+\par\smallskip\textbf{Parsed choice:} A; \textbf{supplied gold:} A.
+\end{tcolorbox}
+
+\begin{tcolorbox}[enhanced,colback=black!2,colframe=black!25,boxrule=0.4pt,arc=1pt,left=7pt,right=6pt,top=4pt,bottom=4pt,title={LLaMAntino-2; Italian},fonttitle=\sffamily\small,coltitle=black,colbacktitle=black!8,before upper={\raggedright\setlength{\parindent}{0pt}}]
+\textbf{Complete saved model output:} \texttt{\textvisiblespace{}La risposta cor}
+\par\smallskip\textbf{Parsed choice:} unparsed; \textbf{supplied gold:} A.
+\end{tcolorbox}
+
+ANITA gives the supplied-gold choice A. LLaMAntino-2 ends mid-word before identifying an option; this is unparsed, rather than an observed wrong choice.
+
+\clearpage
+
+\subsection*{Option-text matching across two languages}
+
+English source row 367: ``What was acquired by eBay?''
+
+\begin{minipage}[t]{0.485\linewidth}
+\begin{tcolorbox}[enhanced,colback=black!2,colframe=black!25,boxrule=0.4pt,arc=1pt,left=7pt,right=6pt,top=5pt,bottom=5pt,title={Italian item, saved row 367},fonttitle=\sffamily\small,coltitle=black,colbacktitle=black!8,before upper={\raggedright\setlength{\parindent}{0pt}}]
+\textbf{Passage}\par\smallskip Si tratta della maggiore acquisizione nella storia di eBay. L'azienda si augura di diversificare i propri introiti e aumentare la popolarità in zone dove Skype ha una forte influenza, come per esempio Cina, Europa dell'Est e Brasile.
+\par\medskip\textbf{Question}\par\smallskip Che cosa è stato acquisito da eBay?
+\par\medskip\textbf{Choices}\par\smallskip
+\begin{tabularx}{\linewidth}{@{}lX@{}}
+\textbf{A} & Microsoft\\
+\textbf{B} & Apple\\
+\textbf{C} & Skype\\
+\textbf{D} & Zoom\\
+\end{tabularx}
+\par\smallskip\emph{Choose the correct option. Reply with only one letter: A, B, C, or D. Answer:}
+\end{tcolorbox}
+\begin{tcolorbox}[enhanced,colback=black!2,colframe=black!25,boxrule=0.4pt,arc=1pt,left=7pt,right=6pt,top=4pt,bottom=4pt,title={LLaMAntino-2; Italian},fonttitle=\sffamily\small,coltitle=black,colbacktitle=black!8,before upper={\raggedright\setlength{\parindent}{0pt}}]
+\textbf{Complete saved model output:} \texttt{\textvisiblespace{}Skype è stata}
+\par\smallskip\textbf{Parsed choice:} C; \textbf{supplied gold:} C.
+\end{tcolorbox}
+\end{minipage}\hfill\begin{minipage}[t]{0.485\linewidth}
+\begin{tcolorbox}[enhanced,colback=black!2,colframe=black!25,boxrule=0.4pt,arc=1pt,left=7pt,right=6pt,top=5pt,bottom=5pt,title={Russian item, saved row 789},fonttitle=\sffamily\small,coltitle=black,colbacktitle=black!8,before upper={\raggedright\setlength{\parindent}{0pt}}]
+\textbf{Passage}\par\smallskip \cyrtext{Это крупнейшее приобретение в истории eBay. Компания надеется расширить источники прибыли и завоевать популярность в тех регионах, где Skype занимает прочные позиции, например, в Китае, Восточной Европе и Бразилии.}
+\par\medskip\textbf{Question}\par\smallskip \cyrtext{Что приобрела компания eBay?}
+\par\medskip\textbf{Choices}\par\smallskip
+\begin{tabularx}{\linewidth}{@{}lX@{}}
+\textbf{A} & Microsoft\\
+\textbf{B} & Apple\\
+\textbf{C} & Skype\\
+\textbf{D} & Zoom\\
+\end{tabularx}
+\par\smallskip\emph{Choose the correct option. Reply with only one letter: A, B, C, or D. Answer:}
+\end{tcolorbox}
+\begin{tcolorbox}[enhanced,colback=black!2,colframe=black!25,boxrule=0.4pt,arc=1pt,left=7pt,right=6pt,top=4pt,bottom=4pt,title={LLaMAntino-2; Russian},fonttitle=\sffamily\small,coltitle=black,colbacktitle=black!8,before upper={\raggedright\setlength{\parindent}{0pt}}]
+\textbf{Complete saved model output:} \texttt{\textvisiblespace{}Skype.}
+\par\smallskip\textbf{Parsed choice:} C; \textbf{supplied gold:} C.
+\end{tcolorbox}
+\end{minipage}
+
+Both saved outputs are mapped to option C (Skype) without a standalone answer letter. They agree with the supplied gold and with each other on this one canonical question; this is an illustration of parsing and item-level consistency, not evidence of reliable cell-level CONS.
+
+\clearpage
+
+\subsection*{A complete non-answer}
+
+English source row 694: ``Which of the following should people avoid doing with moose?''
+
+\begin{tcolorbox}[enhanced,colback=black!2,colframe=black!25,boxrule=0.4pt,arc=1pt,left=7pt,right=6pt,top=5pt,bottom=5pt,title={Italian item, saved row 694},fonttitle=\sffamily\small,coltitle=black,colbacktitle=black!8,before upper={\raggedright\setlength{\parindent}{0pt}}]
+\textbf{Passage}\par\smallskip Gli alci (o wapiti) non sono per natura aggressivi, ma si difendono se percepiscono una minaccia. Se le persone sottovalutano la potenziale pericolosità degli alci, potrebbero avvicinarsi troppo a loro e correre dei rischi.
+\par\medskip\textbf{Question}\par\smallskip Che cosa non bisognerebbe fare se si incontra un alce?
+\par\medskip\textbf{Choices}\par\smallskip
+\begin{tabularx}{\linewidth}{@{}lX@{}}
+\textbf{A} & Ignorare la loro presenza\\
+\textbf{B} & Avvicinarsi troppo lentamente\\
+\textbf{C} & Banalizzare il loro potenziale livello di minaccia\\
+\textbf{D} & Osservare a distanza\\
+\end{tabularx}
+\par\smallskip\emph{Choose the correct option. Reply with only one letter: A, B, C, or D. Answer:}
+\end{tcolorbox}
+
+\begin{tcolorbox}[enhanced,colback=black!2,colframe=black!25,boxrule=0.4pt,arc=1pt,left=7pt,right=6pt,top=4pt,bottom=4pt,title={LLaMAntino-2; Italian},fonttitle=\sffamily\small,coltitle=black,colbacktitle=black!8,before upper={\raggedright\setlength{\parindent}{0pt}}]
+\textbf{Complete saved model output:} \texttt{\textvisiblespace{}Non ho accesso}
+\par\smallskip\textbf{Parsed choice:} unparsed; \textbf{supplied gold:} C.
+\end{tcolorbox}
+
+The saved text supplies no answer choice. It remains unparsed even though it does not end mid-word, so a larger output budget alone would not turn this recorded response into an answer.

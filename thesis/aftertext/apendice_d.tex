@@ -7,15 +7,21 @@ All cross-language joins in this appendix use canonical question identity (passa
 IF denotes instruction following, measured as BELEBELE answer accuracy; CONS denotes cross-lingual consistency, measured as answer agreement with the aligned language; and SPEC denotes specialization, the equal-weight average of their standardized values. Section~\ref{sec:post-training-specialization} defines the measures formally.
 
 \section{Question-level checks}
-The following four questions illustrate the scoring rules and source-label concerns. ``Incorrect'' counts parseable answers that differ from the source gold; ``unparsed'' counts missing A/B/C/D answers separately. IF counts an unparsed answer as not correct, whereas CONS excludes pairs lacking either parseable answer.
+The following four English source questions include their original passages and illustrate the scoring rules and source-label concerns. The circled choice marks the supplied gold label, including where that label is flagged below. ``Incorrect'' counts parseable answers that differ from the source gold; ``unparsed'' counts missing A/B/C/D answers separately. IF counts an unparsed answer as not correct, whereas CONS excludes pairs lacking either parseable answer.
+
+\medskip\noindent\textbf{Response-to-choice rule.} The saved generated response is stripped and uppercased. A response consisting of one letter A--D is accepted directly; otherwise the parser finds standalone letters with the exact Python regex \verb|\b([ABCD])\b| and takes the last match. If no letter matches, it case-folds the response and each option, collapses whitespace with \verb|\s+|, removes punctuation, and accepts a unique exact option-text match. It then tries a unique substring match in either direction (option in response or response in option). Empty or ambiguous matches remain unparsed. This rule is implemented in \texttt{belebele.py}; replaying it reproduced all 105,300 saved \texttt{predicted\_choice} values. A matched option fragment can therefore be parseable even when the model did not return a letter.
 
 These four were not drawn at random. They were selected by inspecting the questions that the most models answered against the supplied gold, and they rank 1, 2, 3 and 12 of the 900 items by that count. The screen was therefore a scan of the upper tail of the error distribution, not a systematic audit: 20 further items have incorrect-answer counts within five of the lowest-ranked example here and were not adjudicated. The two gold labels flagged below should accordingly be read as a lower bound on source-label problems in this benchmark, not as an exhaustive list, and the item-exclusion sensitivity tests only those two. A high model-error rate is itself weak evidence of a bad label, since a genuinely hard question produces the same pattern; each flag below rests on reading the passage, not on the count.
 
 
-\begin{questioncard}{English source row 150}{What can be found at The Giza Plateau?}
+\begin{questioncard}{English source row 150}
+\textbf{Passage}\par\smallskip
+The Great Pyramid at Giza is the only one of the seven wonders that is still standing today. Built by the Egyptians in the third century BCE, the Great Pyramid is one of many large pyramid structures built to honor dead Pharaoh. The Giza Plateau, or ``Giza Necropolis'' in the Egyptian Valley of the Dead contains several pyramids (of which the great pyramid is the largest), several small tombs, several temples, and the great Sphinx. The great pyramid was created to honor the Pharaoh Khufu, and many of the smaller pyramids, tombs, and temples were built to honor Khufu's wives and family members.
+\par\medskip\textbf{Question}\par\smallskip What can be found at The Giza Plateau?
+\par\medskip\textbf{Choices}\par\smallskip
 \begin{tabular}{@{}l>{\raggedright\arraybackslash}p{0.43\linewidth}l>{\raggedright\arraybackslash}p{0.43\linewidth}@{}}
 \textbf{A} & Tombs & \textbf{B} & Temples\\
-\textbf{C} & All seven wonders & \textbf{D} & The Great Pyramid\\
+\sourcegoldchoice{C} & All seven wonders & \textbf{D} & The Great Pyramid\\
 \end{tabular}
 \end{questioncard}
 
@@ -23,28 +29,40 @@ Source gold: C. Across 117 model--language predictions, 105 are incorrect and 11
 
 The source gold C (all seven wonders) is inconsistent with the passage, which identifies the Great Pyramid as the surviving wonder. This is a source-label concern, not evidence that all models misunderstood the passage.
 
-\begin{questioncard}{English source row 175}{Which statement accurately describes the outcome of the fire at the Drukgyal Dzong?}
+\begin{questioncard}{English source row 175}
+\textbf{Passage}\par\smallskip
+The Drukgyal Dzong is a ruined fortress and Buddhist monastery in the upper part of the Paro District (in Phondey Village). It is said that in 1649, Zhabdrung Ngawang Namgyel created the fortress to commemorate his victory against the Tibetan-Mongol forces. In 1951, a fire caused for only some of the relics of the Drukgyal Dzong to remain, such as the image of Zhabdrung Ngawang Namgyal. After the fire, the fortress was preserved and protected, remaining to be one of Bhutan's most sensational attractions.
+\par\medskip\textbf{Question}\par\smallskip Which statement accurately describes the outcome of the fire at the Drukgyal Dzong?
+\par\medskip\textbf{Choices}\par\smallskip
 \begin{tabular}{@{}l>{\raggedright\arraybackslash}p{0.43\linewidth}l>{\raggedright\arraybackslash}p{0.43\linewidth}@{}}
 \textbf{A} & The only remaining relic was Zhabdrung Ngawang Namgyal’s image & \textbf{B} & The Tibetan-Mongol forces were victorious\\
-\textbf{C} & The attraction’s popularity was not affected & \textbf{D} & It was preserved by Zhabdrung Ngawang Namgyel\\
+\sourcegoldchoice{C} & The attraction’s popularity was not affected & \textbf{D} & It was preserved by Zhabdrung Ngawang Namgyel\\
 \end{tabular}
 \end{questioncard}
 
 Source gold: C. Across 117 model--language predictions, 92 are incorrect and 23 are unparsed.
 
-\begin{questioncard}{English source row 302}{According to the passage, while news was spreading about another arrest, funerals were being held for how many victims?}
+\begin{questioncard}{English source row 302}
+\textbf{Passage}\par\smallskip
+News spread in the Red Lake community today as funerals for Jeff Weise and three of the nine victims were held that another student was arrested in connection with the school shootings of March 21. Authorities said little officially beyond confirming today's arrest. However, a source with knowledge of the investigation told the Minneapolis Star-Tribune that it was Louis Jourdain, 16-year old son of Red Lake Tribal Chairman Floyd Jourdain. It is not known at this time what charges will be laid or what led authorities to the boy but juvenile proceedings have begun in federal court.
+\par\medskip\textbf{Question}\par\smallskip According to the passage, while news was spreading about another arrest, funerals were being held for how many victims?
+\par\medskip\textbf{Choices}\par\smallskip
 \begin{tabular}{@{}l>{\raggedright\arraybackslash}p{0.43\linewidth}l>{\raggedright\arraybackslash}p{0.43\linewidth}@{}}
 \textbf{A} & One & \textbf{B} & Three\\
-\textbf{C} & Nine & \textbf{D} & Four\\
+\textbf{C} & Nine & \sourcegoldchoice{D} & Four\\
 \end{tabular}
 \end{questioncard}
 
 Source gold: D. Across 117 model--language predictions, 99 are incorrect and 13 are unparsed.
 
-\begin{questioncard}{English source row 847}{According to the passage, which scenario would be ideal for a traveler planning to take a bus from the inter-district station?}
+\begin{questioncard}{English source row 847}
+\textbf{Passage}\par\smallskip
+Buses depart the inter-district bus station (across the river) throughout the day, though most, especially those heading to the east and Jakar/Bumthang leave between 06:30 and 07:30. As the inter-district buses are often full, it is advisable to purchase a ticket a few days in advance. Most districts are served by small Japanese Coaster Buses, which are comfortable and sturdy. Shared taxis are a quick and comfortable means to travel to nearby places, such as Paro (Nu 150) and Punakha (Nu 200).
+\par\medskip\textbf{Question}\par\smallskip According to the passage, which scenario would be ideal for a traveler planning to take a bus from the inter-district station?
+\par\medskip\textbf{Choices}\par\smallskip
 \begin{tabular}{@{}l>{\raggedright\arraybackslash}p{0.43\linewidth}l>{\raggedright\arraybackslash}p{0.43\linewidth}@{}}
 \textbf{A} & The traveler is heading to Jakar and has already purchased a ticket prior & \textbf{B} & The traveler is heading to Bumthang and needs to leave by 7\\
-\textbf{C} & The traveler is heading to Paro and needs to leave after  11 & \textbf{D} & The traveler is heading east and arrives at the station before 6:20\\
+\sourcegoldchoice{C} & The traveler is heading to Paro and needs to leave after  11 & \textbf{D} & The traveler is heading east and arrives at the station before 6:20\\
 \end{tabular}
 \end{questioncard}
 
@@ -88,6 +106,9 @@ LLaMAntino-2 / \texttt{swa} & 150 & C & -- & A & 0 & -- \\
 \endgroup
 
 
+
+\clearpage
+\input{aftertext/generated/belebele_response_examples.tex}
 
 % BEGIN GENERATED SPARSE CONS EXAMPLES
 \section{Why the weak Italian model has sparse comparable answers}
